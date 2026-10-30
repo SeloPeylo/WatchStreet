@@ -10,9 +10,10 @@ from typing import Any
 from watchstreet.agents.base import AgentError
 from watchstreet.constants import MAX_BRIEFING_BULLETS, SCORE_BAD, SCORE_GOOD
 from watchstreet.domain import InsightCategory, ThesisStatus, WorkflowKey
+from watchstreet.drafts import BriefingDraft, WorkflowResult
 from watchstreet.models import Stock
 from watchstreet.profiles.registry import get_profile
-from watchstreet.workflows.base import BriefingDraft, Workflow, WorkflowContext, WorkflowResult
+from watchstreet.workflows.base import Workflow, WorkflowContext
 from watchstreet.workflows.facts import gather_facts
 from watchstreet.workflows.tools import ToolBox
 
@@ -58,11 +59,6 @@ def build_draft(stock: Stock, facts: dict[str, Any]) -> BriefingDraft:
 
 class Briefing(Workflow):
     key = WorkflowKey.BRIEFING
-    label = "Briefing"
-    description = (
-        "Fasst zusammen, worauf es jetzt ankommt (Regeln, optional vom Agenten verfeinert)."
-    )
-    user_creatable = False
 
     def run(self, ctx: WorkflowContext) -> WorkflowResult:
         facts = gather_facts(ctx)

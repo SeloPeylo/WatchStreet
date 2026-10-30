@@ -24,7 +24,6 @@ from watchstreet.models import MarketEvent, Stock, Ticket
 from watchstreet.services.state import touch, updated_at
 from watchstreet.services.tickets import count_open, create_ticket
 from watchstreet.timeutil import utcnow
-from watchstreet.workflows.definitions import get_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +101,7 @@ def schedule_refreshes(session: Session, stock: Stock) -> list[Ticket]:
             create_ticket(
                 session,
                 stock,
-                get_workflow(key).key,
+                key,
                 origin=TicketOrigin.SCHEDULE,
                 priority=LOW_PRIORITY,
             ),

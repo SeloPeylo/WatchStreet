@@ -4,6 +4,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from watchstreet.drafts import EntityDraft, WorkflowResult
 from watchstreet.models import Briefing, Entity, Insight, Score, Thesis, Ticket
 from watchstreet.services.datapoints import DatapointError, DatapointInput, add_datapoint
 from watchstreet.services.entities import (
@@ -15,7 +16,6 @@ from watchstreet.services.entities import (
 )
 from watchstreet.services.intel import IntelError, create_intel
 from watchstreet.services.profiles import assign_profile
-from watchstreet.workflows.base import EntityDraft, WorkflowResult
 
 SELF = "SELF"
 

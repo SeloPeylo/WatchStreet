@@ -11,10 +11,10 @@ from watchstreet.constants import (
     SEVERITY_MAX,
     SEVERITY_MIN,
 )
+from watchstreet.drafts import IntelDraft
 from watchstreet.geo import country_point, normalize_country
 from watchstreet.models import Document, IntelImpact, IntelItem, Stock
 from watchstreet.timeutil import utcnow
-from watchstreet.workflows.base import IntelDraft
 
 
 class IntelError(ValueError):

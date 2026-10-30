@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from watchstreet.agents.base import AgentRequest
 from watchstreet.domain import TicketStatus, WorkflowKey
+from watchstreet.drafts import FollowUp
 from watchstreet.harness.executor import execute_ticket
 from watchstreet.harness.scheduler import run_scan, scan_due
 from watchstreet.models import Insight, MarketEvent, Score, Stock, Thesis, Ticket
@@ -12,7 +13,6 @@ from watchstreet.services import portfolio, tickets
 from watchstreet.services.followups import apply_followups
 from watchstreet.timeutil import utcnow
 from watchstreet.worker import drain_queue, tick
-from watchstreet.workflows.base import FollowUp
 
 
 def add_holding(container, symbol="AAPL", intent=""):

@@ -9,7 +9,7 @@ from watchstreet.constants import DEFAULT_PRIORITY, LIST_LIMIT, STUCK_TICKET_TIM
 from watchstreet.domain import OPEN_STATUSES, TicketOrigin, TicketStatus, WorkflowKey
 from watchstreet.models import Stock, Ticket
 from watchstreet.timeutil import utcnow
-from watchstreet.workflows.definitions import get_workflow
+from watchstreet.workflow_specs import get_spec
 
 
 def create_ticket(  # noqa: PLR0913
@@ -24,14 +24,14 @@ def create_ticket(  # noqa: PLR0913
     params: dict[str, Any] | None = None,
     title: str = "",
 ) -> Ticket:
-    definition = get_workflow(workflow)
+    definition = get_spec(workflow)
     merged = dict(params or {})
     if topic:
         merged["topic"] = topic
     ticket = Ticket(
         stock_id=stock.id,
         workflow=definition.key,
-        title=title or definition.default_title(stock, topic),
+        title=title or definition.default_title(stock.symbol, topic),
         origin=origin,
         priority=priority,
         depth=(parent.depth + 1) if parent else 0,

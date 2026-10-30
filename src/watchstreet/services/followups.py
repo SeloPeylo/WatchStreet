@@ -17,11 +17,11 @@ from watchstreet.constants import (
     MAX_OPEN_TICKETS_PER_STOCK,
 )
 from watchstreet.domain import OPEN_STATUSES, TicketOrigin, TicketStatus
+from watchstreet.drafts import FollowUp
 from watchstreet.models import Ticket
 from watchstreet.services.tickets import count_open, create_ticket
 from watchstreet.timeutil import utcnow
-from watchstreet.workflows.base import FollowUp
-from watchstreet.workflows.definitions import REGISTRY
+from watchstreet.workflow_specs import SPECS
 
 
 @dataclass(frozen=True)
@@ -48,7 +48,7 @@ def _is_duplicate(session: Session, parent: Ticket, workflow: str, topic: str) -
 
 
 def _static_rejection(parent: Ticket, proposal: FollowUp) -> str | None:
-    definition = REGISTRY.get(proposal.workflow)
+    definition = SPECS.get(proposal.workflow)
     if definition is None:
         return "unknown workflow"
     if definition.needs_topic and not proposal.topic.strip():

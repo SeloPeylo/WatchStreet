@@ -11,19 +11,18 @@ from watchstreet.agents.base import AgentError, AgentRequest
 from watchstreet.agents.tools import ToolCapableRunner
 from watchstreet.constants import MAX_INTEL_PER_TICKET, MAX_LLM_ATTEMPTS
 from watchstreet.domain import InsightCategory, ThesisStatus
-from watchstreet.intel.documents import verify_quote
-from watchstreet.models import Document
-from watchstreet.workflows.base import (
+from watchstreet.drafts import (
     DatapointDraft,
     FollowUp,
     InsightDraft,
     IntelDraft,
     ProfileDraft,
     ThesisDraft,
-    Workflow,
-    WorkflowContext,
     WorkflowResult,
 )
+from watchstreet.intel.documents import verify_quote
+from watchstreet.models import Document
+from watchstreet.workflows.base import Workflow, WorkflowContext
 from watchstreet.workflows.facts import Facts, gather_facts
 from watchstreet.workflows.tools import FOLLOWUP_WORKFLOWS, ToolBox
 

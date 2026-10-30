@@ -20,11 +20,12 @@ from watchstreet.constants import (
     SEVERITY_MAX,
     SEVERITY_MIN,
 )
+from watchstreet.drafts import EntityDraft, IntelDraft, RelationDraft
 from watchstreet.intel import documents
 from watchstreet.models import Document, Stock
 from watchstreet.services.entities import ASSET_KINDS
 from watchstreet.services.knowledge import SELF
-from watchstreet.workflows.base import EntityDraft, IntelDraft, RelationDraft, WorkflowContext
+from watchstreet.workflows.base import WorkflowContext
 from watchstreet.workflows.tools import ToolBox, _dump, _text_arg
 
 TEXT = {"type": "string"}

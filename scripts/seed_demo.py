@@ -17,6 +17,7 @@ from watchstreet.agents.tools import Tool, ToolRun
 from watchstreet.config import load_settings
 from watchstreet.container import Container, build_container
 from watchstreet.domain import WorkflowKey
+from watchstreet.drafts import IntelDraft
 from watchstreet.harness.executor import execute_ticket
 from watchstreet.intel.documents import store_document
 from watchstreet.intel.ingest import run_ingest
@@ -26,7 +27,6 @@ from watchstreet.services import entities, portfolio, tickets
 from watchstreet.services.intel import create_intel
 from watchstreet.timeutil import utcnow
 from watchstreet.worker import drain_queue
-from watchstreet.workflows.base import IntelDraft
 
 CARLIN = "Our Carlin operations in Nevada, United States produced 900,000 ounces of gold in 2025"
 CADIA = "Our Cadia operations in New South Wales, Australia produced 500,000 ounces of gold in 2025"

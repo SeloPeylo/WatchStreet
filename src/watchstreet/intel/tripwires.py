@@ -18,6 +18,7 @@ from watchstreet.constants import (
     SEVERITY_HIGH,
     SEVERITY_MAX,
 )
+from watchstreet.drafts import IntelDraft
 from watchstreet.geo import haversine_km
 from watchstreet.intel.connectors.usgs import Quake
 from watchstreet.intel.documents import store_document
@@ -25,7 +26,6 @@ from watchstreet.market.service import MarketService
 from watchstreet.models import Entity, Stock
 from watchstreet.services.cockpit import stock_commodities
 from watchstreet.services.intel import create_intel
-from watchstreet.workflows.base import IntelDraft
 
 if TYPE_CHECKING:
     from watchstreet.commodities import Commodity
