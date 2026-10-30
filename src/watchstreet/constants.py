@@ -168,6 +168,7 @@ ENTITY_KINDS = (
     "country",
     "commodity",
 )
+ASSET_KINDS = ("mine", "facility", "port")  # entity kinds that sit on a map
 MAX_GRAPH_NODES = 150
 GRAPH_DEFAULT_DEPTH = 2
 MAX_RELATIONS_PER_TICKET = 25

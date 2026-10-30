@@ -15,7 +15,7 @@ from watchstreet.constants import (
     TECHNICAL_SCHEME,
 )
 from watchstreet.container import Container
-from watchstreet.domain import InsightCategory, TicketOrigin, WorkflowKey
+from watchstreet.domain import DataOrigin, InsightCategory, TicketOrigin, WorkflowKey
 from watchstreet.market.base import MarketDataError
 from watchstreet.models import Datapoint, Stock
 from watchstreet.profiles.registry import PROFILES, get_profile
@@ -32,7 +32,6 @@ from watchstreet.workflows.definitions import REGISTRY, user_workflows
 router = APIRouter()
 
 FormStr = Annotated[str, Form()]
-USER_DATAPOINT_ORIGIN = "user"
 
 
 class DatapointForm(BaseModel):
@@ -141,7 +140,7 @@ def datapoint_add(
                 confidence=form.confidence,
                 as_of=parse_date(form.as_of),
             ),
-            origin=USER_DATAPOINT_ORIGIN,
+            origin=DataOrigin.USER,
         )
     except (datapoints_service.DatapointError, PortfolioError) as exc:
         session.rollback()

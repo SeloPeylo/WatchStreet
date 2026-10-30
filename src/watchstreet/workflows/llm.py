@@ -24,7 +24,8 @@ from watchstreet.intel.documents import verify_quote
 from watchstreet.models import Document
 from watchstreet.workflows.base import Workflow, WorkflowContext
 from watchstreet.workflows.facts import Facts, gather_facts
-from watchstreet.workflows.tools import FOLLOWUP_WORKFLOWS, ToolBox
+from watchstreet.workflows.tool_schemas import FOLLOWUP_WORKFLOWS
+from watchstreet.workflows.tools import ToolBox
 
 logger = logging.getLogger(__name__)
 

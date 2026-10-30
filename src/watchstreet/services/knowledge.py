@@ -4,6 +4,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from watchstreet.domain import DataOrigin, ProfileSource
 from watchstreet.drafts import EntityDraft, WorkflowResult
 from watchstreet.models import Briefing, Entity, Insight, Score, Thesis, Ticket
 from watchstreet.services.datapoints import DatapointError, DatapointInput, add_datapoint
@@ -78,7 +79,7 @@ def store_result(session: Session, ticket: Ticket, result: WorkflowResult) -> No
             logger.warning("Dropped datapoint %s: %s", point.key, exc)
     _store_graph_and_intel(session, ticket, result)
     if result.profile:
-        assign_profile(ticket.stock, result.profile.profile, "agent")
+        assign_profile(ticket.stock, result.profile.profile, ProfileSource.AGENT)
     if result.briefing:
         session.add(
             Briefing(
@@ -102,7 +103,7 @@ def _entity(session: Session, ticket: Ticket, draft: EntityDraft) -> Entity:
         country=draft.country,
         lat=draft.lat,
         lon=draft.lon,
-        origin="agent",
+        origin=DataOrigin.AGENT,
     )
 
 
@@ -121,7 +122,7 @@ def _store_graph_and_intel(session: Session, ticket: Ticket, result: WorkflowRes
                     rel.document_id,
                     rel.quote,
                     rel.confidence,
-                    "agent",
+                    DataOrigin.AGENT,
                     ticket.id,
                 ),
             )

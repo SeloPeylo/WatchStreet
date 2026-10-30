@@ -5,6 +5,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from watchstreet.domain import DataOrigin
 from watchstreet.errors import WatchStreetError
 from watchstreet.intel.documents import verify_quote
 from watchstreet.models import Datapoint, Document, Stock
@@ -74,7 +75,7 @@ def validate(stock: Stock, data: DatapointInput) -> DatapointSpec:
 
 def is_user_protected(stock: Stock, key: str, subject: str) -> bool:
     current = next((p for p in latest(stock) if (p.key, p.subject) == (key, subject)), None)
-    return current is not None and current.origin == "user"
+    return current is not None and current.origin == DataOrigin.USER
 
 
 def add_datapoint(
@@ -87,7 +88,7 @@ def add_datapoint(
 ) -> Datapoint:
     validate(stock, data)
     subject = data.subject.strip()
-    if origin != "user" and is_user_protected(stock, data.key, subject):
+    if origin != DataOrigin.USER and is_user_protected(stock, data.key, subject):
         msg = "durch einen Nutzer-Eintrag geschützt"
         raise DatapointError(msg)
     confidence = data.confidence
@@ -96,7 +97,7 @@ def add_datapoint(
         if doc is None or not verify_quote(doc, data.quote):
             msg = "Zitat wurde im Dokument nicht gefunden (wörtlich zitieren)"
             raise DatapointError(msg)
-    elif origin == "agent":
+    elif origin == DataOrigin.AGENT:
         confidence = "low"  # no document, no trust: agent knowledge is never rated higher
     point = Datapoint(
         stock_id=stock.id,
@@ -106,7 +107,8 @@ def add_datapoint(
         value=data.value,
         text=data.text.strip(),
         unit=data.unit.strip(),
-        source=data.source.strip() or (AGENT_SOURCE_FALLBACK if origin == "agent" else "manuell"),
+        source=data.source.strip()
+        or (AGENT_SOURCE_FALLBACK if origin == DataOrigin.AGENT else "manuell"),
         confidence=confidence,
         origin=origin,
         as_of=data.as_of,

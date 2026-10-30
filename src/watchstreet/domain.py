@@ -53,3 +53,19 @@ class ThesisStatus(StrEnum):
     CONFIRMED = "confirmed"
     WEAKENED = "weakened"
     INVALIDATED = "invalidated"
+
+
+class ProfileSource(StrEnum):
+    """Who chose a stock's valuation profile; a later entry outranks the earlier ones."""
+
+    NONE = "none"
+    AUTO = "auto"
+    AGENT = "agent"
+    USER = "user"
+
+
+class DataOrigin(StrEnum):
+    """Who wrote a datapoint, relation or entity; user entries are never overwritten."""
+
+    USER = "user"
+    AGENT = "agent"

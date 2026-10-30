@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from watchstreet.constants import MAX_QUERIES_PER_STOCK, RELEVANCE_THRESHOLD
+from watchstreet.constants import ASSET_KINDS, MAX_QUERIES_PER_STOCK, RELEVANCE_THRESHOLD
 from watchstreet.models import Document, Entity, Relation, Stock
 
 LEGAL_SUFFIX = re.compile(
@@ -25,7 +25,6 @@ WEIGHT_ASSET = 1.5
 WEIGHT_PARTNER = 1.0
 SYMBOL_MIN_CHARS = 3
 PARTNER_KINDS = ("supplier", "customer")
-ASSET_KINDS = ("mine", "facility", "port")
 
 
 @dataclass(frozen=True)

@@ -7,18 +7,19 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from watchstreet.constants import (
+    ASSET_KINDS,
     DEFAULT_RELATION_STRENGTH,
     ENTITY_KINDS,
     GRAPH_DEFAULT_DEPTH,
     MAX_GRAPH_NODES,
     RELATION_KINDS,
 )
+from watchstreet.domain import DataOrigin
 from watchstreet.errors import WatchStreetError
 from watchstreet.geo import country_point, normalize_country
 from watchstreet.intel.documents import verify_quote
 from watchstreet.models import Datapoint, Document, Entity, Relation, Stock
 
-ASSET_KINDS = ("mine", "facility", "port")
 COUNTRY_RELATIONS = ("located_in", "operates", "exposed_to")
 LAT_LIMIT, LON_LIMIT = 90.0, 180.0
 
@@ -36,7 +37,7 @@ def get_or_create_entity(  # noqa: PLR0913
     country: str = "",
     lat: float | None = None,
     lon: float | None = None,
-    origin: str = "user",
+    origin: str = DataOrigin.USER,
 ) -> Entity:
     name = name.strip()
     if not name:
@@ -88,7 +89,7 @@ class RelationInput:
     document_id: int | None = None
     quote: str = ""
     confidence: str = "low"
-    origin: str = "user"
+    origin: str = DataOrigin.USER
     ticket_id: int | None = None
 
 
@@ -122,7 +123,7 @@ def add_relation(
             Relation.kind == data.kind,
         ),
     )
-    if existing and existing.origin == "user" and data.origin != "user":
+    if existing and existing.origin == DataOrigin.USER and data.origin != DataOrigin.USER:
         msg = "durch einen Nutzer-Eintrag geschützt"
         raise GraphError(msg)
     relation = existing or Relation(source_id=source.id, target_id=target.id, kind=data.kind)

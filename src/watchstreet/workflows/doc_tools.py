@@ -2,6 +2,7 @@
 
 Both enforce the provenance rule: a claim is only accepted together with a verbatim quote that
 the harness finds in the stored document. What a model cannot quote, it cannot record.
+Their JSON schemas live in ``tool_schemas.py``.
 """
 
 from typing import Any
@@ -10,6 +11,7 @@ from sqlalchemy import select
 
 from watchstreet.agents.tools import Tool, ToolError
 from watchstreet.constants import (
+    ASSET_KINDS,
     ENTITY_KINDS,
     INTEL_CATEGORIES,
     INTEL_DIRECTIONS,
@@ -23,25 +25,43 @@ from watchstreet.constants import (
 from watchstreet.drafts import EntityDraft, IntelDraft, RelationDraft
 from watchstreet.intel import documents
 from watchstreet.models import Document, Stock
-from watchstreet.services.entities import ASSET_KINDS
 from watchstreet.services.knowledge import SELF
+from watchstreet.workflows import tool_schemas
 from watchstreet.workflows.base import WorkflowContext
-from watchstreet.workflows.tools import ToolBox, _dump, _text_arg
+from watchstreet.workflows.tool_args import choice_arg, int_arg, number_arg, text_arg, to_json
+from watchstreet.workflows.tools import RECORDED, ToolBox
 
-TEXT = {"type": "string"}
+# The two tools of the base ToolBox that stay available when reading a filing.
 GROUNDED = ("record_datapoint", "add_insight")
 PREVIEW_CHARS = 1500
+DEFAULT_OWNERSHIP = 1.0  # an owned asset without a stated share counts as fully owned
 
 
-def _number(args: dict[str, Any], key: str) -> float | None:
-    raw = args.get(key)
-    if raw in (None, ""):
-        return None
-    try:
-        return float(raw)
-    except (TypeError, ValueError) as exc:
-        msg = f"'{key}' must be a number"
-        raise ToolError(msg) from exc
+def _entity_draft(name: str, kind: str, country: str = "") -> EntityDraft:
+    """Validate an entity kind; the filing company is always written as ``SELF``."""
+    if kind not in ENTITY_KINDS:
+        msg = f"kind must be one of: {', '.join(ENTITY_KINDS)}"
+        raise ToolError(msg)
+    name = name.strip()
+    return EntityDraft(SELF if name.upper() == SELF else name, kind, country)
+
+
+def _relation_endpoints(args: dict[str, Any]) -> tuple[EntityDraft, EntityDraft]:
+    """Source and target of a relation; the country belongs to the counterpart, never to SELF."""
+    source_name, target_name = text_arg(args, "from"), text_arg(args, "to")
+    country = str(args.get("country", ""))
+    source_is_self = source_name.upper() == SELF
+    source = _entity_draft(
+        source_name,
+        str(args.get("from_kind", "supplier")),
+        "" if source_is_self else country,
+    )
+    target = _entity_draft(
+        target_name,
+        str(args.get("to_kind", "company")),
+        country if source_is_self else "",
+    )
+    return source, target
 
 
 class DocToolBox(ToolBox):
@@ -52,159 +72,102 @@ class DocToolBox(ToolBox):
         self.doc = doc
 
     def _grounding(self, args: dict[str, Any]) -> tuple[int | None, str]:
+        """Quotes are checked against the filing being read unless another document is named."""
         return super()._grounding({**args, "document_id": args.get("document_id") or self.doc.id})
 
     def _list_sections(self, _args: dict[str, Any]) -> str:
-        return _dump([{"offset": s.offset, "heading": s.text} for s in documents.outline(self.doc)])
+        sections = documents.outline(self.doc)
+        return to_json([{"offset": s.offset, "heading": s.text} for s in sections])
 
     def _search(self, args: dict[str, Any]) -> str:
-        hits = documents.search(self.doc, _text_arg(args, "query"))
-        return _dump([{"offset": h.offset, "text": h.text} for h in hits])
+        hits = documents.search(self.doc, text_arg(args, "query"))
+        return to_json([{"offset": hit.offset, "text": hit.text} for hit in hits])
 
     def _read(self, args: dict[str, Any]) -> str:
-        offset = int(_number(args, "offset") or 0)
-        return documents.read_chunk(
-            self.doc, offset, int(_number(args, "length") or READ_CHUNK_CHARS)
-        )
-
-    def _entity(self, name: str, kind: str, country: str = "") -> EntityDraft:
-        if kind not in ENTITY_KINDS:
-            msg = f"kind must be one of: {', '.join(ENTITY_KINDS)}"
-            raise ToolError(msg)
-        return EntityDraft(SELF if name.strip().upper() == SELF else name.strip(), kind, country)
+        offset = int_arg(args, "offset")
+        length = int_arg(args, "length", READ_CHUNK_CHARS)
+        return documents.read_chunk(self.doc, offset, length)
 
     def _record_relation(self, args: dict[str, Any]) -> str:
         if len(self.relations) >= MAX_RELATIONS_PER_TICKET:
             msg = f"relation limit ({MAX_RELATIONS_PER_TICKET}) reached"
             raise ToolError(msg)
-        kind = str(args.get("relation", ""))
-        if kind not in RELATION_KINDS:
-            msg = f"'relation' must be one of: {', '.join(RELATION_KINDS)}"
-            raise ToolError(msg)
-        strength = _number(args, "strength")
+        kind = choice_arg(args, "relation", RELATION_KINDS)
+        strength = number_arg(args, "strength")
         if strength is not None and not 0 <= strength <= 1:
             msg = "'strength' must be between 0 and 1 (share), or omitted if unknown"
             raise ToolError(msg)
         document_id, quote = self._grounding(args)
-        source_name, target_name = _text_arg(args, "from"), _text_arg(args, "to")
-        country = str(args.get("country", ""))  # belongs to the counterpart, never to SELF
+        source, target = _relation_endpoints(args)
+        note = str(args.get("note", ""))
         self.relations.append(
-            RelationDraft(
-                self._entity(
-                    source_name,
-                    str(args.get("from_kind", "supplier")),
-                    "" if source_name.upper() == SELF else country,
-                ),
-                self._entity(
-                    target_name,
-                    str(args.get("to_kind", "company")),
-                    "" if source_name.upper() != SELF else country,
-                ),
-                kind,
-                strength,
-                str(args.get("note", "")),
-                document_id,
-                quote,
-                "medium",
-            ),
+            RelationDraft(source, target, kind, strength, note, document_id, quote, "medium"),
         )
-        return "recorded"
+        return RECORDED
 
     def _record_asset(self, args: dict[str, Any]) -> str:
-        kind = str(args.get("kind", "mine"))
-        if kind not in ASSET_KINDS:
-            msg = f"'kind' must be one of: {', '.join(ASSET_KINDS)}"
-            raise ToolError(msg)
+        kind = choice_arg({"kind": args.get("kind", "mine")}, "kind", ASSET_KINDS)
         document_id, quote = self._grounding(args)
-        lat, lon = _number(args, "lat"), _number(args, "lon")
+        lat, lon = number_arg(args, "lat"), number_arg(args, "lon")
         asset = EntityDraft(
-            _text_arg(args, "name"),
+            text_arg(args, "name"),
             kind,
             str(args.get("country", "")),
-            lat if lon is not None else None,
+            lat if lon is not None else None,  # coordinates only count as a pair
             lon if lat is not None else None,
         )
+        ownership = number_arg(args, "ownership") or DEFAULT_OWNERSHIP
         self.relations.append(
             RelationDraft(
                 EntityDraft(SELF, "company"),
                 asset,
                 "owns",
-                _number(args, "ownership") or 1.0,
+                ownership,
                 "",
                 document_id,
                 quote,
                 "medium",
             ),
         )
-        return "recorded"
+        return RECORDED
 
     def tools(self) -> list[Tool]:
-        base = {t.name: t for t in super().tools()}
-        extra = [
+        base = {tool.name: tool for tool in super().tools()}
+        filing_tools = [
             Tool(
                 "list_sections",
                 "Headings (Item 1A, Item 2, ...) with character offsets.",
-                {"type": "object", "properties": {}},
+                tool_schemas.NO_ARGS,
                 self._list_sections,
             ),
             Tool(
                 "search_document",
                 "Search the filing; returns snippets with offsets.",
-                {"type": "object", "properties": {"query": TEXT}, "required": ["query"]},
+                tool_schemas.SEARCH_DOCUMENT,
                 self._search,
             ),
             Tool(
                 "read_document",
                 f"Read up to {READ_CHUNK_CHARS} characters from an offset.",
-                {
-                    "type": "object",
-                    "properties": {"offset": {"type": "integer"}, "length": {"type": "integer"}},
-                    "required": ["offset"],
-                },
+                tool_schemas.READ_DOCUMENT,
                 self._read,
             ),
             Tool(
                 "record_relation",
                 "Record a dependency (supplier, customer, location ...). A verbatim quote from "
                 "the filing is required; use from='SELF' for the filing company.",
-                {
-                    "type": "object",
-                    "properties": {
-                        "from": TEXT,
-                        "from_kind": {"type": "string", "enum": list(ENTITY_KINDS)},
-                        "to": TEXT,
-                        "to_kind": {"type": "string", "enum": list(ENTITY_KINDS)},
-                        "relation": {"type": "string", "enum": list(RELATION_KINDS)},
-                        "strength": {"type": "number"},
-                        "country": TEXT,
-                        "note": TEXT,
-                        "quote": TEXT,
-                    },
-                    "required": ["from", "to", "relation", "quote"],
-                },
+                tool_schemas.RECORD_RELATION,
                 self._record_relation,
             ),
             Tool(
                 "record_asset",
                 "Record an owned mine/facility/port with country and (if stated) coordinates "
                 "and ownership share. Quote required.",
-                {
-                    "type": "object",
-                    "properties": {
-                        "name": TEXT,
-                        "kind": {"type": "string", "enum": list(ASSET_KINDS)},
-                        "country": TEXT,
-                        "lat": {"type": "number"},
-                        "lon": {"type": "number"},
-                        "ownership": {"type": "number"},
-                        "quote": TEXT,
-                    },
-                    "required": ["name", "quote"],
-                },
+                tool_schemas.RECORD_ASSET,
                 self._record_asset,
             ),
         ]
-        return [*extra, *(base[n] for n in GROUNDED)]
+        return [*filing_tools, *(base[name] for name in GROUNDED)]
 
 
 class IntelToolBox(ToolBox):
@@ -215,8 +178,8 @@ class IntelToolBox(ToolBox):
         self._allowed = set(allowed)
 
     def _get_document(self, args: dict[str, Any]) -> str:
-        doc = self._doc(args)
-        return _dump(
+        doc = self._allowed_document(args)
+        return to_json(
             {
                 "id": doc.id,
                 "title": doc.title,
@@ -224,11 +187,12 @@ class IntelToolBox(ToolBox):
                 "kind": doc.kind,
                 "url": doc.url,
                 "text": doc.text[:PREVIEW_CHARS],
-            }
+            },
         )
 
-    def _doc(self, args: dict[str, Any]) -> Document:
-        doc_id = int(_number(args, "document_id") or 0)
+    def _allowed_document(self, args: dict[str, Any]) -> Document:
+        """The document named by ``document_id``, if it belongs to this ticket's batch."""
+        doc_id = int_arg(args, "document_id")
         if doc_id not in self._allowed:
             msg = f"document_id must be one of {sorted(self._allowed)}"
             raise ToolError(msg)
@@ -238,31 +202,35 @@ class IntelToolBox(ToolBox):
             raise ToolError(msg)
         return doc
 
+    def _impacts(self, args: dict[str, Any], direction: str) -> tuple[tuple[int, str, str], ...]:
+        """(stock_id, direction, why) for this stock plus other known stocks the agent names."""
+        own_id = self._ctx.stock.id
+        impacts = [(own_id, direction, str(args.get("why_it_matters", "")))]
+        for other in args.get("also_affects", []) or []:
+            symbol = str(other.get("symbol", "")).upper()
+            stock = self._ctx.session.scalar(select(Stock).where(Stock.symbol == symbol))
+            if stock is not None and stock.id != own_id:
+                impacts.append((stock.id, str(other.get("direction", "unknown")), ""))
+        return tuple(impacts)
+
     def _publish(self, args: dict[str, Any]) -> str:
         if len(self.intel) >= MAX_INTEL_PER_TICKET:
             msg = f"intel limit ({MAX_INTEL_PER_TICKET}) reached"
             raise ToolError(msg)
-        doc = self._doc(args)
+        doc = self._allowed_document(args)
         document_id, quote = self._grounding({**args, "document_id": doc.id})
         category = str(args.get("category", "company"))
         direction = str(args.get("direction", "unknown"))
         if category not in INTEL_CATEGORIES or direction not in INTEL_DIRECTIONS:
             msg = f"category in {INTEL_CATEGORIES}, direction in {INTEL_DIRECTIONS}"
             raise ToolError(msg)
-        severity = int(_number(args, "severity") or SEVERITY_MIN)
+        severity = int_arg(args, "severity", SEVERITY_MIN)
         if not SEVERITY_MIN <= severity <= SEVERITY_MAX:
             msg = f"severity must be {SEVERITY_MIN}..{SEVERITY_MAX}"
             raise ToolError(msg)
-        impacts = [(self._ctx.stock.id, direction, str(args.get("why_it_matters", "")))]
-        for other in args.get("also_affects", []) or []:
-            stock = self._ctx.session.scalar(
-                select(Stock).where(Stock.symbol == str(other.get("symbol", "")).upper()),
-            )
-            if stock is not None and stock.id != self._ctx.stock.id:
-                impacts.append((stock.id, str(other.get("direction", "unknown")), ""))
         self.intel.append(
             IntelDraft(
-                headline=_text_arg(args, "headline"),
+                headline=text_arg(args, "headline"),
                 category=category,
                 severity=severity,
                 summary=str(args.get("summary", "")),
@@ -271,22 +239,18 @@ class IntelToolBox(ToolBox):
                 quote=quote,
                 country=str(args.get("country", "")),
                 commodities=tuple(str(c) for c in args.get("commodities", []) or []),
-                impacts=tuple(impacts),
+                impacts=self._impacts(args, direction),
             ),
         )
         return "published"
 
     def tools(self) -> list[Tool]:
-        base = {t.name: t for t in super().tools()}
+        base = {tool.name: tool for tool in super().tools()}
         return [
             Tool(
                 "get_document",
                 "Metadata and the beginning of a source document.",
-                {
-                    "type": "object",
-                    "properties": {"document_id": {"type": "integer"}},
-                    "required": ["document_id"],
-                },
+                tool_schemas.GET_DOCUMENT,
                 self._get_document,
             ),
             base["get_knowledge"],
@@ -294,37 +258,7 @@ class IntelToolBox(ToolBox):
                 "publish_intel",
                 "Publish one intel item for a relevant source. 'quote' must be copied verbatim "
                 "from that document; summary and why_it_matters must stay within what it says.",
-                {
-                    "type": "object",
-                    "properties": {
-                        "document_id": {"type": "integer"},
-                        "headline": TEXT,
-                        "summary": TEXT,
-                        "why_it_matters": TEXT,
-                        "quote": TEXT,
-                        "category": {"type": "string", "enum": list(INTEL_CATEGORIES)},
-                        "severity": {"type": "integer"},
-                        "direction": {"type": "string", "enum": list(INTEL_DIRECTIONS)},
-                        "country": TEXT,
-                        "commodities": {"type": "array", "items": TEXT},
-                        "also_affects": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {"symbol": TEXT, "direction": {"type": "string"}},
-                            },
-                        },
-                    },
-                    "required": [
-                        "document_id",
-                        "headline",
-                        "why_it_matters",
-                        "quote",
-                        "category",
-                        "severity",
-                        "direction",
-                    ],
-                },
+                tool_schemas.PUBLISH_INTEL,
                 self._publish,
             ),
         ]

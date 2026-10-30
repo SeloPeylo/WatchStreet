@@ -20,7 +20,7 @@ from watchstreet.constants import (
     SEVERITY_MIN,
 )
 from watchstreet.container import Container
-from watchstreet.domain import TicketOrigin, WorkflowKey
+from watchstreet.domain import DataOrigin, TicketOrigin, WorkflowKey
 from watchstreet.intel.documents import outline
 from watchstreet.models import (
     Datapoint,
@@ -217,7 +217,7 @@ def relation_add(session: SessionDep, form: Annotated[RelationForm, Form()]) -> 
             session,
             src,
             dst,
-            RelationInput(form.kind, strength, form.note, origin="user"),
+            RelationInput(form.kind, strength, form.note, origin=DataOrigin.USER),
         )
     except (GraphError, ValueError) as exc:
         raise HTTPException(400, str(exc)) from exc
