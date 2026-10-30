@@ -11,8 +11,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from watchstreet.constants import RECENT_LIMIT
-from watchstreet.container import Container
 from watchstreet.market.base import MarketDataError
+from watchstreet.market.service import MarketService
 from watchstreet.models import Holding, Insight, Stock, Ticket, WatchEntry
 from watchstreet.services import portfolio
 from watchstreet.services.portfolio import PortfolioError
@@ -36,16 +36,16 @@ def _recent(session: Session, model: type[Ticket] | type[Insight]) -> list[Ticke
     return list(session.scalars(select(model).order_by(model.id.desc()).limit(RECENT_LIMIT)))
 
 
-def _holdings_context(session: Session, container: Container) -> dict[str, Any]:
+def _holdings_context(session: Session, market: MarketService) -> dict[str, Any]:
     """Template variables shared by the holdings page and its error re-render."""
-    rows = portfolio.holding_rows(session, container.market)
+    rows = portfolio.holding_rows(session, market)
     return {"rows": rows, "totals": portfolio.totals_by_currency(rows)}
 
 
-def _watchlist_context(session: Session, container: Container) -> dict[str, Any]:
+def _watchlist_context(session: Session, market: MarketService) -> dict[str, Any]:
     """Template variables shared by the watchlist page and its error re-render."""
     entries = list(session.scalars(select(WatchEntry).order_by(WatchEntry.id)))
-    quotes = {entry.stock_id: container.market.try_quote(entry.stock.symbol) for entry in entries}
+    quotes = {entry.stock_id: market.try_quote(entry.stock.symbol) for entry in entries}
     return {"entries": entries, "quotes": quotes}
 
 
@@ -55,7 +55,7 @@ def dashboard(request: Request, session: SessionDep, container: ContainerDep) ->
     return render(
         request,
         "dashboard.html",
-        **_holdings_context(session, container),
+        **_holdings_context(session, container.market),
         counts=Counter(session.scalars(select(Ticket.status))),
         recent_tickets=_recent(session, Ticket),
         recent_insights=_recent(session, Insight),
@@ -76,7 +76,7 @@ class HoldingForm(BaseModel):
 
 @router.get("/holdings", response_class=HTMLResponse)
 def holdings_page(request: Request, session: SessionDep, container: ContainerDep) -> HTMLResponse:
-    return render(request, "holdings.html", **_holdings_context(session, container), form={})
+    return render(request, "holdings.html", **_holdings_context(session, container.market), form={})
 
 
 @router.post("/holdings", response_model=None)
@@ -101,7 +101,7 @@ def holdings_add(
             request,
             "holdings.html",
             400,
-            **_holdings_context(session, container),
+            **_holdings_context(session, container.market),
             form=form.model_dump(),
             error=str(exc),
         )
@@ -141,7 +141,9 @@ def holdings_delete(holding_id: int, session: SessionDep) -> RedirectResponse:
 # ------------------------------------------------------------------ watchlist
 @router.get("/watchlist", response_class=HTMLResponse)
 def watchlist_page(request: Request, session: SessionDep, container: ContainerDep) -> HTMLResponse:
-    return render(request, "watchlist.html", **_watchlist_context(session, container), form={})
+    return render(
+        request, "watchlist.html", **_watchlist_context(session, container.market), form={}
+    )
 
 
 @router.post("/watchlist", response_model=None)
@@ -160,7 +162,7 @@ def watchlist_add(
             request,
             "watchlist.html",
             400,
-            **_watchlist_context(session, container),
+            **_watchlist_context(session, container.market),
             form={"symbol": symbol, "note": note},
             error=str(exc),
         )

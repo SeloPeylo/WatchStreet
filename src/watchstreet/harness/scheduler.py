@@ -20,6 +20,7 @@ from watchstreet.db import session_scope
 from watchstreet.domain import TicketOrigin, TicketStatus, WorkflowKey
 from watchstreet.harness.ingest import run_ingest
 from watchstreet.market.base import MarketDataError
+from watchstreet.market.service import MarketService
 from watchstreet.models import MarketEvent, Stock, Ticket
 from watchstreet.services.feeds import seed_feeds
 from watchstreet.services.state import touch, updated_at
@@ -29,10 +30,10 @@ from watchstreet.timeutil import utcnow
 logger = logging.getLogger(__name__)
 
 
-def scan_stock_events(container: Container, session: Session, stock: Stock) -> Ticket | None:
+def scan_stock_events(market: MarketService, session: Session, stock: Stock) -> Ticket | None:
     """Store unseen news for a stock and open one review ticket for them."""
     try:
-        items = container.market.news(stock.symbol)
+        items = market.news(stock.symbol)
     except MarketDataError:
         logger.warning("News fetch failed for %s", stock.symbol)
         return None
@@ -116,7 +117,7 @@ def run_scan(container: Container) -> int:
     with session_scope(container.session_factory) as session:
         seed_feeds(session)
         for stock in session.scalars(select(Stock)):
-            created += scan_stock_events(container, session, stock) is not None
+            created += scan_stock_events(container.market, session, stock) is not None
             created += len(schedule_refreshes(session, stock))
         touch(session, LAST_SCAN_KEY)
     created += run_ingest(container).tickets
