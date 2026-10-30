@@ -6,7 +6,7 @@ WatchStreet überwacht deine Aktien. Du trägst ein, was du besitzt (**Holdings*
 
 ## 1. Aufruf
 
-Nach `docker compose up --build` ist die Anwendung unter **http://localhost:8000** erreichbar. Oben befindet sich die Navigation: *Übersicht, Holdings, Watchlist, Tickets, System, Handbuch*. Dieses Handbuch ist auch in der Anwendung unter **Handbuch** abrufbar.
+Nach `docker compose up --build` ist die Anwendung unter **http://localhost:8000** erreichbar. Oben befindet sich die Navigation: *Übersicht*, *Portfolio* (Holdings, Watchlist), *Lage* (Intel, Karte, Netzwerk, Rohstoffe), *Tickets* und *Hilfe* (System, Handbuch). Auf dem Smartphone öffnet die Schaltfläche *Menü* die Navigation. Dieses Handbuch ist auch in der Anwendung unter **Handbuch** abrufbar.
 
 ## 2. Grundkonzepte
 
@@ -20,6 +20,37 @@ Nach `docker compose up --build` ist die Anwendung unter **http://localhost:8000
 | **Score** | Zahl 0–100 nach einem festen Schema. Jede Messung wird gespeichert, so entsteht ein Verlauf. |
 | **These** | Die Investmentthese. Jede Prüfung legt eine neue Version mit Status an. |
 | **Folgeticket** | Ein Ticket, das ein abgeschlossenes Ticket vorgeschlagen hat. |
+
+## 2a. Bedienung und Komfort
+
+![Schnellsprung](screenshots/21-palette.png)
+
+* **Schnellsprung:** Die Taste **/** (oder **Strg+K**) öffnet eine Suche. Du tippst ein Symbol, einen Namen oder eine Seite, wählst mit **↑ ↓** und springst mit **Enter**.
+* **Tastaturkürzel:** **g** gefolgt von **u** (Übersicht), **h** (Holdings), **w** (Watchlist), **i** (Intel), **t** (Tickets), **k** (Karte), **n** (Netzwerk) oder **r** (Rohstoffe). **?** zeigt die Liste. Kürzel sind in Eingabefeldern ausgeschaltet.
+
+![Tastaturkürzel](screenshots/23-shortcuts.png)
+
+* **Rückmeldung nach Aktionen:** Jede Aktion (Position eintragen, Ticket anlegen, Quelle löschen …) bestätigt sich mit einer kurzen Meldung unten rechts. Fehler erscheinen oben auf der Seite und erhalten den Fokus.
+
+![Bestätigung](screenshots/22-toast.png)
+
+* **Live-Status von Tickets:** Wartende und laufende Tickets aktualisieren ihren Status von selbst (alle paar Sekunden, seltener im Hintergrund-Tab). Wird ein Ticket fertig, erscheint eine Meldung und die Seite lädt sich neu, damit Briefing, Scores und Zähler aktuell sind.
+* **Sortieren und Filtern:** In Holdings, Watchlist und Tickets sortiert ein Klick auf eine Spaltenüberschrift (nochmals: umgekehrt); das Feld *Filtern* blendet nicht passende Zeilen sofort aus.
+
+![Sortierte Holdings](screenshots/24-holdings-sorted.png)
+
+* **Panels merken sich ihren Zustand:** Auf der Aktienseite bleibt ein auf- oder zugeklapptes Panel beim nächsten Besuch so (pro Browser). Ein Link wie „zum Fokus-Bereich“ oder `#evidence` öffnet das Panel automatisch.
+* **Sicherheitsabfrage nur bei Löschaktionen:** Position, Watchlist-Eintrag, Datenpunkt, Quelle und das Abbrechen eines Tickets fragen nach. Schaltflächen sperren sich nach dem Absenden gegen doppeltes Klicken.
+* **Hell und Dunkel:** *Hell/Dunkel* in der Kopfzeile wechselt das Farbschema; ohne Wahl folgt die Seite dem Betriebssystem. Die Wahl wird im Browser gespeichert.
+
+![Helles Farbschema](screenshots/25-light-theme.png)
+
+* **Smartphone:** Tabellen scrollen seitlich, die Navigation klappt auf.
+
+![Mobile Navigation](screenshots/26-mobile-menu.png) ![Mobile Aktie](screenshots/27-mobile-stock.png)
+
+* **Netzwerk:** *Knoten suchen* hebt Treffer hervor, ein Klick auf einen Eintrag der Legende blendet diese Knotenart aus oder ein, *Zurücksetzen* stellt alles wieder her. Knoten sind per Tab erreichbar und mit Enter auswählbar.
+* **Zugänglichkeit:** *Zum Inhalt springen* (erste Tab-Stelle), sichtbarer Fokusrahmen, Pfadangaben (Breadcrumbs) auf Detailseiten, Meldungen werden Screenreadern angesagt.
 
 ## 3. Übersicht (Dashboard)
 
@@ -39,7 +70,7 @@ Nach `docker compose up --build` ist die Anwendung unter **http://localhost:8000
 
 **Tabelle:** Kurs, Tagesänderung, Wert und Gewinn/Verlust je Position. Ein Klick auf das Symbol öffnet die Aktie. *Entfernen* löscht nur die Position; Tickets, Erkenntnisse und Thesen bleiben erhalten.
 
-**Fehlermeldungen:** Ungültige Eingaben (z. B. Text statt Zahl, unbekanntes Symbol, doppelte Position) werden angezeigt, deine Eingaben bleiben im Formular stehen.
+**Fehlermeldungen:** Der Browser prüft Zahlenfelder schon beim Absenden (Text statt Zahl wird markiert). Weitere Fehler (z. B. unbekanntes Symbol, doppelte Position) zeigt die Seite oben an; deine Eingaben bleiben im Formular stehen.
 
 ![Fehlermeldung](screenshots/03-holdings-error.png)
 
