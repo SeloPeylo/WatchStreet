@@ -7,7 +7,7 @@ from watchstreet.container import Container
 from watchstreet.db import session_scope
 from watchstreet.domain import TicketStatus
 from watchstreet.models import Ticket
-from watchstreet.services.followups import apply_followups
+from watchstreet.services.followups import apply_followups, rejection_reason
 from watchstreet.services.knowledge import store_result
 from watchstreet.timeutil import utcnow
 from watchstreet.workflows.base import WorkflowContext
@@ -36,7 +36,19 @@ def execute_ticket(container: Container, ticket_id: int) -> TicketStatus:
             if ticket is None:
                 return TicketStatus.FAILED
             workflow = get_workflow(ticket.workflow)
-            ctx = WorkflowContext(session, ticket, ticket.stock, container.market, container.runner)
+            ctx = WorkflowContext(
+                session,
+                ticket,
+                ticket.stock,
+                container.market,
+                container.runner,
+                followup_check=lambda proposal, accepted: rejection_reason(
+                    session,
+                    ticket,
+                    proposal,
+                    accepted,
+                ),
+            )
             result = workflow.run(ctx)
             store_result(session, ticket, result)
             decisions = apply_followups(session, ticket, result.followups)

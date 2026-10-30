@@ -1,20 +1,27 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 
 from watchstreet.config import Settings
 from watchstreet.container import build_container
+from watchstreet.models import Base
 from watchstreet.web.app import create_app
 
 
 @pytest.fixture
 def container(tmp_path):
+    """Runs on SQLite by default; set WATCHSTREET_TEST_DATABASE_URL to test another backend."""
+    url = os.environ.get("WATCHSTREET_TEST_DATABASE_URL") or f"sqlite:///{tmp_path / 'test.db'}"
     settings = Settings(
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
+        database_url=url,
         market_provider="demo",
         agent_runner="offline",
         docs_dir=str(tmp_path / "docs"),
     )
     built = build_container(settings)
+    Base.metadata.drop_all(built.engine)
+    Base.metadata.create_all(built.engine)
     yield built
     built.engine.dispose()
 

@@ -39,6 +39,8 @@ def make_engine(url: str) -> Engine:
         kwargs["connect_args"] = {"check_same_thread": False}
         if ":memory:" in url:
             kwargs["poolclass"] = StaticPool
+    if not url.startswith("sqlite"):
+        kwargs["pool_pre_ping"] = True
     engine = create_engine(url, **kwargs)
     if url.startswith("sqlite"):
 

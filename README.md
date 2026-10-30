@@ -11,11 +11,17 @@ Ticket-driven stock portfolio tracker. You enter what you own (**Holdings**) and
 ## Run
 
 ```bash
-cp .env.example .env        # optional: choose agent / data provider
-docker compose up --build   # web + worker -> http://localhost:8000
+cp .env.example .env                              # choose agent / data provider
+docker compose up --build                         # web + worker + Postgres -> http://localhost:8000
+docker compose --profile llm-gpu up --build       # + local llama.cpp on the host GPU (NVIDIA)
+docker compose --profile llm-cpu up --build       # + local llama.cpp on CPU
 ```
 
-Offline demo (synthetic data, no network): `make demo` after `make install`.
+* **Data layer:** Postgres in its own container, files in `./data/postgres` (inside the project). Tests also run on SQLite.
+* **Local LLM:** put a GGUF model into `./models` ([models/README.md](models/README.md)), set `LLAMA_MODEL` and `WATCHSTREET_AGENT_RUNNER=llama` in `.env`. GPU/CPU/RAM limits are configurable there.
+* **Tool calling:** the agent gets deterministic facts up front and calls tools to read details and to record insights, thesis and follow-up tickets (guardrails answer immediately). Falls back to JSON output if the model has no tool support.
+
+Offline demo (synthetic data, rule-based agent, no network): `make demo` after `make install`.
 
 ## Develop
 

@@ -23,6 +23,17 @@ def build_runner(settings: Settings) -> AgentRunner:
             settings.openai_model,
             settings.openai_api_key,
             settings.agent_timeout_s,
+            tools_enabled=settings.agent_tools,
+        )
+    if kind == "llama":
+        # llama.cpp server container from docker-compose (profiles llm-cpu / llm-gpu)
+        return OpenAICompatibleRunner(
+            settings.llama_base_url,
+            settings.openai_model,
+            "",
+            settings.agent_timeout_s,
+            name="llama",
+            tools_enabled=settings.agent_tools,
         )
     if kind == "cli":
         return CliRunner(settings.agent_cli_command, settings.agent_timeout_s)

@@ -73,7 +73,9 @@ def _capacity_rejection(
     return None
 
 
-def _rejection(session: Session, parent: Ticket, proposal: FollowUp, accepted: int) -> str | None:
+def rejection_reason(
+    session: Session, parent: Ticket, proposal: FollowUp, accepted: int
+) -> str | None:
     return _static_rejection(parent, proposal) or _capacity_rejection(
         session,
         parent,
@@ -92,7 +94,7 @@ def apply_followups(
     accepted = 0
     for proposal in proposals:
         topic = proposal.topic.strip()
-        reason = _rejection(session, parent, proposal, accepted)
+        reason = rejection_reason(session, parent, proposal, accepted)
         if reason:
             decisions.append(
                 FollowUpDecision(proposal.workflow, topic, accepted=False, reason=reason)

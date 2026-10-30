@@ -1,6 +1,7 @@
 """Workflow contract and result types."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -56,6 +57,8 @@ class WorkflowContext:
     stock: Stock
     market: MarketService
     runner: AgentRunner
+    # Guardrail preview supplied by the harness: (proposal, already_accepted) -> rejection reason
+    followup_check: Callable[[FollowUp, int], str | None] | None = None
 
 
 class Workflow(ABC):

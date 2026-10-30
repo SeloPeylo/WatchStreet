@@ -10,6 +10,8 @@
     <dt>Herkunft</dt><dd>{{ ticket.origin }}{% if ticket.parent %} · Folgeticket von <a href="/tickets/{{ ticket.parent_id }}">#{{ ticket.parent_id }}</a>{% endif %} · Tiefe {{ ticket.depth }}</dd>
     <dt>Priorität</dt><dd>{{ ticket.priority }}</dd>
     <dt>Agent</dt><dd>{{ ticket.runner or '–' }}</dd>
+    {% set d = ticket.result.get('data', {}) %}
+    {% if d.get('mode') %}<dt>Modus</dt><dd>{{ d.mode }}{% if d.mode == 'tools' %} · {{ d.steps }} Schritte · {{ d.tool_calls }} Tool-Aufrufe · {{ d.prompt_tokens }} + {{ d.completion_tokens }} Tokens{% endif %}</dd>{% endif %}
     <dt>Erstellt</dt><dd>{{ ticket.created_at|dt }}</dd>
     <dt>Gestartet / Fertig</dt><dd>{{ ticket.started_at|dt }} / {{ ticket.finished_at|dt }}</dd>
     {% if ticket.params %}<dt>Parameter</dt><dd><code>{{ ticket.params }}</code></dd>{% endif %}

@@ -27,6 +27,8 @@ class Settings:
     worker_poll_s: float = DEFAULT_WORKER_POLL_S
     event_scan_interval_min: int = DEFAULT_EVENT_SCAN_INTERVAL_MIN
     docs_dir: str = "docs"
+    llama_base_url: str = "http://llama:8080/v1"
+    agent_tools: bool = True
 
 
 def _env(name: str, default: str) -> str:
@@ -52,4 +54,6 @@ def load_settings() -> Settings:
             _env("EVENT_SCAN_INTERVAL_MIN", str(base.event_scan_interval_min)),
         ),
         docs_dir=_env("DOCS_DIR", base.docs_dir),
+        llama_base_url=_env("LLAMA_BASE_URL", base.llama_base_url),
+        agent_tools=_env("AGENT_TOOLS", "true").lower() in ("1", "true", "yes"),
     )

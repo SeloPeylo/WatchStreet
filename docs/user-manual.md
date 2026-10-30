@@ -111,9 +111,15 @@ Der Worker läuft als eigener Container. Er
 Zeigt Datenquelle, Agent, Worker-Status, letzten Scan und alle Workflows.
 
 **Datenquellen:** `yahoo` (kostenlos, ohne Schlüssel, Kurse stundengenau) oder `demo` (synthetisch, offline).
-**Agenten (`WATCHSTREET_AGENT_RUNNER`):** `offline` (regelbasiert, kein LLM – kann Freitext-Themen nicht inhaltlich analysieren), `anthropic` (API-Schlüssel nötig), `openai` (OpenAI-kompatibel, z. B. lokales Ollama), `cli` (externer Agent per Kommandozeile, z. B. `claude -p`). Konfiguration in `.env`, siehe `.env.example`.
+**Agenten (`WATCHSTREET_AGENT_RUNNER`):** `llama` (lokales llama.cpp im Docker-Verbund), `offline` (regelbasiert, kein LLM – kann Freitext-Themen nicht inhaltlich analysieren), `anthropic` (API-Schlüssel nötig), `openai` (OpenAI-kompatibel, z. B. lokales Ollama), `cli` (externer Agent per Kommandozeile, z. B. `claude -p`). Konfiguration in `.env`, siehe `.env.example`.
 
-## 11. Grenzen und Hinweise
+## 11. Lokales LLM, Datenbank und Tool-Calling
+
+* **Datenbank:** Postgres läuft als eigener Container, die Dateien liegen im Projektordner unter `data/postgres`.
+* **Lokales Modell:** GGUF-Datei in den Ordner `models/` legen (`scripts/download_model.sh <url>`), in `.env` `LLAMA_MODEL=<datei>` und `WATCHSTREET_AGENT_RUNNER=llama` setzen und mit `docker compose --profile llm-gpu up --build` (NVIDIA-GPU) bzw. `--profile llm-cpu` starten. Grenzen für GPU-Anzahl, GPU-Schichten, Threads, Kontext und RAM stehen in `.env` (`LLAMA_*`). Empfohlen sind Instruct-Modelle mit Tool-Unterstützung.
+* **Tool-Calling:** Der Harness berechnet Kurs, Kennzahlen, Scores und Gewinn/Verlust selbst und gibt dem Agenten nur ein kompaktes Faktenblatt. Details holt der Agent bei Bedarf über Tools und hält Ergebnisse (Erkenntnis, Ziel, These, Folgeticket) ebenfalls über Tools fest. Ablehnungen der Leitplanken (z. B. Duplikat) bekommt der Agent sofort zurückgemeldet. Im Ticket-Detail zeigt **Modus** die Schritte, Tool-Aufrufe und Tokens. Unterstützt das Modell keine Tools, wechselt der Harness automatisch auf JSON-Antworten (Modus `json`).
+
+## 12. Grenzen und Hinweise
 
 * Yahoo-Daten kommen aus einer inoffiziellen, kostenlosen Schnittstelle; sie kann sich ändern oder Anfragen begrenzen. Fehlende Kennzahlen führen zu weniger Kriterien, nicht zu erfundenen Werten.
 * Zahlen und Texte können falsch sein. Keine Anlageberatung.
