@@ -3,7 +3,17 @@
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Date, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Date,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from watchstreet.constants import DEFAULT_PRIORITY, DEFAULT_PROFILE
@@ -106,6 +116,8 @@ class Ticket(Base):
     """A unit of analysis work bound to exactly one predefined workflow."""
 
     __tablename__ = "tickets"
+    # claim_next: WHERE status = 'queued' ORDER BY priority DESC, id LIMIT 1
+    __table_args__ = (Index("ix_tickets_claim", "status", "priority", "id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     stock_id: Mapped[int] = mapped_column(ForeignKey("stocks.id"), index=True)
@@ -246,7 +258,7 @@ class Document(Base):
     text: Mapped[str] = mapped_column(Text, default="")
     meta: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     relevance: Mapped[float] = mapped_column(Float, default=0.0)
-    triaged: Mapped[bool] = mapped_column(default=False)
+    triaged: Mapped[bool] = mapped_column(default=False, index=True)  # polled by triage intake
 
 
 class Entity(Base):
@@ -308,7 +320,7 @@ class IntelItem(Base):
     extra_sources: Mapped[list[dict[str, str]]] = mapped_column(JSON, default=list)
     author: Mapped[str] = mapped_column(String(8), default="rules")  # rules|agent
     ticket_id: Mapped[int | None] = mapped_column(ForeignKey("tickets.id"), nullable=True)
-    published_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    published_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow, index=True)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
     impacts: Mapped[list["IntelImpact"]] = relationship(

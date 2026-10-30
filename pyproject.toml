@@ -11,6 +11,7 @@ requires-python = ">=3.12"
 license = { file = "LICENSE" }
 dependencies = [
     "fastapi>=0.115",
+    "alembic>=1.13",
     "uvicorn[standard]>=0.30",
     "sqlalchemy>=2.0",
     "httpx>=0.27",
@@ -40,7 +41,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-watchstreet = ["web/templates/*.html", "web/templates/panels/*.html", "web/static/*", "web/static/vendor/*", "data/*.json"]
+watchstreet = ["migrations/script.py.mako", "web/templates/*.html", "web/templates/panels/*.html", "web/static/*", "web/static/vendor/*", "data/*.json"]
 
 # ---------------------------------------------------------------- ruff
 [tool.ruff]
@@ -74,6 +75,7 @@ max-returns = 5
 "tests/**" = ["S101", "PLR2004", "PLR0133", "PLR0911", "ANN", "SLF001", "ARG", "FBT", "E501"]
 "scripts/**" = ["T201", "ANN", "PLR2004", "E501"]
 "src/watchstreet/web/routes.py" = ["FBT"]
+"src/watchstreet/migrations/**" = ["PLR0915"]  # one statement per table in the baseline
 "src/watchstreet/intel/demo.py" = ["E501"]  # fixture text
 
 [tool.ruff.lint.flake8-tidy-imports]
@@ -95,6 +97,8 @@ filterwarnings = ["error::DeprecationWarning:watchstreet"]
 [tool.coverage.run]
 branch = true
 source = ["watchstreet"]
+# Alembic loads the revision scripts itself; tests/test_migrations.py runs and verifies them.
+omit = ["*/watchstreet/migrations/*"]
 
 # ---------------------------------------------------------------- bandit
 [tool.bandit]
@@ -116,7 +120,7 @@ layers = [
     "watchstreet.services | watchstreet.agents",
     "watchstreet.profiles",
     "watchstreet.market | watchstreet.intel | watchstreet.geo | watchstreet.commodities",
-    "watchstreet.models",
+    "watchstreet.models | watchstreet.migrate",
     "watchstreet.db",
     "watchstreet.workflow_specs | watchstreet.drafts | watchstreet.config",
     "watchstreet.domain | watchstreet.constants | watchstreet.timeutil | watchstreet.errors",

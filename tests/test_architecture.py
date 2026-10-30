@@ -52,7 +52,9 @@ def test_default_title_includes_topic() -> None:
 def test_all_deliberate_errors_share_one_root() -> None:
     found = set()
     for info in pkgutil.walk_packages(watchstreet.__path__, "watchstreet."):
-        if info.name.startswith("watchstreet.web") or info.name.endswith("worker"):
+        if info.name.startswith(
+            ("watchstreet.web", "watchstreet.migrations")
+        ) or info.name.endswith("worker"):
             continue
         module = importlib.import_module(info.name)
         for name, cls in inspect.getmembers(module, inspect.isclass):
