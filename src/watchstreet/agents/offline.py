@@ -252,6 +252,7 @@ CATEGORY_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("supply", ("supplier", "zulieferer", "lieferkette", "supply")),
 )
 PRIMARY_KINDS = ("filing", "gov", "press", "dataset")
+DEFAULT_INTEL_CATEGORY = "company"
 SEVERITY_BASE = 2
 SEVERITY_NEGATIVE_BONUS = 1
 SEVERITY_PRIMARY_BONUS = 1
@@ -260,33 +261,42 @@ SEVERITY_PRIMARY_BONUS = 1
 def _intel_category(title: str) -> str:
     lowered = title.lower()
     return next(
-        (cat for cat, words in CATEGORY_WORDS if any(w in lowered for w in words)), "company"
+        (cat for cat, words in CATEGORY_WORDS if any(w in lowered for w in words)),
+        DEFAULT_INTEL_CATEGORY,
     )
 
 
+def _triage_direction(title: str) -> tuple[str, bool]:
+    """(direction, is_negative) of a headline from the word lists; "unknown" when neither hits."""
+    lowered = title.lower()
+    negative = any(word in lowered for word in NEGATIVE_WORDS)
+    positive = any(word in lowered for word in POSITIVE_WORDS)
+    direction = "bearish" if negative else ("bullish" if positive else "unknown")
+    return direction, negative
+
+
+def _triage_item(symbol: str, doc: dict[str, Any]) -> dict[str, Any]:
+    """One intel item for a stored document; severity grows for bad news and primary sources."""
+    title = doc["title"]
+    direction, negative = _triage_direction(title)
+    severity = SEVERITY_BASE
+    severity += SEVERITY_NEGATIVE_BONUS if negative else 0
+    severity += SEVERITY_PRIMARY_BONUS if doc["kind"] in PRIMARY_KINDS else 0
+    return {
+        "document_id": doc["id"],
+        "headline": title,
+        "summary": f"Quelle: {doc['publisher']} ({doc['kind']}).",
+        "why_it_matters": f"Erwähnt {symbol} (Relevanz {doc['relevance']:.1f}). "
+        "Regelbasiert eingeordnet, nicht inhaltlich geprüft.",
+        "category": _intel_category(title),
+        "severity": severity,
+        "direction": direction,
+        "quote": doc["quote_hint"],
+    }
+
+
 def _intel_triage(facts: dict[str, Any]) -> dict[str, Any]:
-    items: list[dict[str, Any]] = []
-    for doc in facts.get("documents", []):
-        title = doc["title"]
-        lowered = title.lower()
-        negative = any(w in lowered for w in NEGATIVE_WORDS)
-        positive = any(w in lowered for w in POSITIVE_WORDS)
-        direction = "bearish" if negative else ("bullish" if positive else "unknown")
-        severity = SEVERITY_BASE + (SEVERITY_NEGATIVE_BONUS if negative else 0)
-        severity += SEVERITY_PRIMARY_BONUS if doc["kind"] in PRIMARY_KINDS else 0
-        items.append(
-            {
-                "document_id": doc["id"],
-                "headline": title,
-                "summary": f"Quelle: {doc['publisher']} ({doc['kind']}).",
-                "why_it_matters": f"Erwähnt {facts['symbol']} (Relevanz {doc['relevance']:.1f}). "
-                "Regelbasiert eingeordnet, nicht inhaltlich geprüft.",
-                "category": _intel_category(title),
-                "severity": severity,
-                "direction": direction,
-                "quote": doc["quote_hint"],
-            },
-        )
+    items = [_triage_item(facts["symbol"], doc) for doc in facts.get("documents", [])]
     return {
         "summary": f"{len(items)} Quelle(n) für {facts['symbol']} regelbasiert eingeordnet. "
         f"{OFFLINE_NOTE}",
@@ -309,6 +319,8 @@ HANDLERS = {
 
 
 class OfflineRunner:
+    """``AgentRunner`` that answers with the handler registered for the workflow."""
+
     name = "offline"
 
     def complete(self, request: AgentRequest) -> str:
