@@ -28,6 +28,10 @@ BILLION = 1e9
 MILLION = 1e6
 
 
+def price(value: float | None) -> str:
+    return EMPTY if value is None else f"{value:,.2f}".replace(",", "\u202f")
+
+
 def compact(value: float | None) -> str:
     """Large amounts as 'Mrd'/'Mio' for tables; small ones via ``number``."""
     if value is None:
@@ -50,6 +54,11 @@ def sign_class(value: float | None) -> str:
     return "pos" if value > 0 else "neg"
 
 
+def safe_url(url: str) -> str:
+    """Only http(s) links are ever rendered as hrefs."""
+    return url if url.startswith(("http://", "https://")) else "#"
+
+
 def preview(text: str) -> str:
     return text if len(text) <= TEXT_PREVIEW_CHARS else text[: TEXT_PREVIEW_CHARS - 1] + "…"
 
@@ -60,8 +69,10 @@ def register_filters(env: Environment) -> None:
         "pct": pct,
         "number": number,
         "compact": compact,
+        "price": price,
         "dt": dt,
         "sign": sign_class,
         "preview": preview,
+        "safe_url": safe_url,
     }
     env.filters.update(filters)

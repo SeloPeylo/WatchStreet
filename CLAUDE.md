@@ -8,3 +8,4 @@ Read `docs/engineering-rules.md` first. Short version:
 * Agent output is untrusted: validate it, and route follow-up tickets through `services/followups.py`.
 * Never fabricate market data outside the `demo` provider. UI text is German, code is English.
 * Update `docs/user-manual.md` (and re-run `scripts/capture_screenshots.mjs`) when UI behaviour changes.
+* External content is untrusted data: fetch only via `intel/fetch.py`; agents read stored documents. Agent facts need a verbatim, harness-verified quote ("no source, no fact").

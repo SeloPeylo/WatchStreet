@@ -19,6 +19,14 @@ from watchstreet.profiles.classify import classify
 
 OFFLINE_NOTE = "(Offline-Modus: regelbasiert, kein LLM)"
 NEGATIVE_WORDS = (
+    "streik",
+    "strike",
+    "sanction",
+    "embargo",
+    "explosion",
+    "unrest",
+    "erdbeben",
+    "earthquake",
     "klage",
     "verlust",
     "warnung",
@@ -232,7 +240,64 @@ def _thesis_check(facts: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+CATEGORY_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("hazard", ("erdbeben", "earthquake", "flood", "überschwemmung", "wildfire")),
+    (
+        "geopolitics",
+        ("streik", "strike", "sanction", "sanktion", "embargo", "unrest", "krieg", "war"),
+    ),
+    ("commodity", ("price", "preis", "gold", "copper", "kupfer", "oil", "öl")),
+    ("macro", ("zins", "interest rate", "inflation", "zentralbank", "central bank", "fed ")),
+    ("regulatory", ("regulat", "klage", "lawsuit", "genehmigung", "permit")),
+    ("supply", ("supplier", "zulieferer", "lieferkette", "supply")),
+)
+PRIMARY_KINDS = ("filing", "gov", "press", "dataset")
+SEVERITY_BASE = 2
+SEVERITY_NEGATIVE_BONUS = 1
+SEVERITY_PRIMARY_BONUS = 1
+
+
+def _intel_category(title: str) -> str:
+    lowered = title.lower()
+    return next(
+        (cat for cat, words in CATEGORY_WORDS if any(w in lowered for w in words)), "company"
+    )
+
+
+def _intel_triage(facts: dict[str, Any]) -> dict[str, Any]:
+    items: list[dict[str, Any]] = []
+    for doc in facts.get("documents", []):
+        title = doc["title"]
+        lowered = title.lower()
+        negative = any(w in lowered for w in NEGATIVE_WORDS)
+        positive = any(w in lowered for w in POSITIVE_WORDS)
+        direction = "bearish" if negative else ("bullish" if positive else "unknown")
+        severity = SEVERITY_BASE + (SEVERITY_NEGATIVE_BONUS if negative else 0)
+        severity += SEVERITY_PRIMARY_BONUS if doc["kind"] in PRIMARY_KINDS else 0
+        items.append(
+            {
+                "document_id": doc["id"],
+                "headline": title,
+                "summary": f"Quelle: {doc['publisher']} ({doc['kind']}).",
+                "why_it_matters": f"Erwähnt {facts['symbol']} (Relevanz {doc['relevance']:.1f}). "
+                "Regelbasiert eingeordnet, nicht inhaltlich geprüft.",
+                "category": _intel_category(title),
+                "severity": severity,
+                "direction": direction,
+                "quote": doc["quote_hint"],
+            },
+        )
+    return {
+        "summary": f"{len(items)} Quelle(n) für {facts['symbol']} regelbasiert eingeordnet. "
+        f"{OFFLINE_NOTE}",
+        "intel": items,
+        "insights": [],
+        "followups": [],
+    }
+
+
 HANDLERS = {
+    "intel_triage": _intel_triage,
     "initial_holding": _initial_holding,
     "initial_watch": _initial_watch,
     "topic_analysis": _topic,

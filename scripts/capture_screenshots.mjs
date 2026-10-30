@@ -62,6 +62,30 @@ await shot("12-mining-evidence", ids["NEM"], {
   },
 });
 await shot("13-stock-oil", ids["XOM"]);
+await shot("14-intel", "/intel", { full: false });
+await shot("15-intel-primary", "/intel?primary=1&category=hazard", { full: false });
+await shot("16-map", "/map", {
+  full: false,
+  prepare: async () => {
+    await page.waitForSelector("#map svg path");
+    await page.locator("#map circle").first().click();
+  },
+});
+await shot("17-graph", `/graph?stock=${ids["NEM"].split("/").pop()}`, {
+  full: false,
+  prepare: async () => {
+    await page.waitForSelector("#graph svg circle");
+    await page.locator("#graph svg g").nth(2).click();
+  },
+});
+await shot("18-commodities", "/commodities");
+let filing = null;
+for (let id = 1; id < 80 && !filing; id++) {
+  const res = await page.request.get(`${BASE}/documents/${id}`);
+  if (res.ok() && (await res.text()).includes("Item 2. Properties")) filing = id;
+}
+await shot("19-document", `/documents/${filing}`);
+await shot("20-feeds", "/intel/feeds", { full: false });
 await shot("07-tickets", "/tickets");
 await shot("08-ticket-detail", "/tickets/1");
 await shot("09-system", "/system");

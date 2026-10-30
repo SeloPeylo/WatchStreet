@@ -8,6 +8,7 @@
     <h1>{{ stock.symbol }} <small>{{ stock.name }}</small></h1>
     <div class="muted">{{ stock.exchange }}{% if stock.industry %} · {{ stock.industry }}{% endif %}
       <a class="tag profile" href="#valuation" title="Bewertungsprofil">{{ profile.label }}</a>
+      <a class="tag" href="/graph?stock={{ stock.id }}">Netzwerk</a> <a class="tag" href="/intel?stock={{ stock.id }}">Intel</a>
       {% if stock.holding %}<span class="tag">Holding</span>{% endif %}
       {% if stock.watch %}<span class="tag">Watchlist</span>{% endif %}</div>
   </div>

@@ -23,3 +23,23 @@
 * **Schema management**: `create_all` at start (web creates, worker waits for web). Introduce Alembic before the first schema change in production.
 
 Extension points: new workflow → subclass in `workflows/definitions.py` and register; new data source → implement `MarketDataProvider`; per-ticket agent selection → add `runner` to ticket params and resolve in `executor`.
+
+## Intel layer
+
+```
+feeds / GDELT queries / EDGAR / USGS ──► Fetcher (SSRF guard, limits) ──► Document (hash, text)
+                                                    │                          │
+                              tripwires (quakes near assets, commodity moves)  ├─ deterministic triage (watch terms)
+                                                    │                          ▼
+                                                    ▼                  intel_triage ticket (agent: publish_intel + quote)
+                                              IntelItem ◄──────────────────────┘
+SEC sync (XBRL → datapoints, filings → Documents) ──► read_filing (agent: relations/assets/datapoints + quotes)
+Entity/Relation graph ──► map (assets, exposure), graph view, watch terms (suppliers) for the next triage
+```
+
+* **Documents** (`models.Document`, `intel/documents.py`): dedupe by URL+hash, `search`, `outline`, `read_chunk`, `verify_quote`.
+* **Provenance rule**: an agent claim needs `document_id` + verbatim `quote` (>= 20 chars), verified by the harness (`ToolBox._grounding`, `add_relation`, `add_datapoint`). Agents never fetch URLs.
+* **Entities/Relations**: directed, sourced edges (`supplies`, `owns`, `located_in`, ...); `country_exposure` derives portfolio exposure per country from assets (production x ownership) and partners, with the contributions retained for display.
+* **Tripwires** (`intel/tripwires.py`) are deterministic sensors; they create `IntelItem`s directly. `intel/ingest.py` polls feeds and creates one triage ticket per stock with newly relevant documents.
+* **Cockpit/Scenarios**: `services/cockpit.py` (prices, ratios, exposure), `services/scenarios.py` re-prices the commodity in `compute_valuation(commodity_shock=...)` and reads the NAV breakdown.
+* **Demo**: `intel/demo.py` is a canned HTTP transport for every host, so `WATCHSTREET_MARKET_PROVIDER=demo` exercises the whole path offline; `scripts/seed_demo.py` populates a database.

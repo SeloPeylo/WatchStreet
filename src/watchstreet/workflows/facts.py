@@ -21,11 +21,13 @@ from watchstreet.market.indicators import pct_change
 from watchstreet.models import Insight, MarketEvent, Score
 from watchstreet.profiles.registry import get_profile
 from watchstreet.services.datapoints import latest
+from watchstreet.services.intel import recent_for_stock
 from watchstreet.workflows.base import ScoreDraft, WorkflowContext
 from watchstreet.workflows.scoring import ScoreResult, technical_score
 from watchstreet.workflows.valuation import compute_valuation
 
 RECENT_INSIGHTS = 12
+INTEL_BRIEFING_SEVERITY = 3
 
 
 @dataclass
@@ -131,6 +133,11 @@ def gather_facts(ctx: WorkflowContext, extra: dict[str, Any] | None = None) -> F
         .limit(RECENT_LIMIT),
     )
     data["headlines"] = [e.title for e in headlines]
+    data["recent_intel"] = [
+        {"headline": i.headline, "severity": i.severity, "category": i.category}
+        for i in recent_for_stock(ctx.session, stock.id, RECENT_LIMIT)
+        if i.severity >= INTEL_BRIEFING_SEVERITY
+    ]
     data.update(extra or {})
     return Facts(data=data, fresh_scores=[_draft(r) for r in results])
 

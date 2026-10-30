@@ -33,6 +33,9 @@ class WorkflowKey(StrEnum):
     CLASSIFY_STOCK = "classify_stock"
     RESEARCH_DATAPOINTS = "research_datapoints"
     BRIEFING = "briefing"
+    SEC_SYNC = "sec_sync"
+    READ_FILING = "read_filing"
+    INTEL_TRIAGE = "intel_triage"
 
 
 class InsightCategory(StrEnum):

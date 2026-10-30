@@ -259,7 +259,8 @@ def test_agent_records_sourced_datapoints_and_cannot_overwrite_user_values(conta
             "agent",
             "10-K 2025",
         )
-        assert aisc.ticket_id == tid and aisc.confidence == "high"
+        assert aisc.ticket_id == tid
+        assert aisc.confidence == "low"  # no document, so the harness caps trust
         assert [p.value for p in stock.datapoints if p.key == "net_debt"] == [7]
         assert stock.profile == "oil_gas" and stock.profile_source == "agent"
 

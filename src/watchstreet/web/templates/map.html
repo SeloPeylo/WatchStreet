@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Karte{% endblock %}
+{% block content %}
+<h1>Lagekarte</h1>
+<p class="muted">Deine Assets (Minen, Anlagen, Häfen), aktuelle Ereignisse der letzten {{ days }} Tage und das Länder-Exposure deines Portfolios. Mausrad zoomt, Ziehen verschiebt, Klick auf einen Punkt oder ein Land zeigt Details.</p>
+<div class="layers" id="layers">
+  <label><input type="checkbox" data-layer="exposure" checked> Länder-Exposure</label>
+  <label><input type="checkbox" data-layer="assets" checked> Assets</label>
+  <label><input type="checkbox" data-layer="intel" checked> Ereignisse</label>
+  <button type="button" id="reset" class="link">Ansicht zurücksetzen</button>
+</div>
+<div class="grid main">
+  <section class="card map-card"><div id="map" data-url="/api/map" data-geo="/static/vendor/countries-110m.json"></div></section>
+  <aside class="stack"><section class="card" id="detail"><h2>Details</h2><p class="muted">Punkt oder Land anklicken.</p></section>
+    {% if unlocated %}<section class="card"><h2>Assets ohne Standort</h2>
+      {% for e in unlocated %}<form method="post" action="/entities/{{ e.id }}/location" class="inline-form"><strong>{{ e.name }}</strong>
+        <input name="lat" placeholder="Breite" size="7" required><input name="lon" placeholder="Länge" size="7" required><input name="country" placeholder="Land" size="12" value="{{ e.country }}"><button>Setzen</button></form>{% endfor %}
+      <p class="muted small">Koordinaten (Dezimalgrad) und Land; Agenten tragen sie aus Einreichungen mit Beleg ein.</p></section>{% endif %}
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/map.js"></script>{% endblock %}

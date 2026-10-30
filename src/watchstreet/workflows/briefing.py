@@ -46,6 +46,7 @@ def build_draft(stock: Stock, facts: dict[str, Any]) -> BriefingDraft:
     bullets += [
         i["text"] for i in facts.get("recent_insights", []) if i["category"] in RISK_CATEGORIES
     ][:2]
+    bullets += [f"Intel: {i['headline']}" for i in facts.get("recent_intel", [])][:2]
     tech = scores.get("technical_v1")
     if tech and tech["value"] <= SCORE_BAD:
         bullets.append("Technik bärisch: Trend zeigt nach unten")

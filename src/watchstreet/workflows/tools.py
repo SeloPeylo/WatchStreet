@@ -19,6 +19,7 @@ from watchstreet.constants import (
     MAX_BRIEFING_BULLETS,
     MAX_DATAPOINTS_PER_TICKET,
     MAX_INSIGHTS_PER_TICKET,
+    MIN_QUOTE_CHARS,
     MOMENTUM_BARS,
     PRICE_SUMMARY_TAIL_BARS,
     RECENT_LIMIT,
@@ -29,8 +30,10 @@ from watchstreet.constants import (
     THESIS_PREVIEW_CHARS,
 )
 from watchstreet.domain import InsightCategory, ThesisStatus, WorkflowKey
+from watchstreet.intel.documents import verify_quote
 from watchstreet.market.base import MarketDataError
 from watchstreet.market.indicators import pct_change, rsi, sma
+from watchstreet.models import Document
 from watchstreet.profiles.registry import PANELS, PROFILES, get_profile
 from watchstreet.services.datapoints import (
     CONFIDENCE,
@@ -44,7 +47,9 @@ from watchstreet.workflows.base import (
     DatapointDraft,
     FollowUp,
     InsightDraft,
+    IntelDraft,
     ProfileDraft,
+    RelationDraft,
     ThesisDraft,
     WorkflowContext,
     WorkflowResult,
@@ -93,6 +98,8 @@ class ToolBox:
         self.thesis: ThesisDraft | None = None
         self.followups: list[FollowUp] = []
         self.datapoints: list[DatapointDraft] = []
+        self.relations: list[RelationDraft] = []
+        self.intel: list[IntelDraft] = []
         self.profile: ProfileDraft | None = None
         self.briefing: BriefingDraft | None = None
 
@@ -188,6 +195,7 @@ class ToolBox:
         except (TypeError, ValueError) as exc:
             msg = "'value' must be a number"
             raise ToolError(msg) from exc
+        document_id, quote = self._grounding(args)
         entry = DatapointInput(
             key=str(args.get("key", "")),
             subject=str(args.get("subject", "")).strip(),
@@ -196,6 +204,8 @@ class ToolBox:
             unit=str(args.get("unit", "")),
             source=str(args.get("source", "")),
             confidence=str(args.get("confidence", "medium")),
+            document_id=document_id,
+            quote=quote,
         )
         try:
             validate(self._ctx.stock, entry)
@@ -233,12 +243,35 @@ class ToolBox:
         )
         return "recorded"
 
+    def _grounding(self, args: dict[str, Any]) -> tuple[int | None, str]:
+        """Validate an optional document reference: the quote must occur verbatim in it."""
+        raw = args.get("document_id")
+        if raw in (None, ""):
+            return None, ""
+        try:
+            doc = self._ctx.session.get(Document, int(raw))
+        except (TypeError, ValueError) as exc:
+            msg = "'document_id' must be an integer"
+            raise ToolError(msg) from exc
+        if doc is None:
+            msg = f"unknown document_id {raw}"
+            raise ToolError(msg)
+        quote = str(args.get("quote", ""))
+        if not verify_quote(doc, quote):
+            msg = (
+                "quote not found verbatim in the document (copy at least "
+                f"{MIN_QUOTE_CHARS} characters exactly, e.g. via search_document/read_document)"
+            )
+            raise ToolError(msg)
+        return doc.id, quote
+
     def _add_insight(self, args: dict[str, Any]) -> str:
         if len(self.insights) >= MAX_INSIGHTS_PER_TICKET:
             msg = f"insight limit ({MAX_INSIGHTS_PER_TICKET}) reached; summarise instead"
             raise ToolError(msg)
         category = _enum_arg(args, "category", InsightCategory)
-        self.insights.append(InsightDraft(category, _text_arg(args, "text")))
+        document_id, _quote = self._grounding(args)
+        self.insights.append(InsightDraft(category, _text_arg(args, "text"), document_id))
         return "recorded"
 
     def _set_goal(self, args: dict[str, Any]) -> str:
@@ -331,6 +364,8 @@ class ToolBox:
                         "unit": text,
                         "source": text,
                         "confidence": {"type": "string", "enum": list(CONFIDENCE)},
+                        "document_id": {"type": "integer"},
+                        "quote": text,
                     },
                     "required": ["key", "source", "confidence"],
                 },
@@ -351,12 +386,15 @@ class ToolBox:
             ),
             Tool(
                 "add_insight",
-                "Record one durable finding.",
+                "Record one durable finding. With document_id + a verbatim quote it becomes "
+                "a cited, verified finding.",
                 {
                     "type": "object",
                     "properties": {
                         "category": {"type": "string", "enum": categories},
                         "text": text,
+                        "document_id": {"type": "integer"},
+                        "quote": text,
                     },
                     "required": ["category", "text"],
                 },
@@ -424,6 +462,8 @@ class ToolBox:
             thesis=self.thesis,
             followups=list(self.followups),
             datapoints=list(self.datapoints),
+            relations=list(self.relations),
+            intel=list(self.intel),
             profile=self.profile,
             briefing=self.briefing,
             data=data,

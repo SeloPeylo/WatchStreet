@@ -29,6 +29,7 @@ class Settings:
     docs_dir: str = "docs"
     llama_base_url: str = "http://llama:8080/v1"
     agent_tools: bool = True
+    sec_user_agent: str = "WatchStreet (set WATCHSTREET_SEC_USER_AGENT to your name and e-mail)"
 
 
 def _env(name: str, default: str) -> str:
@@ -55,5 +56,6 @@ def load_settings() -> Settings:
         ),
         docs_dir=_env("DOCS_DIR", base.docs_dir),
         llama_base_url=_env("LLAMA_BASE_URL", base.llama_base_url),
+        sec_user_agent=_env("SEC_USER_AGENT", base.sec_user_agent),
         agent_tools=_env("AGENT_TOOLS", "true").lower() in ("1", "true", "yes"),
     )

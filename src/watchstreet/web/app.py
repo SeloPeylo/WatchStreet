@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from watchstreet.config import load_settings
 from watchstreet.container import Container, build_container
 from watchstreet.web.routes import router
+from watchstreet.web.routes_intel import router as intel_router
 
 WEB_DIR = Path(__file__).parent
 
@@ -31,6 +32,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     if shots.is_dir():
         app.mount("/manual-assets", StaticFiles(directory=shots), name="manual-assets")
     app.include_router(router)
+    app.include_router(intel_router)
     return app
 
 

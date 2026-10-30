@@ -44,6 +44,7 @@ def execute_ticket(container: Container, ticket_id: int) -> TicketStatus:
                 ticket.stock,
                 container.market,
                 container.runner,
+                edgar=container.edgar,
                 followup_check=lambda proposal, accepted: rejection_reason(
                     session,
                     ticket,

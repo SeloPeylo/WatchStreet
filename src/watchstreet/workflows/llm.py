@@ -9,12 +9,15 @@ from pydantic import BaseModel, Field, ValidationError
 
 from watchstreet.agents.base import AgentError, AgentRequest
 from watchstreet.agents.tools import ToolCapableRunner
-from watchstreet.constants import MAX_LLM_ATTEMPTS
+from watchstreet.constants import MAX_INTEL_PER_TICKET, MAX_LLM_ATTEMPTS
 from watchstreet.domain import InsightCategory, ThesisStatus
+from watchstreet.intel.documents import verify_quote
+from watchstreet.models import Document
 from watchstreet.workflows.base import (
     DatapointDraft,
     FollowUp,
     InsightDraft,
+    IntelDraft,
     ProfileDraft,
     ThesisDraft,
     Workflow,
@@ -84,6 +87,19 @@ class DatapointModel(BaseModel):
     confidence: str = "medium"
 
 
+class IntelModel(BaseModel):
+    document_id: int
+    headline: str
+    summary: str = ""
+    why_it_matters: str = ""
+    category: str = "company"
+    severity: int = 2
+    direction: str = "unknown"
+    quote: str = ""
+    country: str = ""
+    commodities: list[str] = Field(default_factory=list)
+
+
 class Analysis(BaseModel):
     """The JSON document an agent must return."""
 
@@ -96,6 +112,7 @@ class Analysis(BaseModel):
     profile: str | None = None
     profile_reason: str = ""
     datapoints: list[DatapointModel] = Field(default_factory=list)
+    intel: list[IntelModel] = Field(default_factory=list)
 
 
 def parse_analysis(raw: str) -> Analysis:
@@ -130,6 +147,10 @@ class LlmWorkflow(Workflow):
 
     task: str = ""
     persist_scores: bool = False
+    tool_system_prompt: str = TOOL_SYSTEM_PROMPT
+
+    def make_toolbox(self, ctx: WorkflowContext) -> ToolBox:
+        return ToolBox(ctx)
 
     def extra_facts(self, ctx: WorkflowContext) -> dict[str, Any]:
         return {"topic": ctx.ticket.params.get("topic", "")}
@@ -158,8 +179,8 @@ class LlmWorkflow(Workflow):
             default=str,
             separators=SEPARATORS,
         )
-        box = ToolBox(ctx)
-        run = runner.run_with_tools(TOOL_SYSTEM_PROMPT, prompt, box.tools())
+        box = self.make_toolbox(ctx)
+        run = runner.run_with_tools(self.tool_system_prompt, prompt, box.tools())
         result = box.result(
             run.text,
             {
@@ -199,6 +220,32 @@ class LlmWorkflow(Workflow):
                 prompt += f"\n\nDeine letzte Antwort war ungültig ({exc}). Nur gültiges JSON."
         raise last_error or AgentError("Agent returned nothing")
 
+    def _intel_drafts(self, analysis: Analysis, ctx: WorkflowContext) -> list[IntelDraft]:
+        """Intel items from a JSON answer; items whose quote cannot be verified are dropped."""
+        drafts: list[IntelDraft] = []
+        for entry in analysis.intel[:MAX_INTEL_PER_TICKET]:
+            doc = ctx.session.get(Document, entry.document_id)
+            if doc is None or not verify_quote(doc, entry.quote):
+                logger.warning(
+                    "Dropped intel for document %s: quote not verifiable", entry.document_id
+                )
+                continue
+            drafts.append(
+                IntelDraft(
+                    headline=entry.headline,
+                    summary=entry.summary,
+                    why_it_matters=entry.why_it_matters,
+                    category=entry.category,
+                    severity=entry.severity,
+                    document_id=doc.id,
+                    quote=entry.quote,
+                    country=entry.country,
+                    commodities=tuple(entry.commodities),
+                    impacts=((ctx.stock.id, entry.direction, entry.why_it_matters),),
+                ),
+            )
+        return drafts
+
     def _to_result(
         self,
         analysis: Analysis,
@@ -221,6 +268,7 @@ class LlmWorkflow(Workflow):
             thesis=thesis,
             followups=[FollowUp(f.workflow, f.topic, f.reason) for f in analysis.followups],
             datapoints=[DatapointDraft(**d.model_dump()) for d in analysis.datapoints],
+            intel=self._intel_drafts(analysis, ctx),
             profile=ProfileDraft(analysis.profile, analysis.profile_reason)
             if analysis.profile
             else None,

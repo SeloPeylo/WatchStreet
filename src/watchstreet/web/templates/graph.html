@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Netzwerk{% endblock %}
+{% block content %}
+<h1>Netzwerk – Abhängigkeiten</h1>
+<p class="muted">Aktien, ihre Assets, Zulieferer, Kunden, Länder und Rohstoffe. Gestrichelte Linien sind unbelegt, durchgezogene stützen sich auf ein geprüftes Zitat oder wurden von dir eingetragen. Klick auf Knoten/Kanten zeigt Details und Belege.</p>
+<form method="get" class="filterbar"><select name="stock" onchange="this.form.submit()"><option value="0">Alle Aktien</option>{% for s in stocks %}<option value="{{ s.id }}" {{ 'selected' if s.id == selected }}>{{ s.symbol }} – Umfeld</option>{% endfor %}</select></form>
+<div class="grid main">
+  <section class="card"><div id="graph" data-url="/api/graph?stock={{ selected }}&depth={{ depth }}"></div>
+    <div class="legend" id="legend"></div></section>
+  <aside class="stack"><section class="card" id="detail"><h2>Details</h2><p class="muted">Knoten oder Kante anklicken.</p></section>
+    <section class="card"><h2>Beziehung eintragen</h2>
+      <form method="post" action="/graph/relations" class="form-grid compact">
+        <label>Von <input name="source" list="names" required placeholder="z. B. Newmont Corporation"></label>
+        <label>Art <select name="source_kind">{% for k in entity_kinds %}<option>{{ k }}</option>{% endfor %}</select></label>
+        <label>Nach <input name="target" list="names" required placeholder="z. B. Caterpillar"></label>
+        <label>Art <select name="target_kind">{% for k in entity_kinds %}<option {{ 'selected' if k == 'supplier' }}>{{ k }}</option>{% endfor %}</select></label>
+        <label>Beziehung <select name="kind">{% for k in relation_kinds %}<option>{{ k }}</option>{% endfor %}</select></label>
+        <label>Anteil 0–1 <input name="strength" placeholder="0,3"></label>
+        <label>Land <input name="country"></label><label>Notiz <input name="note"></label>
+        <button>Speichern</button></form><datalist id="names">{% for n in names %}<option value="{{ n }}">{% endfor %}</datalist></section></aside>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/graph.js"></script>{% endblock %}

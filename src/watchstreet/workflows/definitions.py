@@ -17,6 +17,7 @@ from watchstreet.workflows.base import (
     WorkflowResult,
 )
 from watchstreet.workflows.briefing import Briefing
+from watchstreet.workflows.intel_flows import IntelTriage, ReadFiling, SecSync
 from watchstreet.workflows.llm import LlmWorkflow
 from watchstreet.workflows.scoring import technical_score
 from watchstreet.workflows.valuation import compute_valuation
@@ -188,6 +189,9 @@ REGISTRY: dict[str, Workflow] = {
         ClassifyStock(),
         ResearchDatapoints(),
         Briefing(),
+        SecSync(),
+        ReadFiling(),
+        IntelTriage(),
         ValuationScore(),
         TechnicalSnapshot(),
     )

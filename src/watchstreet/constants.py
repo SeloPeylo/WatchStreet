@@ -41,6 +41,7 @@ DEFAULT_EVENT_SCAN_INTERVAL_MIN = 60
 DEFAULT_WORKER_POLL_S = 3.0
 WORKER_HEARTBEAT_KEY = "worker_heartbeat"
 LAST_SCAN_KEY = "last_event_scan"
+SCAN_REQUEST_KEY = "scan_requested"
 HEARTBEAT_STALE_AFTER = timedelta(minutes=2)
 MAX_EVENTS_PER_REVIEW = 10
 MAX_NEWS_PER_STOCK = 10
@@ -48,6 +49,7 @@ REFRESH_INTERVALS: dict[str, timedelta] = {
     "technical_snapshot": timedelta(days=1),
     "valuation_score": timedelta(days=7),
     "thesis_check": timedelta(days=7),
+    "sec_sync": timedelta(days=1),
 }
 
 # --- Market data --------------------------------------------------------
@@ -96,3 +98,77 @@ OPEN_PANELS = 2
 RECENT_LIMIT = 8
 LIST_LIMIT = 200
 TEXT_PREVIEW_CHARS = 180
+
+# --- Documents / sources --------------------------------------------------
+MAX_DOCUMENT_CHARS = 2_000_000
+MAX_FETCH_BYTES = 8_000_000
+MAX_REDIRECTS = 3
+MAX_PDF_PAGES = 300
+READ_CHUNK_CHARS = 6000
+SEARCH_SNIPPET_CHARS = 240
+MAX_SEARCH_HITS = 6
+MIN_QUOTE_CHARS = 20
+MAX_SECTIONS = 60
+FETCH_MIN_INTERVAL_S = 0.2
+FETCH_USER_AGENT = "WatchStreet/0.1 (+https://github.com/selopeylo/watchstreet)"
+DOCUMENT_KINDS = ("filing", "gov", "press", "news", "dataset", "other")
+PRIMARY_KINDS = ("filing", "gov", "press", "dataset")
+
+# --- Intel ----------------------------------------------------------------
+INTEL_CATEGORIES = (
+    "company",
+    "supply",
+    "geopolitics",
+    "macro",
+    "regulatory",
+    "commodity",
+    "hazard",
+)
+INTEL_DIRECTIONS = ("bullish", "bearish", "neutral", "unknown")
+SEVERITY_MIN = 1
+SEVERITY_MAX = 5
+SEVERITY_HIGH = 4
+MAX_INTEL_PER_TICKET = 8
+RELEVANCE_THRESHOLD = 2.0
+MAX_DOCS_PER_TRIAGE = 10
+MAX_QUERIES_PER_STOCK = 4
+INGEST_MAX_ITEMS = 25
+FEED_FAILURE_LIMIT = 5
+
+# --- Geo / tripwires -------------------------------------------------------
+EARTH_RADIUS_KM = 6371.0
+QUAKE_MIN_MAGNITUDE = 5.0
+QUAKE_RADIUS_KM = 300.0
+COMMODITY_MOVE_PCT = 3.0
+MAP_RECENT_DAYS = 14
+
+# --- Graph ----------------------------------------------------------------
+RELATION_KINDS = (
+    "supplies",
+    "buys_from",
+    "owns",
+    "operates",
+    "located_in",
+    "exposed_to",
+    "competes",
+    "depends_on",
+)
+ENTITY_KINDS = (
+    "company",
+    "supplier",
+    "customer",
+    "mine",
+    "facility",
+    "port",
+    "country",
+    "commodity",
+)
+MAX_GRAPH_NODES = 150
+GRAPH_DEFAULT_DEPTH = 2
+MAX_RELATIONS_PER_TICKET = 25
+MAX_FILINGS_STORED = 6
+SEC_FORMS_FULLTEXT = ("10-K", "20-F", "40-F", "10-Q", "6-K")
+SEC_FORMS_ALERT = ("8-K", "6-K")
+SCENARIO_SHOCKS = (-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3)
+DEFAULT_RELATION_STRENGTH = 0.1  # used for exposure when a relation carries no share
+COMMODITY_SYMBOL_KEY = "commodity_symbol"

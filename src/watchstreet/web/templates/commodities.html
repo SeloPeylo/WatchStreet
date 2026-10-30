@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Rohstoffe{% endblock %}
+{% block content %}
+{% macro spark(values) %}{% if values|length > 1 %}{% set lo = values|min %}{% set hi = values|max %}{% set span = (hi - lo) or 1 %}
+<svg class="spark" viewBox="0 0 100 24" preserveAspectRatio="none"><polyline fill="none" stroke="currentColor" stroke-width="1.5" points="{% for v in values %}{{ (loop.index0 * 100 / (values|length - 1))|round(1) }},{{ (22 - (v - lo) / span * 20)|round(1) }} {% endfor %}"/></svg>{% endif %}{% endmacro %}
+<h1>Rohstoff- und Makro-Cockpit</h1>
+<div class="grid two">
+  <section class="card"><h2>Rohstoffe</h2>
+    <table><thead><tr><th>Rohstoff</th><th class="r">Preis</th><th class="r">Tag</th><th class="r">Monat</th><th>60 Tage</th></tr></thead><tbody>
+    {% for r in rows %}<tr><td>{{ r.commodity.label }}<br><span class="muted small">{{ r.commodity.symbol }} · {{ r.commodity.unit }}</span></td>
+      <td class="r">{{ r.price|price }}</td><td class="r {{ r.change_1d|sign }}">{{ r.change_1d|pct }}</td><td class="r {{ r.change_1m|sign }}">{{ r.change_1m|pct }}</td>
+      <td class="sparkcell {{ r.change_1m|sign }}">{{ spark(r.spark) }}</td></tr>{% endfor %}</tbody></table></section>
+  <section class="card"><h2>Makro</h2>
+    <table><thead><tr><th>Serie</th><th class="r">Stand</th><th class="r">Tag</th><th>60 Tage</th></tr></thead><tbody>
+    {% for r in macro %}<tr><td>{{ r.commodity.label }}</td><td class="r">{{ r.price|price }}</td><td class="r {{ r.change_1d|sign }}">{{ r.change_1d|pct }}</td><td class="sparkcell">{{ spark(r.spark) }}</td></tr>{% endfor %}</tbody></table>
+    <h3>Verhältnisse</h3>
+    <ul class="plain">{% for label, value, hint in ratios %}<li><strong>{{ label }}</strong> {{ '%.2f'|format(value) }} <span class="muted small">– {{ hint }}</span></li>{% else %}<li class="muted">Keine Daten.</li>{% endfor %}</ul></section>
+</div>
+<section class="card"><h2>Dein Rohstoff-Exposure</h2>
+  <table><thead><tr><th>Rohstoff</th><th>Aktien</th><th class="r">Anteil am Portfoliowert</th></tr></thead><tbody>
+  {% for c, stocks, share in exposure %}<tr><td>{{ c.label }}</td><td>{% for s in stocks %}<a href="/stocks/{{ s.id }}">{{ s.symbol }}</a> {% endfor %}</td><td class="r">{{ '%.1f'|format(share) }} %</td></tr>
+  {% else %}<tr><td colspan="3" class="muted">Noch keine Aktie mit Rohstoffbezug. Setze bei Minen/Öl-Aktien den Datenpunkt „Rohstoff-Symbol“ (z. B. GC=F).</td></tr>{% endfor %}</tbody></table>
+  <p class="muted small">Gewichtung nach Marktwert in Aktienwährung, ohne Währungsumrechnung.</p></section>
+<section class="card"><h2>Szenario: Rohstoffpreis-Schock auf den NAV</h2>
+  <p class="muted">Der NAV je Aktie wird deterministisch mit verändertem Rohstoffpreis neu gerechnet (alle Kosten, Reserven und Schulden unverändert). Die Positionsänderung unterstellt ein gleichbleibendes Kurs/NAV-Verhältnis – eine Modellannahme, keine Prognose.</p>
+  {% for stock, rows in scenarios.items() %}
+  <h3><a href="/stocks/{{ stock.id }}">{{ stock.symbol }}</a> {{ stock.name }}</h3>
+  <table class="mini"><thead><tr><th></th>{% for s in shocks %}<th class="r">{{ '%+.0f'|format(s * 100) }} %</th>{% endfor %}</tr></thead><tbody>
+    <tr><td>NAV je Aktie</td>{% for r in rows %}<td class="r">{{ r.nav_per_share|price }}</td>{% endfor %}</tr>
+    <tr><td>Δ NAV / Position</td>{% for r in rows %}<td class="r {{ r.nav_change_pct|sign }}">{{ r.nav_change_pct|pct }}</td>{% endfor %}</tr>
+    <tr><td>Kurs/NAV</td>{% for r in rows %}<td class="r">{{ r.p_nav|price }}</td>{% endfor %}</tr></tbody></table>
+  {% else %}<p class="muted">Kein Minen-Wert mit vollständigem NAV-Modell. Erfasse Minen-Datenpunkte, um Szenarien zu sehen.</p>{% endfor %}
+</section>
+{% endblock %}

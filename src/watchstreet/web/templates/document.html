@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Dokument {{ doc.id }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="/intel">Intel</a>{% if stock %} / <a href="/stocks/{{ stock.id }}">{{ stock.symbol }}</a>{% endif %} / Dokument</p>
+<h1>{{ doc.title or doc.url|preview }}</h1>
+<section class="card">
+  <dl class="meta">
+    <dt>Quelle</dt><dd><a href="{{ doc.url|safe_url }}" rel="noopener noreferrer" target="_blank">{{ doc.url|preview }} ↗</a></dd>
+    <dt>Herausgeber</dt><dd>{{ doc.publisher or '–' }} · <span class="tag {{ 'primary' if doc.kind in ('filing','gov','press','dataset') }}">{{ doc.kind }}</span></dd>
+    <dt>Veröffentlicht</dt><dd>{{ doc.published_at|dt }}</dd><dt>Abgerufen</dt><dd>{{ doc.fetched_at|dt }}</dd>
+    <dt>Prüfsumme</dt><dd><code>{{ doc.content_hash[:16] }}…</code> · {{ doc.text|length }} Zeichen gespeichert</dd>
+    {% if doc.meta %}<dt>Meta</dt><dd><code>{{ doc.meta }}</code></dd>{% endif %}
+  </dl>
+  {% if stock and doc.kind == 'filing' and doc.text|length > 1000 %}<form method="post" action="/documents/{{ doc.id }}/read"><button>Von einem Agenten lesen lassen</button></form>{% endif %}
+</section>
+{% if datapoints or relations or insights or intel %}
+<section class="card"><h2>Was auf diesem Dokument beruht</h2>
+  <ul class="plain">
+  {% for p in datapoints %}<li><span class="tag">Datenpunkt</span> {{ p.key }}{% if p.subject %} ({{ p.subject }}){% endif %} = {{ p.value if p.value is not none else p.text }} <blockquote>„{{ p.quote }}“</blockquote></li>{% endfor %}
+  {% for r in relations %}<li><span class="tag">Beziehung</span> {{ r.source }} —{{ r.rel.kind }}→ {{ r.target }} <blockquote>„{{ r.rel.quote }}“</blockquote></li>{% endfor %}
+  {% for i in insights %}<li><span class="tag">{{ i.category }}</span> {{ i.text }}</li>{% endfor %}
+  {% for i in intel %}<li><span class="tag">Intel</span> <a href="/intel?stock=0">{{ i.headline }}</a></li>{% endfor %}
+  </ul></section>
+{% endif %}
+{% if sections %}<section class="card"><h2>Gliederung</h2><ul class="plain">{% for s in sections %}<li class="muted small">{{ s.offset }} · {{ s.text }}</li>{% endfor %}</ul></section>{% endif %}
+<section class="card"><h2>Text (gespeicherte Kopie)</h2><pre class="doc">{{ preview }}</pre>{% if truncated %}<p class="muted">Anzeige gekürzt; Agenten lesen gezielt per Suche.</p>{% endif %}</section>
+{% endblock %}

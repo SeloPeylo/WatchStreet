@@ -12,11 +12,13 @@ from watchstreet.constants import (
     MAX_EVENTS_PER_REVIEW,
     MAX_OPEN_TICKETS_PER_STOCK,
     REFRESH_INTERVALS,
+    SCAN_REQUEST_KEY,
     SECONDS_PER_MINUTE,
 )
 from watchstreet.container import Container
 from watchstreet.db import session_scope
 from watchstreet.domain import TicketOrigin, TicketStatus, WorkflowKey
+from watchstreet.intel.ingest import run_ingest, seed_feeds
 from watchstreet.market.base import MarketDataError
 from watchstreet.models import MarketEvent, Stock, Ticket
 from watchstreet.services.state import touch, updated_at
@@ -112,15 +114,20 @@ def run_scan(container: Container) -> int:
     """One scan over all stocks; returns the number of tickets created."""
     created = 0
     with session_scope(container.session_factory) as session:
+        seed_feeds(session)
         for stock in session.scalars(select(Stock)):
             created += scan_stock_events(container, session, stock) is not None
             created += len(schedule_refreshes(session, stock))
         touch(session, LAST_SCAN_KEY)
+    created += run_ingest(container).tickets
     return created
 
 
 def scan_due(container: Container) -> bool:
     with session_scope(container.session_factory) as session:
         last = updated_at(session, LAST_SCAN_KEY)
+        requested = updated_at(session, SCAN_REQUEST_KEY)
+    if requested is not None and (last is None or requested > last):
+        return True
     interval = container.settings.event_scan_interval_min * SECONDS_PER_MINUTE
     return last is None or (utcnow() - last).total_seconds() >= interval

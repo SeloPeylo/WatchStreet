@@ -5,7 +5,8 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from watchstreet.models import Datapoint, Stock
+from watchstreet.intel.documents import verify_quote
+from watchstreet.models import Datapoint, Document, Stock
 from watchstreet.profiles.derive import Point
 from watchstreet.profiles.registry import DatapointSpec, get_profile
 
@@ -27,6 +28,8 @@ class DatapointInput:
     source: str = ""
     confidence: str = "medium"
     as_of: date | None = None
+    document_id: int | None = None
+    quote: str = ""
 
 
 def latest(stock: Stock) -> list[Datapoint]:
@@ -83,9 +86,17 @@ def add_datapoint(
 ) -> Datapoint:
     validate(stock, data)
     subject = data.subject.strip()
-    if origin == "agent" and is_user_protected(stock, data.key, subject):
+    if origin != "user" and is_user_protected(stock, data.key, subject):
         msg = "durch einen Nutzer-Eintrag geschützt"
         raise DatapointError(msg)
+    confidence = data.confidence
+    if data.document_id is not None:
+        doc = session.get(Document, data.document_id)
+        if doc is None or not verify_quote(doc, data.quote):
+            msg = "Zitat wurde im Dokument nicht gefunden (wörtlich zitieren)"
+            raise DatapointError(msg)
+    elif origin == "agent":
+        confidence = "low"  # no document, no trust: agent knowledge is never rated higher
     point = Datapoint(
         stock_id=stock.id,
         ticket_id=ticket_id,
@@ -95,9 +106,11 @@ def add_datapoint(
         text=data.text.strip(),
         unit=data.unit.strip(),
         source=data.source.strip() or (AGENT_SOURCE_FALLBACK if origin == "agent" else "manuell"),
-        confidence=data.confidence,
+        confidence=confidence,
         origin=origin,
         as_of=data.as_of,
+        document_id=data.document_id,
+        quote=data.quote if data.document_id else "",
     )
     session.add(point)
     session.flush()

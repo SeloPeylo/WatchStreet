@@ -142,6 +142,7 @@ class Insight(Base):
     ticket_id: Mapped[int | None] = mapped_column(ForeignKey("tickets.id"), nullable=True)
     category: Mapped[str] = mapped_column(String(16), default=InsightCategory.NOTE)
     text: Mapped[str] = mapped_column(Text)
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
 
@@ -207,6 +208,8 @@ class Datapoint(Base):
     confidence: Mapped[str] = mapped_column(String(8), default="medium")  # high|medium|low
     origin: Mapped[str] = mapped_column(String(8), default="user")  # user|agent
     as_of: Mapped[date | None] = mapped_column(Date, nullable=True)
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), nullable=True)
+    quote: Mapped[str] = mapped_column(Text, default="")  # verified verbatim excerpt
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
 
@@ -223,6 +226,127 @@ class Briefing(Base):
     focus: Mapped[str] = mapped_column(String(24), default="")  # panel to open first
     author: Mapped[str] = mapped_column(String(8), default="rules")  # rules|agent
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
+class Document(Base):
+    """A stored source (filing, press release, news article, dataset) with its extracted text."""
+
+    __tablename__ = "documents"
+    __table_args__ = (UniqueConstraint("url", "content_hash"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    stock_id: Mapped[int | None] = mapped_column(ForeignKey("stocks.id"), nullable=True, index=True)
+    url: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(12), default="other")
+    publisher: Mapped[str] = mapped_column(String(120), default="")
+    title: Mapped[str] = mapped_column(Text, default="")
+    published_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    content_hash: Mapped[str] = mapped_column(String(64), default="")
+    text: Mapped[str] = mapped_column(Text, default="")
+    meta: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    relevance: Mapped[float] = mapped_column(Float, default=0.0)
+    triaged: Mapped[bool] = mapped_column(default=False)
+
+
+class Entity(Base):
+    """A node in the dependency graph: company, supplier, mine, port, country, commodity ..."""
+
+    __tablename__ = "entities"
+    __table_args__ = (UniqueConstraint("kind", "name"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(160))
+    kind: Mapped[str] = mapped_column(String(16))
+    stock_id: Mapped[int | None] = mapped_column(ForeignKey("stocks.id"), nullable=True, index=True)
+    country: Mapped[str] = mapped_column(String(80), default="")
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    meta: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    origin: Mapped[str] = mapped_column(String(8), default="user")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
+class Relation(Base):
+    """A directed, sourced edge between two entities."""
+
+    __tablename__ = "relations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("entities.id"), index=True)
+    target_id: Mapped[int] = mapped_column(ForeignKey("entities.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    strength: Mapped[float | None] = mapped_column(Float, nullable=True)  # share 0..1 if known
+    note: Mapped[str] = mapped_column(Text, default="")
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), nullable=True)
+    quote: Mapped[str] = mapped_column(Text, default="")
+    confidence: Mapped[str] = mapped_column(String(8), default="low")
+    origin: Mapped[str] = mapped_column(String(8), default="user")
+    ticket_id: Mapped[int | None] = mapped_column(ForeignKey("tickets.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
+class IntelItem(Base):
+    """A tailored news/intel item pointing at direct sources, with portfolio impact."""
+
+    __tablename__ = "intel_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dedupe_key: Mapped[str] = mapped_column(String(200), unique=True)
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), nullable=True)
+    source_url: Mapped[str] = mapped_column(Text, default="")
+    headline: Mapped[str] = mapped_column(Text)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    why_it_matters: Mapped[str] = mapped_column(Text, default="")
+    quote: Mapped[str] = mapped_column(Text, default="")
+    category: Mapped[str] = mapped_column(String(16), default="company")
+    severity: Mapped[int] = mapped_column(Integer, default=2)
+    country: Mapped[str] = mapped_column(String(80), default="")
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    commodities: Mapped[list[str]] = mapped_column(JSON, default=list)
+    extra_sources: Mapped[list[dict[str, str]]] = mapped_column(JSON, default=list)
+    author: Mapped[str] = mapped_column(String(8), default="rules")  # rules|agent
+    ticket_id: Mapped[int | None] = mapped_column(ForeignKey("tickets.id"), nullable=True)
+    published_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+    impacts: Mapped[list["IntelImpact"]] = relationship(
+        cascade="all, delete-orphan",
+        order_by="IntelImpact.id",
+    )
+    document: Mapped["Document | None"] = relationship()
+
+
+class IntelImpact(Base):
+    """How an intel item affects one of the user's stocks."""
+
+    __tablename__ = "intel_impacts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    intel_id: Mapped[int] = mapped_column(ForeignKey("intel_items.id"), index=True)
+    stock_id: Mapped[int] = mapped_column(ForeignKey("stocks.id"), index=True)
+    direction: Mapped[str] = mapped_column(String(8), default="unknown")
+    note: Mapped[str] = mapped_column(Text, default="")
+
+    stock: Mapped[Stock] = relationship()
+
+
+class Feed(Base):
+    """A configured external source that is polled for documents."""
+
+    __tablename__ = "feeds"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    kind: Mapped[str] = mapped_column(String(8))  # rss|gdelt|usgs
+    url: Mapped[str] = mapped_column(Text, default="")  # feed URL, or search query for gdelt
+    publisher: Mapped[str] = mapped_column(String(120), default="")
+    doc_kind: Mapped[str] = mapped_column(String(12), default="news")
+    enabled: Mapped[bool] = mapped_column(default=True)
+    failures: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str] = mapped_column(Text, default="")
+    last_fetched_at: Mapped[datetime | None] = mapped_column(UtcDateTime, nullable=True)
 
 
 class SystemState(Base):

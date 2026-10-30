@@ -4,10 +4,20 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from watchstreet.models import Briefing, Insight, Score, Thesis, Ticket
+from watchstreet.models import Briefing, Entity, Insight, Score, Thesis, Ticket
 from watchstreet.services.datapoints import DatapointError, DatapointInput, add_datapoint
+from watchstreet.services.entities import (
+    GraphError,
+    RelationInput,
+    add_relation,
+    entity_for_stock,
+    get_or_create_entity,
+)
+from watchstreet.services.intel import IntelError, create_intel
 from watchstreet.services.profiles import assign_profile
-from watchstreet.workflows.base import WorkflowResult
+from watchstreet.workflows.base import EntityDraft, WorkflowResult
+
+SELF = "SELF"
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +30,7 @@ def store_result(session: Session, ticket: Ticket, result: WorkflowResult) -> No
                 ticket_id=ticket.id,
                 category=draft.category,
                 text=draft.text,
+                document_id=draft.document_id,
             ),
         )
     for score in result.scores:
@@ -57,12 +68,15 @@ def store_result(session: Session, ticket: Ticket, result: WorkflowResult) -> No
                     point.source,
                     point.confidence,
                     point.as_of,
+                    point.document_id,
+                    point.quote,
                 ),
-                origin="agent",
+                origin=point.origin,
                 ticket_id=ticket.id,
             )
         except DatapointError as exc:
             logger.warning("Dropped datapoint %s: %s", point.key, exc)
+    _store_graph_and_intel(session, ticket, result)
     if result.profile:
         assign_profile(ticket.stock, result.profile.profile, "agent")
     if result.briefing:
@@ -76,3 +90,50 @@ def store_result(session: Session, ticket: Ticket, result: WorkflowResult) -> No
                 author=result.briefing.author,
             ),
         )
+
+
+def _entity(session: Session, ticket: Ticket, draft: EntityDraft) -> Entity:
+    if draft.name == SELF:
+        return entity_for_stock(session, ticket.stock)
+    return get_or_create_entity(
+        session,
+        draft.name,
+        draft.kind,
+        country=draft.country,
+        lat=draft.lat,
+        lon=draft.lon,
+        origin="agent",
+    )
+
+
+def _store_graph_and_intel(session: Session, ticket: Ticket, result: WorkflowResult) -> None:
+    author = "rules" if result.data.get("runner", "offline") == "offline" else "agent"
+    for rel in result.relations:
+        try:
+            add_relation(
+                session,
+                _entity(session, ticket, rel.source),
+                _entity(session, ticket, rel.target),
+                RelationInput(
+                    rel.kind,
+                    rel.strength,
+                    rel.note,
+                    rel.document_id,
+                    rel.quote,
+                    rel.confidence,
+                    "agent",
+                    ticket.id,
+                ),
+            )
+        except GraphError as exc:
+            logger.warning("Dropped relation %s: %s", rel.kind, exc)
+    for item in result.intel:
+        try:
+            create_intel(
+                session,
+                item,
+                author=author,
+                ticket_id=ticket.id,
+            )
+        except IntelError as exc:
+            logger.warning("Dropped intel item: %s", exc)

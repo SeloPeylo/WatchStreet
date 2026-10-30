@@ -37,7 +37,9 @@ def compute_valuation(
     stock: Stock,
     price: float | None,
     fundamentals: Fundamentals,
+    commodity_shock: float = 0.0,
 ) -> ScoreResult | None:
+    """Profile valuation. ``commodity_shock`` (e.g. -0.1) re-prices the commodity for what-ifs."""
     profile = get_profile(stock.profile)
     points = as_points(latest(stock))
     metrics = dict(fundamentals.values)
@@ -48,9 +50,9 @@ def compute_valuation(
     missing = missing_inputs(profile, points)
     breakdown: dict[str, object] = {}
     if profile.derive is not None:
-        derived = profile.derive(
-            DeriveInput(metrics, points, price, stock.currency, commodity_price(market, points)),
-        )
+        spot = commodity_price(market, points)
+        shocked = spot * (1 + commodity_shock) if spot is not None else None
+        derived = profile.derive(DeriveInput(metrics, points, price, stock.currency, shocked))
         metrics.update(derived.metrics)
         missing += derived.missing
         breakdown = derived.breakdown

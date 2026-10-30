@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from watchstreet.config import Settings
 from watchstreet.container import build_container
+from watchstreet.intel.ingest import seed_feeds
 from watchstreet.models import Base
 from watchstreet.web.app import create_app
 
@@ -22,6 +23,9 @@ def container(tmp_path):
     built = build_container(settings)
     Base.metadata.drop_all(built.engine)
     Base.metadata.create_all(built.engine)
+    with built.session_factory() as session:
+        seed_feeds(session)
+        session.commit()
     yield built
     built.engine.dispose()
 

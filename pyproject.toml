@@ -18,6 +18,8 @@ dependencies = [
     "python-multipart>=0.0.9",
     "markdown>=3.6",
     "pydantic>=2.7",
+    "pypdf>=5.0",
+    "defusedxml>=0.7",
     "psycopg[binary]>=3.2",
 ]
 
@@ -29,6 +31,7 @@ dev = [
     "pytest-cov>=5",
     "bandit>=1.7",
     "types-Markdown",
+    "types-defusedxml",
     "pre-commit>=3.7",
 ]
 
@@ -36,7 +39,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-watchstreet = ["web/templates/*.html", "web/static/*"]
+watchstreet = ["web/templates/*.html", "web/templates/panels/*.html", "web/static/*", "web/static/vendor/*", "data/*.json"]
 
 # ---------------------------------------------------------------- ruff
 [tool.ruff]
@@ -50,7 +53,7 @@ select = [
     "S", "ANN", "T20", "PTH", "ERA", "TID", "DTZ", "PERF", "RET", "ARG", "TRY",
     "FBT", "PIE", "RSE", "SLF", "TCH", "LOG", "G",
 ]
-allowed-confusables = ["–", "\u202f"]  # typographic dash / narrow space in German UI text
+allowed-confusables = ["–", "\u202f", "×"]  # typographic dash / narrow space in German UI text
 ignore = [
     "TRY003",  # long messages in exceptions are fine
     "ANN401",
@@ -67,8 +70,10 @@ max-statements = 40
 max-returns = 5
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "PLR2004", "PLR0133", "PLR0911", "ANN", "SLF001", "ARG", "FBT"]
+"tests/**" = ["S101", "PLR2004", "PLR0133", "PLR0911", "ANN", "SLF001", "ARG", "FBT", "E501"]
+"scripts/**" = ["T201", "ANN", "PLR2004", "E501"]
 "src/watchstreet/web/routes.py" = ["FBT"]
+"src/watchstreet/intel/demo.py" = ["E501"]  # fixture text
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
