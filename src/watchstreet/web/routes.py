@@ -2,14 +2,12 @@
 
 from collections import Counter
 from dataclasses import asdict
-from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
 
 import markdown
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -38,45 +36,17 @@ from watchstreet.services.state import updated_at
 from watchstreet.services.timeline import build_timeline
 from watchstreet.timeutil import utcnow
 from watchstreet.web.deps import ContainerDep, SessionDep
-from watchstreet.web.formatting import register_filters
+from watchstreet.web.helpers import parse_date as _date
+from watchstreet.web.helpers import parse_number as _number
+from watchstreet.web.helpers import redirect as _redirect
+from watchstreet.web.helpers import render as _render
 from watchstreet.workflows.definitions import REGISTRY, user_workflows
 
-WEB_DIR = Path(__file__).parent
-templates = Jinja2Templates(directory=WEB_DIR / "templates")
-register_filters(templates.env)
 router = APIRouter()
 
 FormStr = Annotated[str, Form()]
 MANUAL_FILE = "user-manual.md"
 MANUAL_IMAGE_PREFIX = "screenshots/"
-
-
-def _number(raw: str, label: str) -> float:
-    try:
-        return float(raw.strip().replace(",", "."))
-    except ValueError as exc:
-        msg = f"{label} ist keine Zahl"
-        raise PortfolioError(msg) from exc
-
-
-def _date(raw: str) -> date | None:
-    raw = raw.strip()
-    if not raw:
-        return None
-    try:
-        return date.fromisoformat(raw)
-    except ValueError as exc:
-        msg = "Kaufdatum muss das Format JJJJ-MM-TT haben"
-        raise PortfolioError(msg) from exc
-
-
-def _render(request: Request, name: str, status_code: int = 200, **ctx: Any) -> HTMLResponse:
-    ctx.setdefault("error", None)
-    return templates.TemplateResponse(request, name, ctx, status_code=status_code)
-
-
-def _redirect(url: str) -> RedirectResponse:
-    return RedirectResponse(url, status_code=303)
 
 
 @router.get("/healthz")

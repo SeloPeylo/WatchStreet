@@ -30,6 +30,7 @@ dev = [
     "pytest>=8",
     "pytest-cov>=5",
     "bandit>=1.7",
+    "import-linter>=2.0",
     "types-Markdown",
     "types-defusedxml",
     "pre-commit>=3.7",
@@ -98,3 +99,85 @@ source = ["watchstreet"]
 # ---------------------------------------------------------------- bandit
 [tool.bandit]
 exclude_dirs = ["tests"]
+
+# ---------------------------------------------------------------- import-linter
+[tool.importlinter]
+root_package = "watchstreet"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layers: web/worker > harness > container > workflows > services/agents > profiles > market/intel > models > db"
+type = "layers"
+layers = [
+    "watchstreet.web | watchstreet.worker",
+    "watchstreet.harness",
+    "watchstreet.container",
+    "watchstreet.workflows",
+    "watchstreet.services | watchstreet.agents",
+    "watchstreet.profiles",
+    "watchstreet.market | watchstreet.intel | watchstreet.geo | watchstreet.commodities",
+    "watchstreet.models",
+    "watchstreet.db",
+    "watchstreet.workflow_specs | watchstreet.drafts | watchstreet.config",
+    "watchstreet.domain | watchstreet.constants | watchstreet.timeutil",
+]
+
+[[tool.importlinter.contracts]]
+name = "Web internals: app > routes > shared helpers/deps > formatting (routes never import each other)"
+type = "layers"
+layers = [
+    "watchstreet.web.app",
+    "watchstreet.web.routes | watchstreet.web.routes_intel",
+    "watchstreet.web.helpers | watchstreet.web.deps",
+    "watchstreet.web.formatting",
+]
+
+[[tool.importlinter.contracts]]
+name = "Web frameworks stay in the web package"
+type = "forbidden"
+source_modules = [
+    "watchstreet.agents", "watchstreet.commodities", "watchstreet.config", "watchstreet.constants",
+    "watchstreet.container", "watchstreet.db", "watchstreet.domain", "watchstreet.drafts",
+    "watchstreet.geo", "watchstreet.harness", "watchstreet.intel", "watchstreet.market",
+    "watchstreet.models", "watchstreet.profiles", "watchstreet.services", "watchstreet.timeutil",
+    "watchstreet.worker", "watchstreet.workflow_specs", "watchstreet.workflows",
+]
+forbidden_modules = ["fastapi", "starlette", "jinja2", "markdown"]
+
+[[tool.importlinter.contracts]]
+name = "Outbound HTTP only through the adapters (fetcher, market provider, LLM runners)"
+type = "forbidden"
+source_modules = ["watchstreet"]
+forbidden_modules = ["httpx"]
+ignore_imports = [
+    "watchstreet.intel.fetch -> httpx",
+    "watchstreet.intel.demo -> httpx",
+    "watchstreet.market.yahoo -> httpx",
+    "watchstreet.agents.http_runners -> httpx",
+]
+
+[[tool.importlinter.contracts]]
+name = "Pure core (profiles, market, agents, geo, commodities) knows no database or services"
+type = "forbidden"
+source_modules = [
+    "watchstreet.profiles", "watchstreet.market", "watchstreet.agents", "watchstreet.geo",
+    "watchstreet.commodities",
+]
+forbidden_modules = [
+    "sqlalchemy", "watchstreet.models", "watchstreet.db", "watchstreet.services",
+    "watchstreet.workflows", "watchstreet.harness", "watchstreet.container",
+]
+
+[[tool.importlinter.contracts]]
+name = "Foundation modules depend on nothing but each other"
+type = "forbidden"
+source_modules = [
+    "watchstreet.domain", "watchstreet.constants", "watchstreet.timeutil", "watchstreet.drafts",
+    "watchstreet.workflow_specs", "watchstreet.config",
+]
+forbidden_modules = [
+    "sqlalchemy", "httpx", "fastapi", "watchstreet.models", "watchstreet.db",
+    "watchstreet.services", "watchstreet.workflows", "watchstreet.harness",
+    "watchstreet.container", "watchstreet.market", "watchstreet.intel", "watchstreet.profiles",
+    "watchstreet.agents", "watchstreet.web",
+]

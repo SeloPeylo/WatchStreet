@@ -41,7 +41,9 @@ from watchstreet.services.entities import GraphError, RelationInput
 from watchstreet.services.state import touch
 from watchstreet.timeutil import utcnow
 from watchstreet.web.deps import ContainerDep, SessionDep
-from watchstreet.web.routes import _number, _redirect, _render
+from watchstreet.web.helpers import parse_number as _number
+from watchstreet.web.helpers import redirect as _redirect
+from watchstreet.web.helpers import render as _render
 
 router = APIRouter()
 DOC_PREVIEW_CHARS = 20_000
