@@ -9,9 +9,34 @@
                    port: "#6bd0e8", country: "#8b98b0", commodity: "#f0616d" };
   const el = (n, a, p) => { const e = document.createElementNS(NS, n); Object.entries(a || {}).forEach(([k, v]) => e.setAttribute(k, v)); if (p) p.appendChild(e); return e; };
 
+  const hiddenKinds = new Set(), nodeEls = [];
+  let query = "";
+  // Dim nodes that are filtered out by the legend (kind) or the search box.
+  function refresh() {
+    nodeEls.forEach(({ n, g }) => {
+      const match = !query || n.name.toLowerCase().includes(query);
+      g.style.opacity = hiddenKinds.has(n.kind) ? "0.08" : match ? "1" : "0.2";
+      g.style.pointerEvents = hiddenKinds.has(n.kind) ? "none" : "";
+    });
+  }
   function legend() {
     const box = document.getElementById("legend");
-    Object.entries(COLORS).forEach(([k, c]) => { const s = document.createElement("span"); const i = document.createElement("i"); i.style.background = c; s.append(i, k); box.appendChild(s); });
+    Object.entries(COLORS).forEach(([k, c]) => {
+      const b = document.createElement("button"); b.type = "button"; b.setAttribute("aria-pressed", "true"); b.title = "Art ein-/ausblenden";
+      const i = document.createElement("i"); i.style.background = c; b.append(i, k);
+      b.addEventListener("click", () => {
+        const off = !hiddenKinds.has(k); if (off) hiddenKinds.add(k); else hiddenKinds.delete(k);
+        b.setAttribute("aria-pressed", String(!off)); refresh();
+      });
+      box.appendChild(b);
+    });
+    const search = document.getElementById("graph-search");
+    if (search) search.addEventListener("input", () => { query = search.value.trim().toLowerCase(); refresh(); });
+    const reset = document.getElementById("graph-reset");
+    if (reset) reset.addEventListener("click", () => {
+      hiddenKinds.clear(); query = ""; if (search) search.value = "";
+      box.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", "true")); refresh();
+    });
   }
 
   function show(title, rows) {
@@ -47,10 +72,12 @@
 
   async function init() {
     legend();
-    const res = await fetch(host.dataset.url); const data = await res.json();
+    let data;
+    try { const res = await fetch(host.dataset.url); if (!res.ok) throw new Error(res.statusText); data = await res.json(); }
+    catch (err) { host.textContent = "Netzwerk konnte nicht geladen werden: " + err.message; return; }
     if (!data.nodes.length) { host.textContent = "Noch keine Beziehungen. Sie entstehen aus Einreichungen (Agent), Minen-Datenpunkten oder durch deine Einträge."; return; }
     const byId = layout(data.nodes, data.edges);
-    const svg = el("svg", { viewBox: `0 0 ${W} ${H}` }, host);
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Abhängigkeitsnetzwerk mit ${data.nodes.length} Knoten` }, host);
     data.edges.forEach((e) => {
       const a = byId.get(e.source), b = byId.get(e.target); const verified = e.document_id || e.origin === "user";
       const line = el("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: verified ? "#8b98b0" : "#4a566e", "stroke-width": 1 + 4 * (e.strength || 0.1), "stroke-dasharray": verified ? "" : "5 4", style: "cursor:pointer" }, svg);
@@ -58,9 +85,11 @@
         ["Konfidenz", e.confidence], ["Herkunft", e.origin], ["Notiz", e.note || "–"], ["Beleg", e.quote ? "„" + e.quote + "“" : "kein Zitat"]].concat(e.document_id ? [["Dokument", "#" + e.document_id, "/documents/" + e.document_id]] : [])));
     });
     data.nodes.forEach((n) => {
-      const g = el("g", { style: "cursor:pointer" }, svg);
+      const g = el("g", { style: "cursor:pointer", tabindex: "0", role: "button", "aria-label": n.name + " (" + n.kind + ")" }, svg);
+      nodeEls.push({ n, g });
       el("circle", { cx: n.x, cy: n.y, r: n.kind === "company" ? 13 : 9, fill: COLORS[n.kind] || "#888", stroke: "#0b1220", "stroke-width": 2 }, g);
-      const t = el("text", { x: n.x, y: n.y - 15, "text-anchor": "middle", fill: "#e4e9f2", "font-size": 11 }, g); t.textContent = n.name;
+      const t = el("text", { x: n.x, y: n.y - 15, "text-anchor": "middle", fill: "currentColor", "font-size": 11 }, g); t.textContent = n.name;
+      g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); g.dispatchEvent(new Event("click")); } });
       g.addEventListener("click", () => show(n.name, [["Art", n.kind], ["Land", n.country || "–"], ["Ort", n.lat == null ? "nicht gesetzt" : `${n.lat.toFixed(2)}, ${n.lon.toFixed(2)}`]].concat(n.stock_id ? [["Aktie", "öffnen", "/stocks/" + n.stock_id]] : [])));
     });
   }

@@ -87,7 +87,7 @@ def intel_page(
 @router.post("/intel/refresh")
 def intel_refresh(session: SessionDep) -> RedirectResponse:
     touch(session, SCAN_REQUEST_KEY)
-    return _redirect("/intel")
+    return _redirect("/intel", "scan_requested")
 
 
 @router.get("/intel/feeds", response_class=HTMLResponse)
@@ -119,7 +119,7 @@ def feed_add(session: SessionDep, form: Annotated[FeedForm, Form()]) -> Redirect
             else "news",
         )
     )
-    return _redirect("/intel/feeds")
+    return _redirect("/intel/feeds", "feed_added")
 
 
 @router.post("/intel/feeds/{feed_id}/toggle")
@@ -128,7 +128,7 @@ def feed_toggle(feed_id: int, session: SessionDep) -> RedirectResponse:
     if feed is None:
         raise HTTPException(404)
     feed.enabled, feed.failures = not feed.enabled, 0
-    return _redirect("/intel/feeds")
+    return _redirect("/intel/feeds", "feed_toggled")
 
 
 @router.post("/intel/feeds/{feed_id}/delete")
@@ -137,7 +137,7 @@ def feed_delete(feed_id: int, session: SessionDep) -> RedirectResponse:
     if feed is None:
         raise HTTPException(404)
     session.delete(feed)
-    return _redirect("/intel/feeds")
+    return _redirect("/intel/feeds", "feed_removed")
 
 
 # ------------------------------------------------------------------ documents
@@ -239,7 +239,7 @@ def relation_add(session: SessionDep, form: Annotated[RelationForm, Form()]) -> 
         )
     except (GraphError, ValueError) as exc:
         raise HTTPException(400, str(exc)) from exc
-    return _redirect("/graph")
+    return _redirect("/graph", "relation_added")
 
 
 # ------------------------------------------------------------------ map
@@ -321,7 +321,7 @@ def entity_location(
         )
     except (GraphError, ValueError) as exc:
         raise HTTPException(400, str(exc)) from exc
-    return _redirect("/map")
+    return _redirect("/map", "location_set")
 
 
 # ------------------------------------------------------------------ commodity cockpit

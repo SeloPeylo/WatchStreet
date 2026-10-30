@@ -3,6 +3,8 @@
 {% block title %}{{ stock.symbol }}{% endblock %}
 {% block content %}
 {% set cur = stock.currency %}
+<div data-live-reload>
+<nav class="crumbs" aria-label="Pfad"><a href="/holdings">{{ 'Holdings' if stock.holding else 'Watchlist' }}</a> / {{ stock.symbol }}</nav>
 <div class="stock-head">
   <div>
     <h1>{{ stock.symbol }} <small>{{ stock.name }}</small></h1>
@@ -47,8 +49,8 @@
     {% endif %}
     <details><summary>Position bearbeiten</summary>
       <form method="post" action="/holdings/{{ h.id }}/update" class="form-grid compact">
-        <label>Menge <input name="quantity" value="{{ h.quantity }}" required></label>
-        <label>Ø Preis <input name="avg_price" value="{{ h.avg_price }}" required></label>
+        <label>Menge <input name="quantity" value="{{ h.quantity }}" required inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?"></label>
+        <label>Ø Preis <input name="avg_price" value="{{ h.avg_price }}" required inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?"></label>
         <label>Kaufdatum <input name="bought_at" type="date" value="{{ h.bought_at or '' }}"></label>
         <label class="wide">Absicht <input name="intent" value="{{ h.intent }}"></label>
         <button>Speichern</button>
@@ -64,5 +66,6 @@
   {% set is_open = name in open_panels %}
   {% include "panels/" ~ name ~ ".html" %}
 {% endfor %}
+</div>
 {% endblock %}
 {% block scripts %}<script src="/static/candles.js"></script>{% endblock %}

@@ -5,7 +5,9 @@
   const NS = "http://www.w3.org/2000/svg";
   const W = 900, H = 360, PAD = { l: 8, r: 64, t: 10, b: 24 };
   const VOLUME_SHARE = 0.18;
-  const UP = "#3ecf8e", DOWN = "#f0616d", GRID = "#27344b", TXT = "#8b98b0";
+  // Colours follow the active theme (CSS custom properties) and are re-read on every draw.
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  let UP, DOWN, GRID, TXT, last = null;
   const Y_TICKS = 5, X_TICKS = 6, BODY_RATIO = 0.7, MIN_BODY = 1;
 
   const el = (name, attrs, parent) => {
@@ -22,10 +24,25 @@
       : d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit" });
   };
 
+  function state(text, retry) {
+    host.replaceChildren();
+    const box = document.createElement("div");
+    box.className = "chart-state"; box.setAttribute("role", retry ? "alert" : "status");
+    box.textContent = text;
+    if (retry) {
+      const btn = document.createElement("button");
+      btn.type = "button"; btn.className = "link"; btn.textContent = " Erneut versuchen";
+      btn.addEventListener("click", retry);
+      box.appendChild(btn);
+    }
+    host.appendChild(box);
+  }
+
   function draw(candles, interval) {
-    host.innerHTML = "";
-    if (!candles.length) { host.textContent = "Keine Kursdaten verfügbar."; return; }
-    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "none" }, host);
+    UP = css("--pos"); DOWN = css("--neg"); GRID = css("--line"); TXT = css("--muted");
+    host.replaceChildren();
+    if (!candles.length) { state("Keine Kursdaten verfügbar."); return; }
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "none", role: "img", "aria-label": `Kerzenchart, ${candles.length} Kerzen, Intervall ${interval}` }, host);
     const lo = Math.min(...candles.map((c) => c.l)), hi = Math.max(...candles.map((c) => c.h));
     const maxVol = Math.max(...candles.map((c) => c.v)) || 1;
     const plotW = W - PAD.l - PAD.r, plotH = H - PAD.t - PAD.b;
@@ -71,17 +88,21 @@
   }
 
   async function load(interval) {
-    host.textContent = "Lade Kursdaten …";
+    state("Lade Kursdaten …");
+    host.setAttribute("aria-busy", "true");
     try {
       const res = await fetch(`${host.dataset.url}?interval=${interval}`);
       if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
-      draw(await res.json(), interval);
-    } catch (err) { host.textContent = `Kursdaten nicht verfügbar: ${err.message}`; }
+      last = { candles: await res.json(), interval };
+      draw(last.candles, interval);
+    } catch (err) { state(`Kursdaten nicht verfügbar: ${err.message}.`, () => load(interval)); }
+    host.removeAttribute("aria-busy");
   }
+  document.addEventListener("ws:theme", () => { if (last) draw(last.candles, last.interval); });
 
   document.querySelectorAll("#intervals button").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll("#intervals button").forEach((b) => b.classList.toggle("active", b === btn));
+      document.querySelectorAll("#intervals button").forEach((b) => { b.classList.toggle("active", b === btn); b.setAttribute("aria-pressed", String(b === btn)); });
       load(btn.dataset.interval);
     });
   });

@@ -1,4 +1,4 @@
-{% macro status(value) %}<span class="badge st-{{ value }}">{{ {'queued':'wartend','running':'läuft','done':'erledigt','failed':'fehlgeschlagen','cancelled':'abgebrochen'}.get(value, value) }}</span>{% endmacro %}
+{% macro status(value, id=None) %}<span class="badge st-{{ value }}"{% if id %} data-ticket-id="{{ id }}" data-status="{{ value }}"{% endif %}>{{ {'queued':'wartend','running':'läuft','done':'erledigt','failed':'fehlgeschlagen','cancelled':'abgebrochen'}.get(value, value) }}</span>{% endmacro %}
 
 {% macro score_bar(value) %}<div class="bar"><div style="width: {{ value }}%"></div></div>{% endmacro %}
 
@@ -12,22 +12,22 @@
 {% endif %}
 {% endmacro %}
 
-{% macro ticket_table(rows, stocks=None) %}
-<table>
-  <thead><tr><th>#</th><th>Titel</th><th>Workflow</th><th>Status</th><th>Herkunft</th><th>Erstellt</th></tr></thead>
+{% macro ticket_table(rows, stocks=None, sortable=False, table_id='') %}
+<div class="table-wrap"><table{% if table_id %} id="{{ table_id }}"{% endif %}{% if sortable %} data-sortable{% endif %}>
+  <thead><tr><th{% if sortable %} data-sort="num"{% endif %}>#</th><th{% if sortable %} data-sort="text"{% endif %}>Titel</th><th{% if sortable %} data-sort="text"{% endif %}>Workflow</th><th{% if sortable %} data-sort="text"{% endif %}>Status</th><th>Herkunft</th><th{% if sortable %} data-sort="text"{% endif %}>Erstellt</th></tr></thead>
   <tbody>
   {% for t in rows %}
     <tr>
       <td>{{ t.id }}</td>
       <td><a href="/tickets/{{ t.id }}">{{ t.title }}</a></td>
       <td>{{ t.workflow }}</td>
-      <td>{{ status(t.status) }}</td>
+      <td>{{ status(t.status, t.id) }}</td>
       <td>{{ t.origin }}</td>
-      <td>{{ t.created_at|dt }}</td>
+      <td data-v="{{ t.created_at.strftime('%Y%m%d%H%M%S') }}">{{ t.created_at|dt }}</td>
     </tr>
   {% else %}
     <tr><td colspan="6" class="muted">Keine Tickets.</td></tr>
   {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% endmacro %}

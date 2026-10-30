@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Quellen{% endblock %}
 {% block content %}
-<p class="crumbs"><a href="/intel">Intel</a> / Quellen</p>
+<nav class="crumbs" aria-label="Pfad"><a href="/intel">Intel</a> / Quellen</nav>
 <h1>Quellen verwalten</h1>
 <section class="card">
   <p class="muted">Der Worker ruft aktive Quellen stündlich ab. Zusätzlich sucht er je Aktie (Firmenname, Minen, Zulieferer) über GDELT und prüft SEC EDGAR, Erdbeben (USGS) und Rohstoffpreise. Fünf Fehlversuche in Folge deaktivieren eine Quelle.</p>
   <table><thead><tr><th>Name</th><th>Art</th><th>Adresse</th><th>Status</th><th></th></tr></thead><tbody>
   {% for f in feeds %}<tr><td>{{ f.name }}</td><td>{{ f.kind }} / {{ f.doc_kind }}</td><td>{{ f.url|preview }}</td>
     <td>{% if f.enabled %}<span class="pos">aktiv</span>{% else %}<span class="neg">aus</span>{% endif %}{% if f.last_error %}<br><span class="neg small">{{ f.last_error|preview }}</span>{% endif %}<br><span class="muted small">zuletzt {{ f.last_fetched_at|dt }}</span></td>
-    <td class="r"><form method="post" action="/intel/feeds/{{ f.id }}/toggle" style="display:inline"><button class="link">{{ 'Deaktivieren' if f.enabled else 'Aktivieren' }}</button></form>
-      <form method="post" action="/intel/feeds/{{ f.id }}/delete" style="display:inline"><button class="link danger">×</button></form></td></tr>
+    <td class="r"><form method="post" action="/intel/feeds/{{ f.id }}/toggle" class="inline"><button class="link">{{ 'Deaktivieren' if f.enabled else 'Aktivieren' }}</button></form>
+      <form method="post" action="/intel/feeds/{{ f.id }}/delete" class="inline" data-confirm="Quelle „{{ f.name }}“ löschen?"><button class="link danger" aria-label="Quelle löschen" title="Löschen">×</button></form></td></tr>
   {% endfor %}</tbody></table>
 </section>
 <section class="card"><h2>RSS/Atom-Quelle hinzufügen</h2>
   <form method="post" action="/intel/feeds" class="form-grid">
-    <label>Name <input name="name" required></label><label class="wide">Feed-URL <input name="url" required placeholder="https://…"></label>
+    <label>Name <input name="name" required></label><label class="wide">Feed-URL <input name="url" type="url" required placeholder="https://…" pattern="https?://.+" title="Adresse mit http:// oder https://"></label>
     <label>Herausgeber <input name="publisher"></label>
     <label>Art <select name="doc_kind"><option value="news">Medien</option><option value="gov">Behörde</option><option value="press">Unternehmensmitteilung</option><option value="filing">Einreichung</option></select></label>
     <button>Hinzufügen</button></form></section>

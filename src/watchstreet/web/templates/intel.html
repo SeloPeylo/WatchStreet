@@ -5,12 +5,13 @@
   <div class="actions"><form method="post" action="/intel/refresh"><button class="link">Jetzt aktualisieren</button></form> <a href="/intel/feeds">Quellen verwalten</a></div></div>
 <p class="muted">Zugeschnitten auf dein Portfolio. Jede Meldung verweist auf die direkte Quelle; Primärquellen (Behörden, Einreichungen, Unternehmensmitteilungen) sind markiert. Agenten-Texte sind mit einem wörtlichen, vom System geprüften Zitat belegt.</p>
 {% for f in feed_errors %}<div class="alert">Quelle „{{ f.name }}“: {{ f.last_error }}</div>{% endfor %}
-<form method="get" class="filters filterbar">
-  <select name="stock"><option value="0">Alle Aktien</option>{% for s in stocks %}<option value="{{ s.id }}" {{ 'selected' if s.id == f_stock }}>{{ s.symbol }}</option>{% endfor %}</select>
-  <select name="category"><option value="">Alle Themen</option>{% for c in categories %}<option {{ 'selected' if c == f_category }}>{{ c }}</option>{% endfor %}</select>
-  <select name="severity">{% for n in range(1, 6) %}<option value="{{ n }}" {{ 'selected' if n == f_severity }}>Schwere ≥ {{ n }}</option>{% endfor %}</select>
+<form method="get" class="filters filterbar" aria-label="Meldungen filtern">
+  <select name="stock" aria-label="Aktie" onchange="this.form.submit()"><option value="0">Alle Aktien</option>{% for s in stocks %}<option value="{{ s.id }}" {{ 'selected' if s.id == f_stock }}>{{ s.symbol }}</option>{% endfor %}</select>
+  <select name="category" aria-label="Thema" onchange="this.form.submit()"><option value="">Alle Themen</option>{% for c in categories %}<option {{ 'selected' if c == f_category }}>{{ c }}</option>{% endfor %}</select>
+  <select name="severity" aria-label="Mindestschwere" onchange="this.form.submit()">{% for n in range(1, 6) %}<option value="{{ n }}" {{ 'selected' if n == f_severity }}>Schwere ≥ {{ n }}</option>{% endfor %}</select>
   <label class="check"><input type="checkbox" name="primary" value="1" {{ 'checked' if f_primary }}> nur Primärquellen</label>
   <button>Filtern</button>
+  {% if f_stock or f_category or f_severity > 1 or f_primary %}<a href="/intel">Filter zurücksetzen</a>{% endif %}
 </form>
 {% for i in items %}
 <article class="card intel sev-{{ i.severity }}">
@@ -32,5 +33,5 @@
     {% for s in i.extra_sources %}· <a href="{{ s.url|safe_url }}" rel="noopener noreferrer" target="_blank">{{ s.publisher or s.title }} ↗</a>{% endfor %}
   </div>
 </article>
-{% else %}<div class="card muted">Keine Meldungen. Der Worker sammelt stündlich neue Quellen; mit „Jetzt aktualisieren“ lässt sich ein Durchlauf anstoßen.</div>{% endfor %}
+{% else %}<div class="card muted">Keine Meldungen{% if f_stock or f_category or f_severity > 1 or f_primary %} für diese Filter. <a href="/intel">Filter zurücksetzen</a>{% else %}. Der Worker sammelt stündlich neue Quellen; mit „Jetzt aktualisieren“ lässt sich ein Durchlauf anstoßen.{% endif %}</div>{% endfor %}
 {% endblock %}

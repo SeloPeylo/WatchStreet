@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% from "macros.html" import status, ticket_table %}
-{% block title %}Übersicht{% endblock %}
+{% block title %}Übersicht</div>
+{% endblock %}
 {% block content %}
+<div data-live-reload>
 <h1>Übersicht</h1>
 <section class="grid cards">
   {% for currency, t in totals.items() %}
@@ -12,12 +14,12 @@
     <div class="muted">Einstand {{ t.cost|money(currency) }}</div>
   </div>
   {% else %}
-  <div class="card"><div class="label">Depotwert</div><div class="muted">Noch keine Holdings. <a href="/holdings">Position eintragen</a></div></div>
+  <div class="card"><div class="label">Depotwert</div><div class="muted">Noch keine Holdings. <a href="/holdings">Erste Position eintragen</a> oder <a href="/watchlist">Aktie beobachten</a>.</div></div>
   {% endfor %}
   <div class="card"><div class="label">Positionen</div><div class="big">{{ rows|length }}</div><div class="muted">{{ watch_count }} auf der Watchlist</div></div>
   <div class="card">
     <div class="label">Tickets</div>
-    <div class="big">{{ counts.get('queued', 0) + counts.get('running', 0) }} offen</div>
+    <div class="big"><a class="plain-link" href="/tickets">{{ counts.get('queued', 0) + counts.get('running', 0) }} offen</a></div>
     <div class="muted">{{ counts.get('done', 0) }} erledigt · {{ counts.get('failed', 0) }} fehlgeschlagen</div>
   </div>
   <div class="card">
@@ -29,7 +31,7 @@
 
 <section class="card">
   <h2>Holdings</h2>
-  <table>
+  <div class="table-wrap"><table>
     <thead><tr><th>Symbol</th><th>Name</th><th class="r">Menge</th><th class="r">Kurs</th><th class="r">Wert</th><th class="r">G/V</th></tr></thead>
     <tbody>
     {% for r in rows %}
@@ -41,9 +43,9 @@
         <td class="r">{{ r.market_value|money(r.holding.stock.currency) }}</td>
         <td class="r {{ r.pnl_pct|sign }}">{{ r.pnl_pct|pct }}</td>
       </tr>
-    {% else %}<tr><td colspan="6" class="muted">Keine Positionen.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="6" class="muted">Keine Positionen. <a href="/holdings">Jetzt eintragen</a></td></tr>{% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 
 <div class="grid two">
@@ -60,5 +62,6 @@
     {% else %}<li class="muted">Noch keine Erkenntnisse. Sie entstehen, sobald Tickets abgearbeitet sind.</li>{% endfor %}
     </ul>
   </section>
+</div>
 </div>
 {% endblock %}
