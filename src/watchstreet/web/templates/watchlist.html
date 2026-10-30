@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Watchlist{% endblock %}
+{% block content %}
+<h1>Watchlist</h1>
+<section class="card">
+  <h2>Aktie beobachten</h2>
+  <form method="post" action="/watchlist" class="form-grid">
+    <label>Symbol <input name="symbol" list="symbols" required placeholder="z. B. MSFT" value="{{ form.get('symbol', '') }}" autocomplete="off"></label>
+    <label class="wide">Notiz (optional) <input name="note" placeholder="Warum ist die Aktie interessant?" value="{{ form.get('note', '') }}"></label>
+    <button type="submit">Beobachten &amp; Kaufprüfung starten</button>
+  </form>
+  <datalist id="symbols"></datalist>
+</section>
+<section class="card">
+  <h2>Beobachtete Aktien</h2>
+  <table>
+    <thead><tr><th>Symbol</th><th>Name</th><th class="r">Kurs</th><th class="r">Tag</th><th>Notiz</th><th></th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+      {% set q = quotes[e.stock_id] %}
+      <tr>
+        <td><a href="/stocks/{{ e.stock_id }}"><strong>{{ e.stock.symbol }}</strong></a></td>
+        <td>{{ e.stock.name }}</td>
+        <td class="r">{{ (q.price if q else None)|money(e.stock.currency) }}</td>
+        <td class="r {{ (q.change_pct if q else None)|sign }}">{{ (q.change_pct if q else None)|pct }}</td>
+        <td>{{ e.note }}</td>
+        <td class="r"><form method="post" action="/watchlist/{{ e.id }}/delete"><button class="link danger">Entfernen</button></form></td>
+      </tr>
+    {% else %}<tr><td colspan="6" class="muted">Die Watchlist ist leer.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/symbols.js"></script>{% endblock %}

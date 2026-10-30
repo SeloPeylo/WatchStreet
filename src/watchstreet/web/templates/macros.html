@@ -1,0 +1,33 @@
+{% macro status(value) %}<span class="badge st-{{ value }}">{{ {'queued':'wartend','running':'läuft','done':'erledigt','failed':'fehlgeschlagen','cancelled':'abgebrochen'}.get(value, value) }}</span>{% endmacro %}
+
+{% macro score_bar(value) %}<div class="bar"><div style="width: {{ value }}%"></div></div>{% endmacro %}
+
+{% macro spark(values) %}
+{% if values|length > 1 %}
+{% set lo = values|min %}{% set hi = values|max %}{% set span = (hi - lo) or 1 %}
+<svg class="spark" viewBox="0 0 100 24" preserveAspectRatio="none">
+  <polyline fill="none" stroke="currentColor" stroke-width="1.5"
+    points="{% for v in values %}{{ (loop.index0 * 100 / (values|length - 1))|round(1) }},{{ (22 - (v - lo) / span * 20)|round(1) }} {% endfor %}"/>
+</svg>
+{% endif %}
+{% endmacro %}
+
+{% macro ticket_table(rows, stocks=None) %}
+<table>
+  <thead><tr><th>#</th><th>Titel</th><th>Workflow</th><th>Status</th><th>Herkunft</th><th>Erstellt</th></tr></thead>
+  <tbody>
+  {% for t in rows %}
+    <tr>
+      <td>{{ t.id }}</td>
+      <td><a href="/tickets/{{ t.id }}">{{ t.title }}</a></td>
+      <td>{{ t.workflow }}</td>
+      <td>{{ status(t.status) }}</td>
+      <td>{{ t.origin }}</td>
+      <td>{{ t.created_at|dt }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="muted">Keine Tickets.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}

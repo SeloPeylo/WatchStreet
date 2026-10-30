@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "macros.html" import status %}
+{% block title %}Ticket {{ ticket.id }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="/tickets">Tickets</a> / <a href="/stocks/{{ ticket.stock_id }}">{{ ticket.stock.symbol }}</a></p>
+<h1>#{{ ticket.id }} {{ ticket.title }} {{ status(ticket.status) }}</h1>
+<section class="card">
+  <dl class="meta">
+    <dt>Workflow</dt><dd>{{ workflow.label if workflow else ticket.workflow }} <span class="muted">({{ ticket.workflow }})</span></dd>
+    <dt>Herkunft</dt><dd>{{ ticket.origin }}{% if ticket.parent %} · Folgeticket von <a href="/tickets/{{ ticket.parent_id }}">#{{ ticket.parent_id }}</a>{% endif %} · Tiefe {{ ticket.depth }}</dd>
+    <dt>Priorität</dt><dd>{{ ticket.priority }}</dd>
+    <dt>Agent</dt><dd>{{ ticket.runner or '–' }}</dd>
+    <dt>Erstellt</dt><dd>{{ ticket.created_at|dt }}</dd>
+    <dt>Gestartet / Fertig</dt><dd>{{ ticket.started_at|dt }} / {{ ticket.finished_at|dt }}</dd>
+    {% if ticket.params %}<dt>Parameter</dt><dd><code>{{ ticket.params }}</code></dd>{% endif %}
+  </dl>
+  <div class="actions">
+    {% if ticket.status in ('failed', 'cancelled') %}<form method="post" action="/tickets/{{ ticket.id }}/retry"><button>Erneut ausführen</button></form>{% endif %}
+    {% if ticket.status == 'queued' %}<form method="post" action="/tickets/{{ ticket.id }}/cancel"><button class="danger">Abbrechen</button></form>{% endif %}
+  </div>
+</section>
+{% if ticket.error %}<section class="card"><h2>Fehler</h2><pre class="err">{{ ticket.error }}</pre></section>{% endif %}
+{% if ticket.summary %}<section class="card"><h2>Ergebnis</h2><p>{{ ticket.summary }}</p></section>{% endif %}
+{% if insights %}<section class="card"><h2>Erzeugte Erkenntnisse</h2><ul class="plain">{% for i in insights %}<li><span class="tag">{{ i.category }}</span> {{ i.text }}</li>{% endfor %}</ul></section>{% endif %}
+{% if ticket.result.get('scores') %}<section class="card"><h2>Erzeugte Scores</h2><ul class="plain">{% for s in ticket.result.scores %}<li>{{ s.scheme }}: <strong>{{ s.value }}</strong> ({{ s.label }})</li>{% endfor %}</ul></section>{% endif %}
+{% if events %}<section class="card"><h2>Geprüfte Meldungen</h2><ul class="plain">{% for e in events %}<li>{{ e.title }}</li>{% endfor %}</ul></section>{% endif %}
+{% if ticket.result.get('followups') %}
+<section class="card"><h2>Folgetickets (Guardrails)</h2>
+  <table><thead><tr><th>Workflow</th><th>Thema</th><th>Entscheidung</th></tr></thead><tbody>
+  {% for f in ticket.result.followups %}
+    <tr><td>{{ f.workflow }}</td><td>{{ f.topic }}</td>
+    <td>{% if f.accepted %}<span class="pos">angelegt</span> <a href="/tickets/{{ f.ticket_id }}">#{{ f.ticket_id }}</a>{% else %}<span class="muted">verworfen: {{ f.reason }}</span>{% endif %}</td></tr>
+  {% endfor %}</tbody></table>
+</section>
+{% endif %}
+{% endblock %}

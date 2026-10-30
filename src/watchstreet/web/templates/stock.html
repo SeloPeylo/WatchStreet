@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "macros.html" import status, score_bar, spark, ticket_table %}
+{% block title %}{{ stock.symbol }}{% endblock %}
+{% block content %}
+{% set cur = stock.currency %}
+<div class="stock-head">
+  <div>
+    <h1>{{ stock.symbol }} <small>{{ stock.name }}</small></h1>
+    <div class="muted">{{ stock.exchange }}
+      {% if stock.holding %}<span class="tag">Holding</span>{% endif %}
+      {% if stock.watch %}<span class="tag">Watchlist</span>{% endif %}</div>
+  </div>
+  <div class="price">
+    <div class="big">{{ (quote.price if quote else None)|money(cur) }}</div>
+    <div class="{{ (quote.change_pct if quote else None)|sign }}">{{ (quote.change_pct if quote else None)|pct }} zum Vortag</div>
+  </div>
+</div>
+
+<div class="grid main">
+  <section class="card">
+    <div class="chart-head">
+      <h2>Kursverlauf (Kerzen)</h2>
+      <div class="seg" id="intervals">
+        {% for i in intervals %}<button type="button" data-interval="{{ i }}" class="{{ 'active' if i == default_interval else '' }}">{{ {'1h':'Stunde','1d':'Tag','1wk':'Woche'}[i] }}</button>{% endfor %}
+      </div>
+    </div>
+    <div id="chart" data-url="/api/stocks/{{ stock.id }}/candles" data-interval="{{ default_interval }}"></div>
+  </section>
+
+  <aside class="stack">
+    {% if stock.holding %}
+    {% set h = stock.holding %}
+    <section class="card">
+      <h2>Position</h2>
+      {% if row %}
+      <dl class="meta">
+        <dt>Menge</dt><dd>{{ h.quantity|number }}</dd>
+        <dt>Ø Preis</dt><dd>{{ h.avg_price|money(cur) }}</dd>
+        <dt>Wert</dt><dd>{{ row.market_value|money(cur) }}</dd>
+        <dt>G/V</dt><dd class="{{ row.pnl_abs|sign }}">{{ row.pnl_abs|money(cur) }} ({{ row.pnl_pct|pct }})</dd>
+        {% if h.bought_at %}<dt>Gekauft</dt><dd>{{ h.bought_at.strftime('%d.%m.%Y') }}</dd>{% endif %}
+        {% if h.intent %}<dt>Absicht</dt><dd>{{ h.intent }}</dd>{% endif %}
+      </dl>
+      {% endif %}
+      <details><summary>Position bearbeiten</summary>
+        <form method="post" action="/holdings/{{ h.id }}/update" class="form-grid compact">
+          <label>Menge <input name="quantity" value="{{ h.quantity }}" required></label>
+          <label>Ø Preis <input name="avg_price" value="{{ h.avg_price }}" required></label>
+          <label>Kaufdatum <input name="bought_at" type="date" value="{{ h.bought_at or '' }}"></label>
+          <label class="wide">Absicht <input name="intent" value="{{ h.intent }}"></label>
+          <button>Speichern</button>
+        </form>
+      </details>
+    </section>
+    {% endif %}
+    {% if stock.watch and stock.watch.note %}<section class="card"><h2>Notiz</h2><p>{{ stock.watch.note }}</p></section>{% endif %}
+
+    <section class="card">
+      <h2>Ziel</h2>
+      <p>{{ goal.text if goal else 'Noch nicht festgelegt – wird von der Bestandsaufnahme bestimmt.' }}</p>
+    </section>
+
+    <section class="card">
+      <h2>Investmentthese</h2>
+      {% if stock.theses %}
+        {% set t = stock.theses[0] %}
+        <p><span class="badge th-{{ t.status }}">{{ t.status }}</span> {{ t.text }}</p>
+        {% if stock.theses|length > 1 %}
+        <details><summary>Verlauf ({{ stock.theses|length }} Versionen)</summary>
+          <ol class="plain">{% for v in stock.theses %}<li><span class="muted">{{ v.created_at|dt }}</span> <span class="badge th-{{ v.status }}">{{ v.status }}</span> <a href="/tickets/{{ v.ticket_id }}">#{{ v.ticket_id }}</a></li>{% endfor %}</ol>
+        </details>
+        {% endif %}
+      {% else %}<p class="muted">Noch keine These.</p>{% endif %}
+    </section>
+  </aside>
+</div>
+
+<section class="card">
+  <h2>Scores</h2>
+  <div class="grid cards">
+    {% for s in scores %}
+    <div class="score">
+      <div class="label">{{ s.latest.scheme }}</div>
+      <div class="big">{{ s.latest.value }} <small>{{ s.latest.label }}</small></div>
+      {{ score_bar(s.latest.value) }}
+      <div class="spark-wrap">{{ spark(s.history) }}</div>
+      <details><summary>Kriterien ({{ s.latest.details.get('coverage', '') }})</summary>
+        <table class="mini"><tbody>
+        {% for c in s.latest.details.get('criteria', []) %}<tr><td>{{ c.label }}</td><td class="r">{{ c.value }}</td><td class="r">{{ c.score }}</td></tr>{% endfor %}
+        </tbody></table>
+      </details>
+    </div>
+    {% else %}<p class="muted">Noch keine Scores.</p>{% endfor %}
+  </div>
+</section>
+
+<section class="card">
+  <h2>Erkenntnisse</h2>
+  <ul class="plain">
+  {% for i in stock.insights %}<li><span class="tag">{{ i.category }}</span> {{ i.text }} <a class="muted" href="/tickets/{{ i.ticket_id }}">#{{ i.ticket_id }}</a></li>
+  {% else %}<li class="muted">Noch keine Erkenntnisse.</li>{% endfor %}
+  </ul>
+</section>
+
+<section class="card">
+  <h2>Tickets</h2>
+  <form method="post" action="/stocks/{{ stock.id }}/tickets" class="inline-form">
+    <select name="workflow">{% for w in workflows %}<option value="{{ w.key }}">{{ w.label }}</option>{% endfor %}</select>
+    <input name="topic" placeholder="Thema (nur für Themenanalyse), z. B. Wettbewerb in China">
+    <button>Ticket anlegen</button>
+  </form>
+  {{ ticket_table(stock.tickets) }}
+</section>
+
+<section class="card">
+  <h2>Zeitleiste</h2>
+  <ul class="timeline">
+  {% for e in timeline %}
+    <li class="tl-{{ e.kind }}"><span class="when">{{ e.at|dt }}</span> <span class="tag">{{ e.kind }}</span>
+      {% if e.url %}<a href="{{ e.url }}" rel="noopener noreferrer" target="_blank">{{ e.text|preview }}</a>{% elif e.ticket_id %}<a href="/tickets/{{ e.ticket_id }}">{{ e.text|preview }}</a>{% else %}{{ e.text|preview }}{% endif %}</li>
+  {% else %}<li class="muted">Noch nichts passiert.</li>{% endfor %}
+  </ul>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/candles.js"></script>{% endblock %}

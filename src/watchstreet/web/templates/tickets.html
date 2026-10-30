@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "macros.html" import ticket_table %}
+{% block title %}Tickets{% endblock %}
+{% block content %}
+<h1>Tickets</h1>
+<div class="filters">
+  <a href="/tickets" class="{{ '' if status else 'active' }}">alle</a>
+  {% for s in statuses %}<a href="/tickets?status={{ s }}" class="{{ 'active' if status == s else '' }}">{{ s }}</a>{% endfor %}
+</div>
+<section class="card">{{ ticket_table(tickets) }}</section>
+{% endblock %}

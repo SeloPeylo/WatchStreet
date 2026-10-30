@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}WatchStreet{% endblock %} · WatchStreet</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">Watch<span>Street</span></a>
+  <nav>
+    <a href="/" {% if request.url.path == '/' %}class="active"{% endif %}>Übersicht</a>
+    <a href="/holdings" {% if request.url.path.startswith('/holdings') %}class="active"{% endif %}>Holdings</a>
+    <a href="/watchlist" {% if request.url.path.startswith('/watchlist') %}class="active"{% endif %}>Watchlist</a>
+    <a href="/tickets" {% if request.url.path.startswith('/tickets') %}class="active"{% endif %}>Tickets</a>
+    <a href="/system" {% if request.url.path.startswith('/system') %}class="active"{% endif %}>System</a>
+    <a href="/manual" {% if request.url.path.startswith('/manual') %}class="active"{% endif %}>Handbuch</a>
+  </nav>
+</header>
+<main>
+  {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+<footer>Keine Anlageberatung. Analysen sind maschinell erzeugt und können falsch sein.</footer>
+{% block scripts %}{% endblock %}
+</body>
+</html>

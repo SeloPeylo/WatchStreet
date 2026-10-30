@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "watchstreet"
+version = "0.1.0"
+description = "Ticket-driven stock portfolio tracker with an agent harness"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy>=2.0",
+    "httpx>=0.27",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "markdown>=3.6",
+    "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pytest>=8",
+    "pytest-cov>=5",
+    "bandit>=1.7",
+    "types-Markdown",
+    "pre-commit>=3.7",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+watchstreet = ["web/templates/*.html", "web/static/*"]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "A", "C4", "C90", "SIM", "PL", "RUF",
+    "S", "ANN", "T20", "PTH", "ERA", "TID", "DTZ", "PERF", "RET", "ARG", "TRY",
+    "FBT", "PIE", "RSE", "SLF", "TCH", "LOG", "G",
+]
+allowed-confusables = ["–", "\u202f"]  # typographic dash / narrow space in German UI text
+ignore = [
+    "TRY003",  # long messages in exceptions are fine
+    "ANN401",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+# PLR2004 (magic values) is enabled via "PL" and is intentionally NOT relaxed in src/.
+max-args = 6
+max-branches = 10
+max-statements = 40
+max-returns = 5
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004", "PLR0133", "PLR0911", "ANN", "SLF001", "ARG", "FBT"]
+"src/watchstreet/web/routes.py" = ["FBT"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src"]
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --cov=watchstreet --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
+filterwarnings = ["error::DeprecationWarning:watchstreet"]
+
+[tool.coverage.run]
+branch = true
+source = ["watchstreet"]
+
+# ---------------------------------------------------------------- bandit
+[tool.bandit]
+exclude_dirs = ["tests"]
