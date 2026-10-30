@@ -3,10 +3,11 @@
 {% block content %}
 <h1>Netzwerk – Abhängigkeiten</h1>
 <p class="muted">Aktien, ihre Assets, Zulieferer, Kunden, Länder und Rohstoffe. Gestrichelte Linien sind unbelegt, durchgezogene stützen sich auf ein geprüftes Zitat oder wurden von dir eingetragen. Klick auf Knoten/Kanten zeigt Details und Belege.</p>
-<form method="get" class="filterbar"><select name="stock" onchange="this.form.submit()"><option value="0">Alle Aktien</option>{% for s in stocks %}<option value="{{ s.id }}" {{ 'selected' if s.id == selected }}>{{ s.symbol }} – Umfeld</option>{% endfor %}</select></form>
+<div class="graph-tools"><input type="search" id="graph-search" placeholder="Knoten suchen …" aria-label="Knoten im Netzwerk suchen"><button type="button" class="ghost" id="graph-reset">Zurücksetzen</button></div>
+<form method="get" class="filterbar"><select name="stock" aria-label="Aktie wählen" onchange="this.form.submit()"><option value="0">Alle Aktien</option>{% for s in stocks %}<option value="{{ s.id }}" {{ 'selected' if s.id == selected }}>{{ s.symbol }} – Umfeld</option>{% endfor %}</select></form>
 <div class="grid main">
   <section class="card"><div id="graph" data-url="/api/graph?stock={{ selected }}&depth={{ depth }}"></div>
-    <div class="legend" id="legend"></div></section>
+    <div class="legend" id="legend" role="group" aria-label="Legende: Knotenarten ein- und ausblenden"></div></section>
   <aside class="stack"><section class="card" id="detail"><h2>Details</h2><p class="muted">Knoten oder Kante anklicken.</p></section>
     <section class="card"><h2>Beziehung eintragen</h2>
       <form method="post" action="/graph/relations" class="form-grid compact">

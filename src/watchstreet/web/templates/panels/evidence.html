@@ -1,7 +1,7 @@
 <details class="card panel" id="evidence" {{ 'open' if is_open }}>
   <summary><h2>Belege &amp; Datenpunkte <span class="muted small">{{ datapoints|length }}</span></h2></summary>
   <p class="muted">Eingaben für das Bewertungsschema, die keine kostenlose API liefert. Jeder Wert trägt Quelle und Konfidenz; deine Einträge überschreibt der Agent nie.</p>
-  <table class="mini">
+  <div class="table-wrap"><table class="mini">
     <thead><tr><th>Datenpunkt</th><th>{{ profile.subject_label or 'Bezug' }}</th><th class="r">Wert</th><th>Einheit</th><th>Quelle</th><th>Konfidenz</th><th>Von</th><th></th></tr></thead>
     <tbody>
     {% for p in datapoints|sort(attribute='subject') %}
@@ -9,10 +9,10 @@
         <td class="r">{{ p.text if p.text else (p.value|number) }}</td><td>{{ p.unit }}</td>
         <td>{{ p.source|preview }}</td><td><span class="badge cf-{{ p.confidence }}">{{ p.confidence }}</span></td>
         <td>{{ 'Du' if p.origin == 'user' else 'Agent' }} · {{ p.created_at|dt }}</td>
-        <td class="r"><form method="post" action="/datapoints/{{ p.id }}/delete"><button class="link danger">×</button></form></td></tr>
-    {% else %}<tr><td colspan="8" class="muted">Noch keine Datenpunkte.</td></tr>{% endfor %}
+        <td class="r"><form method="post" action="/datapoints/{{ p.id }}/delete" data-confirm="Datenpunkt löschen? Die Bewertung wird neu berechnet."><button class="link danger" aria-label="Datenpunkt löschen" title="Löschen">×</button></form></td></tr>
+    {% else %}<tr><td colspan="8" class="muted">Noch keine Datenpunkte. Erfasse unten einen Wert mit Quelle oder lege das Ticket „Datenpunkte recherchieren“ an.</td></tr>{% endfor %}
     </tbody>
-  </table>
+  </table></div>
   {% if specs %}
   <h3>Datenpunkt erfassen</h3>
   <form method="post" action="/stocks/{{ stock.id }}/datapoints" class="form-grid">

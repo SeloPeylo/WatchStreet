@@ -36,7 +36,10 @@
   }
 
   async function init() {
-    const [topo, data] = await Promise.all([fetch(host.dataset.geo).then((r) => r.json()), fetch(host.dataset.url).then((r) => r.json())]);
+    let topo, data;
+    try {
+      [topo, data] = await Promise.all([fetch(host.dataset.geo).then((r) => r.json()), fetch(host.dataset.url).then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })]);
+    } catch (err) { host.textContent = "Karte konnte nicht geladen werden: " + err.message; return; }
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "xMidYMid meet" }, host);
     const layers = { exposure: el("g", {}, svg), assets: el("g", {}, svg), intel: el("g", {}, svg) };
     const max = Math.max(0.0001, ...Object.values(data.exposure).map((e) => e.share));

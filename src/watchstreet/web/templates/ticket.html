@@ -2,8 +2,10 @@
 {% from "macros.html" import status %}
 {% block title %}Ticket {{ ticket.id }}{% endblock %}
 {% block content %}
-<p class="crumbs"><a href="/tickets">Tickets</a> / <a href="/stocks/{{ ticket.stock_id }}">{{ ticket.stock.symbol }}</a></p>
-<h1>#{{ ticket.id }} {{ ticket.title }} {{ status(ticket.status) }}</h1>
+<div data-live-reload>
+<nav class="crumbs" aria-label="Pfad"><a href="/tickets">Tickets</a> / <a href="/stocks/{{ ticket.stock_id }}">{{ ticket.stock.symbol }}</a> / #{{ ticket.id }}</nav>
+<h1>#{{ ticket.id }} {{ ticket.title }} {{ status(ticket.status, ticket.id) }}</h1>
+{% if ticket.status in ('queued', 'running') %}<p class="muted" id="live-hint">Dieses Ticket wird vom Worker bearbeitet. Die Seite aktualisiert sich automatisch, sobald es fertig ist.</p>{% endif %}
 <section class="card">
   <dl class="meta">
     <dt>Workflow</dt><dd>{{ workflow.label if workflow else ticket.workflow }} <span class="muted">({{ ticket.workflow }})</span></dd>
@@ -18,7 +20,7 @@
   </dl>
   <div class="actions">
     {% if ticket.status in ('failed', 'cancelled') %}<form method="post" action="/tickets/{{ ticket.id }}/retry"><button>Erneut ausführen</button></form>{% endif %}
-    {% if ticket.status == 'queued' %}<form method="post" action="/tickets/{{ ticket.id }}/cancel"><button class="danger">Abbrechen</button></form>{% endif %}
+    {% if ticket.status == 'queued' %}<form method="post" action="/tickets/{{ ticket.id }}/cancel" data-confirm="Ticket wirklich abbrechen?"><button class="danger">Abbrechen</button></form>{% endif %}
   </div>
 </section>
 {% if ticket.error %}<section class="card"><h2>Fehler</h2><pre class="err">{{ ticket.error }}</pre></section>{% endif %}
@@ -35,4 +37,5 @@
   {% endfor %}</tbody></table>
 </section>
 {% endif %}
+</div>
 {% endblock %}

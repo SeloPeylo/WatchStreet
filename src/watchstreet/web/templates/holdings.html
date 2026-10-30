@@ -5,9 +5,9 @@
 <section class="card">
   <h2>Position eintragen</h2>
   <form method="post" action="/holdings" class="form-grid">
-    <label>Symbol <input name="symbol" list="symbols" required placeholder="z. B. AAPL, SAP.DE" value="{{ form.get('symbol', '') }}" autocomplete="off"></label>
-    <label>Menge <input name="quantity" required inputmode="decimal" placeholder="10" value="{{ form.get('quantity', '') }}"></label>
-    <label>Ø Kaufpreis <input name="avg_price" required inputmode="decimal" placeholder="150,00" value="{{ form.get('avg_price', '') }}"></label>
+    <label>Symbol <input name="symbol" list="symbols" required autocapitalize="characters" spellcheck="false" placeholder="z. B. AAPL, SAP.DE" value="{{ form.get('symbol', '') }}" autocomplete="off"></label>
+    <label>Menge <input name="quantity" required inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" title="Zahl, z. B. 10 oder 2,5" placeholder="10" value="{{ form.get('quantity', '') }}"></label>
+    <label>Ø Kaufpreis <input name="avg_price" required inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" title="Zahl, z. B. 150,00" placeholder="150,00" value="{{ form.get('avg_price', '') }}"></label>
     <label>Kaufdatum (optional) <input name="bought_at" type="date" value="{{ form.get('bought_at', '') }}"></label>
     <label class="wide">Absicht (optional) <input name="intent" placeholder="z. B. langfristig halten, Dividende, Nachkauf unter 120" value="{{ form.get('intent', '') }}"></label>
     <button type="submit">Eintragen &amp; Bestandsaufnahme starten</button>
@@ -16,28 +16,28 @@
 </section>
 
 <section class="card">
-  <h2>Meine Positionen</h2>
-  <table>
-    <thead><tr><th>Symbol</th><th>Name</th><th class="r">Menge</th><th class="r">Ø Preis</th><th class="r">Kurs</th><th class="r">Tag</th><th class="r">Wert</th><th class="r">G/V</th><th></th></tr></thead>
+  <div class="chart-head"><h2>Meine Positionen</h2><input type="search" data-filter-for="#holdings-table" placeholder="Filtern …" aria-label="Positionen filtern"></div>
+  <div class="table-wrap"><table id="holdings-table" data-sortable>
+    <thead><tr><th data-sort="text">Symbol</th><th data-sort="text">Name</th><th class="r" data-sort="num">Menge</th><th class="r" data-sort="num">Ø Preis</th><th class="r" data-sort="num">Kurs</th><th class="r" data-sort="num">Tag</th><th class="r" data-sort="num">Wert</th><th class="r" data-sort="num">G/V</th><th><span class="sr-only">Aktionen</span></th></tr></thead>
     <tbody>
     {% for r in rows %}
       {% set cur = r.holding.stock.currency %}
       <tr>
         <td><a href="/stocks/{{ r.holding.stock_id }}"><strong>{{ r.holding.stock.symbol }}</strong></a></td>
         <td>{{ r.holding.stock.name }}</td>
-        <td class="r">{{ r.holding.quantity|number }}</td>
-        <td class="r">{{ r.holding.avg_price|money(cur) }}</td>
-        <td class="r">{{ r.price|money(cur) }}</td>
-        <td class="r {{ r.day_change_pct|sign }}">{{ r.day_change_pct|pct }}</td>
-        <td class="r">{{ r.market_value|money(cur) }}</td>
-        <td class="r {{ r.pnl_abs|sign }}">{{ r.pnl_abs|money(cur) }}<br><small>{{ r.pnl_pct|pct }}</small></td>
+        <td class="r" data-v="{{ r.holding.quantity }}">{{ r.holding.quantity|number }}</td>
+        <td class="r" data-v="{{ r.holding.avg_price }}">{{ r.holding.avg_price|money(cur) }}</td>
+        <td class="r" data-v="{{ r.price }}">{{ r.price|money(cur) }}</td>
+        <td class="r {{ r.day_change_pct|sign }}" data-v="{{ r.day_change_pct }}">{{ r.day_change_pct|pct }}</td>
+        <td class="r" data-v="{{ r.market_value }}">{{ r.market_value|money(cur) }}</td>
+        <td class="r {{ r.pnl_abs|sign }}" data-v="{{ r.pnl_abs }}">{{ r.pnl_abs|money(cur) }}<br><small>{{ r.pnl_pct|pct }}</small></td>
         <td class="r">
-          <form method="post" action="/holdings/{{ r.holding.id }}/delete" onsubmit="return confirm('Position entfernen? Wissen und Tickets bleiben erhalten.')"><button class="link danger">Entfernen</button></form>
+          <form method="post" action="/holdings/{{ r.holding.id }}/delete" data-confirm="{{ r.holding.stock.symbol }}: Position entfernen? Wissen und Tickets bleiben erhalten."><button class="link danger">Entfernen</button></form>
         </td>
       </tr>
-    {% else %}<tr><td colspan="9" class="muted">Noch keine Positionen eingetragen.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="9" class="muted">Noch keine Positionen. Trage oben Symbol, Menge und Kaufpreis ein, dann startet die Bestandsaufnahme automatisch.</td></tr>{% endfor %}
     </tbody>
-  </table>
+  </table></div>
   {% for currency, t in totals.items() %}
   <p class="totals">Summe {{ currency }}: Einstand {{ t.cost|money(currency) }} · Wert {{ t.value|money(currency) }} · <span class="{{ t.pnl|sign }}">{{ t.pnl|money(currency) }} ({{ t.pnl_pct|pct }})</span></p>
   {% endfor %}

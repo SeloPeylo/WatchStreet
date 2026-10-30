@@ -38,6 +38,7 @@ from watchstreet.services.state import updated_at
 from watchstreet.services.timeline import build_timeline
 from watchstreet.timeutil import utcnow
 from watchstreet.web.deps import ContainerDep, SessionDep
+from watchstreet.web.flash import FLASH_MESSAGES, FLASH_PARAM, with_flash
 from watchstreet.web.formatting import register_filters
 from watchstreet.workflows.definitions import REGISTRY, user_workflows
 
@@ -47,6 +48,7 @@ register_filters(templates.env)
 router = APIRouter()
 
 FormStr = Annotated[str, Form()]
+STATUS_POLL_MAX_IDS = 50
 MANUAL_FILE = "user-manual.md"
 MANUAL_IMAGE_PREFIX = "screenshots/"
 
@@ -72,11 +74,12 @@ def _date(raw: str) -> date | None:
 
 def _render(request: Request, name: str, status_code: int = 200, **ctx: Any) -> HTMLResponse:
     ctx.setdefault("error", None)
+    ctx["flash"] = FLASH_MESSAGES.get(request.query_params.get(FLASH_PARAM, ""))
     return templates.TemplateResponse(request, name, ctx, status_code=status_code)
 
 
-def _redirect(url: str) -> RedirectResponse:
-    return RedirectResponse(url, status_code=303)
+def _redirect(url: str, flash: str | None = None) -> RedirectResponse:
+    return RedirectResponse(with_flash(url, flash), status_code=303)
 
 
 @router.get("/healthz")
@@ -162,7 +165,7 @@ def holdings_add(
             form=form.model_dump(),
             error=str(exc),
         )
-    return _redirect("/holdings")
+    return _redirect("/holdings", "holding_added")
 
 
 @router.post("/holdings/{holding_id}/update", response_model=None)
@@ -188,7 +191,7 @@ def holdings_update(
         )
     except PortfolioError as exc:
         raise HTTPException(400, str(exc)) from exc
-    return _redirect(f"/stocks/{holding.stock_id}")
+    return _redirect(f"/stocks/{holding.stock_id}", "holding_updated")
 
 
 @router.post("/holdings/{holding_id}/delete")
@@ -197,7 +200,7 @@ def holdings_delete(holding_id: int, session: SessionDep) -> RedirectResponse:
     if holding is None:
         raise HTTPException(404)
     portfolio.remove_holding(session, holding)
-    return _redirect("/holdings")
+    return _redirect("/holdings", "holding_removed")
 
 
 # ------------------------------------------------------------------ watchlist
@@ -231,7 +234,7 @@ def watchlist_add(
             form={"symbol": symbol, "note": note},
             error=str(exc),
         )
-    return _redirect("/watchlist")
+    return _redirect("/watchlist", "watch_added")
 
 
 @router.post("/watchlist/{entry_id}/delete")
@@ -240,7 +243,14 @@ def watchlist_delete(entry_id: int, session: SessionDep) -> RedirectResponse:
     if entry is None:
         raise HTTPException(404)
     portfolio.remove_watch(session, entry)
-    return _redirect("/watchlist")
+    return _redirect("/watchlist", "watch_removed")
+
+
+@router.get("/api/stocks")
+def api_stocks(session: SessionDep) -> list[dict[str, str | int]]:
+    """Known stocks for the quick-jump palette."""
+    rows = session.scalars(select(Stock).order_by(Stock.symbol))
+    return [{"id": s.id, "symbol": s.symbol, "name": s.name} for s in rows]
 
 
 @router.get("/api/search")
@@ -342,7 +352,7 @@ def stock_profile_set(stock_id: int, session: SessionDep, profile: FormStr) -> R
         origin=TicketOrigin.USER,
         priority=HIGH_PRIORITY,
     )
-    return _redirect(f"/stocks/{stock_id}#valuation")
+    return _redirect(f"/stocks/{stock_id}#valuation", "profile_set")
 
 
 class DatapointForm(BaseModel):
@@ -393,7 +403,7 @@ def datapoint_add(
         origin=TicketOrigin.USER,
         priority=HIGH_PRIORITY,
     )
-    return _redirect(f"/stocks/{stock_id}#evidence")
+    return _redirect(f"/stocks/{stock_id}#evidence", "datapoint_added")
 
 
 @router.post("/datapoints/{datapoint_id}/delete")
@@ -412,7 +422,7 @@ def datapoint_delete(datapoint_id: int, session: SessionDep) -> RedirectResponse
             origin=TicketOrigin.USER,
             priority=HIGH_PRIORITY,
         )
-    return _redirect(f"/stocks/{stock_id}#evidence")
+    return _redirect(f"/stocks/{stock_id}#evidence", "datapoint_removed")
 
 
 @router.post("/stocks/{stock_id}/briefing")
@@ -427,7 +437,7 @@ def briefing_refresh(stock_id: int, session: SessionDep) -> RedirectResponse:
         origin=TicketOrigin.USER,
         priority=HIGH_PRIORITY,
     )
-    return _redirect(f"/stocks/{stock_id}")
+    return _redirect(f"/stocks/{stock_id}", "briefing_requested")
 
 
 @router.get("/api/stocks/{stock_id}/candles")
@@ -473,7 +483,7 @@ def stock_ticket_create(
     if definition.needs_topic and not topic.strip():
         raise HTTPException(400, "Für dieses Ticket wird ein Thema benötigt")
     tickets.create_ticket(session, stock, workflow, topic=topic.strip(), origin=TicketOrigin.USER)
-    return _redirect(f"/stocks/{stock.id}")
+    return _redirect(f"/stocks/{stock.id}", "ticket_created")
 
 
 # ------------------------------------------------------------------ tickets
@@ -487,6 +497,16 @@ def tickets_page(request: Request, session: SessionDep, status: str = "") -> HTM
         status=status,
         statuses=[s.value for s in TicketStatus],
     )
+
+
+@router.get("/api/tickets/status")
+def api_ticket_status(session: SessionDep, ids: str = "") -> list[dict[str, str | int]]:
+    """Lightweight status lookup used by the live-update script (``?ids=1,2,3``)."""
+    wanted = [int(p) for p in ids.split(",") if p.strip().isdigit()][:STATUS_POLL_MAX_IDS]
+    if not wanted:
+        return []
+    rows = session.scalars(select(Ticket).where(Ticket.id.in_(wanted)))
+    return [{"id": t.id, "status": t.status} for t in rows]
 
 
 @router.get("/tickets/{ticket_id}", response_class=HTMLResponse)
@@ -512,7 +532,7 @@ def ticket_retry(ticket_id: int, session: SessionDep) -> RedirectResponse:
     if ticket is None:
         raise HTTPException(404)
     tickets.retry(session, ticket)
-    return _redirect(f"/tickets/{ticket_id}")
+    return _redirect(f"/tickets/{ticket_id}", "ticket_retried")
 
 
 @router.post("/tickets/{ticket_id}/cancel")
@@ -521,7 +541,7 @@ def ticket_cancel(ticket_id: int, session: SessionDep) -> RedirectResponse:
     if ticket is None:
         raise HTTPException(404)
     tickets.cancel(session, ticket)
-    return _redirect(f"/tickets/{ticket_id}")
+    return _redirect(f"/tickets/{ticket_id}", "ticket_cancelled")
 
 
 # ------------------------------------------------------------------ system + manual

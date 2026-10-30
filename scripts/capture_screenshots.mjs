@@ -12,7 +12,7 @@ const OUT = new URL("../docs/screenshots/", import.meta.url).pathname;
 mkdirSync(OUT, { recursive: true });
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, colorScheme: "dark" });
 
 async function shot(name, path, { full = true, prepare } = {}) {
   await page.goto(`${BASE}${path}`, { waitUntil: "networkidle" });
@@ -26,7 +26,7 @@ await shot("02-holdings", "/holdings");
 await shot("03-holdings-error", "/holdings", {
   prepare: async () => {
     await page.fill('input[name="symbol"]', "AAPL");
-    await page.fill('input[name="quantity"]', "zehn");
+    await page.fill('input[name="quantity"]', "10");
     await page.fill('input[name="avg_price"]', "150");
     await page.click('button[type="submit"]');
     await page.waitForLoadState("networkidle");
@@ -34,6 +34,23 @@ await shot("03-holdings-error", "/holdings", {
   full: false,
 });
 await shot("04-watchlist", "/watchlist");
+// Quick-jump palette (key "/") and the confirmation toast shown after an action.
+await shot("21-palette", "/", {
+  full: false,
+  prepare: async () => {
+    await page.keyboard.press("/");
+    await page.keyboard.type("n");
+    await page.waitForSelector("#palette-list li a");
+  },
+});
+await shot("22-toast", "/holdings?flash=holding_added", { full: false, prepare: () => page.waitForSelector(".toast") });
+await shot("23-shortcuts", "/", {
+  full: false,
+  prepare: async () => {
+    await page.keyboard.press("?");
+    await page.waitForSelector("dialog#help[open]");
+  },
+});
 // Resolve stock ids by symbol from the holdings page.
 await page.goto(`${BASE}/holdings`, { waitUntil: "networkidle" });
 const ids = await page.$$eval('a[href^="/stocks/"] strong', (els) =>
@@ -87,6 +104,22 @@ for (let id = 1; id < 80 && !filing; id++) {
 await shot("19-document", `/documents/${filing}`);
 await shot("20-feeds", "/intel/feeds", { full: false });
 await shot("07-tickets", "/tickets");
+await shot("24-holdings-sorted", "/holdings", {
+  full: false,
+  prepare: async () => {
+    await page.click("#holdings-table th:nth-child(8) button");
+    await page.click("#holdings-table th:nth-child(8) button");
+  },
+});
+const light = await browser.newPage({ viewport: { width: 1280, height: 900 }, colorScheme: "light" });
+await light.goto(`${BASE}${ids["NEM"]}`, { waitUntil: "networkidle" });
+await light.screenshot({ path: `${OUT}25-light-theme.png`, fullPage: false });
+const phone = await browser.newPage({ viewport: { width: 390, height: 800 }, colorScheme: "dark" });
+await phone.goto(`${BASE}/`, { waitUntil: "networkidle" });
+await phone.click("#nav-toggle");
+await phone.screenshot({ path: `${OUT}26-mobile-menu.png`, fullPage: false });
+await phone.goto(`${BASE}${ids["AAPL"]}`, { waitUntil: "networkidle" });
+await phone.screenshot({ path: `${OUT}27-mobile-stock.png`, fullPage: false });
 await shot("08-ticket-detail", "/tickets/1");
 await shot("09-system", "/system");
 await browser.close();

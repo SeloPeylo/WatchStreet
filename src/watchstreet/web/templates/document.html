@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Dokument {{ doc.id }}{% endblock %}
 {% block content %}
-<p class="crumbs"><a href="/intel">Intel</a>{% if stock %} / <a href="/stocks/{{ stock.id }}">{{ stock.symbol }}</a>{% endif %} / Dokument</p>
+<nav class="crumbs" aria-label="Pfad"><a href="/intel">Intel</a>{% if stock %} / <a href="/stocks/{{ stock.id }}">{{ stock.symbol }}</a>{% endif %} / Dokument</nav>
 <h1>{{ doc.title or doc.url|preview }}</h1>
 <section class="card">
   <dl class="meta">
-    <dt>Quelle</dt><dd><a href="{{ doc.url|safe_url }}" rel="noopener noreferrer" target="_blank">{{ doc.url|preview }} ↗</a></dd>
+    <dt>Quelle</dt><dd><button type="button" class="link right" data-copy="/documents/{{ doc.id }}">Link zu dieser Seite kopieren</button><a href="{{ doc.url|safe_url }}" rel="noopener noreferrer" target="_blank">{{ doc.url|preview }} ↗</a></dd>
     <dt>Herausgeber</dt><dd>{{ doc.publisher or '–' }} · <span class="tag {{ 'primary' if doc.kind in ('filing','gov','press','dataset') }}">{{ doc.kind }}</span></dd>
     <dt>Veröffentlicht</dt><dd>{{ doc.published_at|dt }}</dd><dt>Abgerufen</dt><dd>{{ doc.fetched_at|dt }}</dd>
     <dt>Prüfsumme</dt><dd><code>{{ doc.content_hash[:16] }}…</code> · {{ doc.text|length }} Zeichen gespeichert</dd>
