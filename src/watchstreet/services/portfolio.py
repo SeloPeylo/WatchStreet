@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from watchstreet.constants import HIGH_PRIORITY
 from watchstreet.domain import TicketOrigin, WorkflowKey
+from watchstreet.errors import WatchStreetError
 from watchstreet.market.base import MarketDataError
 from watchstreet.market.service import MarketService
 from watchstreet.models import Holding, Stock, WatchEntry
@@ -17,7 +18,7 @@ from watchstreet.services.tickets import create_ticket
 SYMBOL_MAX_LEN = 32
 
 
-class PortfolioError(ValueError):
+class PortfolioError(WatchStreetError, ValueError):
     """Invalid user input for a portfolio operation."""
 
 

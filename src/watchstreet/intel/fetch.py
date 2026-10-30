@@ -28,6 +28,7 @@ from watchstreet.constants import (
     MAX_PDF_PAGES,
     MAX_REDIRECTS,
 )
+from watchstreet.errors import WatchStreetError
 
 TEXT_TYPES = ("text/", "application/json", "application/xml", "application/rss", "application/atom")
 HTML_TYPES = ("text/html", "application/xhtml")
@@ -38,7 +39,7 @@ HTTP_OK = 200
 REDIRECT_CODES = {301, 302, 303, 307, 308}
 
 
-class FetchError(RuntimeError):
+class FetchError(WatchStreetError, RuntimeError):
     """The URL could not be fetched safely."""
 
 

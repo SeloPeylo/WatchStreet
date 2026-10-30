@@ -5,6 +5,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from watchstreet.errors import WatchStreetError
 from watchstreet.intel.documents import verify_quote
 from watchstreet.models import Datapoint, Document, Stock
 from watchstreet.profiles.derive import Point
@@ -14,7 +15,7 @@ CONFIDENCE = ("high", "medium", "low")
 AGENT_SOURCE_FALLBACK = "agent_knowledge"
 
 
-class DatapointError(ValueError):
+class DatapointError(WatchStreetError, ValueError):
     """Invalid datapoint input."""
 
 

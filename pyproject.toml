@@ -119,7 +119,7 @@ layers = [
     "watchstreet.models",
     "watchstreet.db",
     "watchstreet.workflow_specs | watchstreet.drafts | watchstreet.config",
-    "watchstreet.domain | watchstreet.constants | watchstreet.timeutil",
+    "watchstreet.domain | watchstreet.constants | watchstreet.timeutil | watchstreet.errors",
 ]
 
 [[tool.importlinter.contracts]]
@@ -138,6 +138,7 @@ type = "forbidden"
 source_modules = [
     "watchstreet.agents", "watchstreet.commodities", "watchstreet.config", "watchstreet.constants",
     "watchstreet.container", "watchstreet.db", "watchstreet.domain", "watchstreet.drafts",
+    "watchstreet.errors",
     "watchstreet.geo", "watchstreet.harness", "watchstreet.intel", "watchstreet.market",
     "watchstreet.models", "watchstreet.profiles", "watchstreet.services", "watchstreet.timeutil",
     "watchstreet.worker", "watchstreet.workflow_specs", "watchstreet.workflows",
@@ -172,7 +173,8 @@ forbidden_modules = [
 name = "Foundation modules depend on nothing but each other"
 type = "forbidden"
 source_modules = [
-    "watchstreet.domain", "watchstreet.constants", "watchstreet.timeutil", "watchstreet.drafts",
+    "watchstreet.domain", "watchstreet.constants", "watchstreet.timeutil", "watchstreet.errors",
+    "watchstreet.drafts",
     "watchstreet.workflow_specs", "watchstreet.config",
 ]
 forbidden_modules = [

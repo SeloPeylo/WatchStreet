@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
 
+from watchstreet.errors import WatchStreetError
+
 
 @dataclass(frozen=True)
 class Candle:
@@ -63,7 +65,7 @@ class CompanyInfo:
     industry: str = ""
 
 
-class MarketDataError(RuntimeError):
+class MarketDataError(WatchStreetError, RuntimeError):
     """Raised when a provider cannot deliver the requested data."""
 
 

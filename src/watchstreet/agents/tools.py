@@ -5,9 +5,10 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from watchstreet.agents.base import AgentRequest
+from watchstreet.errors import WatchStreetError
 
 
-class ToolError(ValueError):
+class ToolError(WatchStreetError, ValueError):
     """A tool call the model got wrong; the message is returned to the model so it can retry."""
 
 

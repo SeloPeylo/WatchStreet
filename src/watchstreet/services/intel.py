@@ -14,12 +14,13 @@ from watchstreet.constants import (
     SEVERITY_MIN,
 )
 from watchstreet.drafts import IntelDraft
+from watchstreet.errors import WatchStreetError
 from watchstreet.geo import country_point, normalize_country
 from watchstreet.models import Document, IntelImpact, IntelItem, Stock
 from watchstreet.timeutil import utcnow
 
 
-class IntelError(ValueError):
+class IntelError(WatchStreetError, ValueError):
     """An intel item that is not acceptable (e.g. without a source)."""
 
 

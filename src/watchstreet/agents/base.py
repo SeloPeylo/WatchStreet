@@ -3,8 +3,10 @@
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from watchstreet.errors import WatchStreetError
 
-class AgentError(RuntimeError):
+
+class AgentError(WatchStreetError, RuntimeError):
     """Raised when an agent backend fails or returns unusable output."""
 
 

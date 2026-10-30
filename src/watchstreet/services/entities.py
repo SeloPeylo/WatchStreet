@@ -13,6 +13,7 @@ from watchstreet.constants import (
     MAX_GRAPH_NODES,
     RELATION_KINDS,
 )
+from watchstreet.errors import WatchStreetError
 from watchstreet.geo import country_point, normalize_country
 from watchstreet.intel.documents import verify_quote
 from watchstreet.models import Datapoint, Document, Entity, Relation, Stock
@@ -22,7 +23,7 @@ COUNTRY_RELATIONS = ("located_in", "operates", "exposed_to")
 LAT_LIMIT, LON_LIMIT = 90.0, 180.0
 
 
-class GraphError(ValueError):
+class GraphError(WatchStreetError, ValueError):
     """Invalid entity/relation input."""
 
 

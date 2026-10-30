@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from watchstreet.constants import FEED_DOC_KINDS
+from watchstreet.errors import WatchStreetError
 from watchstreet.models import Feed
 
 DEFAULT_FEEDS: tuple[tuple[str, str, str, str, str], ...] = (
@@ -38,7 +39,7 @@ def seed_feeds(session: Session) -> int:
     return len(DEFAULT_FEEDS)
 
 
-class FeedError(ValueError):
+class FeedError(WatchStreetError, ValueError):
     """A feed the user entered is not acceptable."""
 
 
