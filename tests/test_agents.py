@@ -10,7 +10,7 @@ from watchstreet.agents.factory import build_runner
 from watchstreet.agents.http_runners import AnthropicRunner, OpenAICompatibleRunner
 from watchstreet.agents.offline import OfflineRunner
 from watchstreet.config import Settings
-from watchstreet.workflows.llm import parse_analysis
+from watchstreet.workflows.analysis import parse_analysis
 
 REQ = AgentRequest("topic_analysis", "sys", "prompt")
 

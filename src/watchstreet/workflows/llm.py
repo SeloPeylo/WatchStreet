@@ -1,16 +1,17 @@
-"""Shared machinery for workflows whose analysis step is performed by an agent."""
+"""Base class for workflows whose analysis step is performed by an agent.
+
+Two modes: with a tool-capable runner the agent calls tools (``tools.py``) and fills drafts;
+otherwise it must answer with one JSON document (``analysis.py``) that is validated here.
+"""
 
 import json
 import logging
-import re
 from typing import Any
-
-from pydantic import BaseModel, Field, ValidationError
 
 from watchstreet.agents.base import AgentError, AgentRequest
 from watchstreet.agents.tools import ToolCapableRunner
 from watchstreet.constants import MAX_INTEL_PER_TICKET, MAX_LLM_ATTEMPTS
-from watchstreet.domain import InsightCategory, ThesisStatus
+from watchstreet.domain import InsightCategory
 from watchstreet.drafts import (
     DatapointDraft,
     FollowUp,
@@ -22,6 +23,13 @@ from watchstreet.drafts import (
 )
 from watchstreet.intel.documents import verify_quote
 from watchstreet.models import Document
+from watchstreet.workflows.analysis import (
+    SYSTEM_PROMPT,
+    Analysis,
+    category_or_note,
+    parse_analysis,
+    status_or_active,
+)
 from watchstreet.workflows.base import Workflow, WorkflowContext
 from watchstreet.workflows.facts import Facts, gather_facts
 from watchstreet.workflows.tool_schemas import FOLLOWUP_WORKFLOWS
@@ -41,105 +49,6 @@ Vorgehen:
 """
 COMPACT_DROP = ("fundamentals", "headlines", "recent_insights")
 SEPARATORS = (",", ":")
-
-SYSTEM_PROMPT = """\
-Du bist ein sorgfältiger Aktien-Analyst in einem Ticket-System. Du gibst keine Anlageberatung,
-sondern strukturierte Analysen für den Eigengebrauch. Regeln:
-- Stütze dich ausschließlich auf die gelieferten Fakten; nenne Unsicherheit ausdrücklich.
-- Erfinde keine Zahlen. Fehlt etwas, sage es.
-- Antworte NUR mit einem JSON-Objekt, ohne Text davor oder danach, auf Deutsch.
-
-Schema:
-{
-  "summary": "kurze Zusammenfassung (2-5 Sätze)",
-  "goal": "Ziel/Absicht für diese Aktie oder null",
-  "thesis": "Investmentthese oder null",
-  "thesis_status": "active|confirmed|weakened|invalidated oder null",
-  "insights": [{"category": "goal|risk|catalyst|valuation|technical|action|note", "text": "..."}],
-  "followups": [{"workflow": "<einer der erlaubten>", "topic": "...", "reason": "..."}],
-  "profile": "Profilschlüssel oder null",
-  "datapoints": [{"key": "...", "subject": "...", "value": 0, "source": "...",
-                  "confidence": "high|medium|low"}]
-}
-Erlaubte Folge-Workflows: %(followups)s. Schlage nur Folgetickets vor, die echten Mehrwert bringen.
-"""
-JSON_OBJECT = re.compile(r"\{.*\}", re.DOTALL)
-
-
-class InsightModel(BaseModel):
-    category: str = InsightCategory.NOTE
-    text: str
-
-
-class FollowUpModel(BaseModel):
-    workflow: str
-    topic: str = ""
-    reason: str = ""
-
-
-class DatapointModel(BaseModel):
-    key: str
-    subject: str = ""
-    value: float | None = None
-    text: str = ""
-    unit: str = ""
-    source: str = ""
-    confidence: str = "medium"
-
-
-class IntelModel(BaseModel):
-    document_id: int
-    headline: str
-    summary: str = ""
-    why_it_matters: str = ""
-    category: str = "company"
-    severity: int = 2
-    direction: str = "unknown"
-    quote: str = ""
-    country: str = ""
-    commodities: list[str] = Field(default_factory=list)
-
-
-class Analysis(BaseModel):
-    """The JSON document an agent must return."""
-
-    summary: str
-    goal: str | None = None
-    thesis: str | None = None
-    thesis_status: str | None = None
-    insights: list[InsightModel] = Field(default_factory=list)
-    followups: list[FollowUpModel] = Field(default_factory=list)
-    profile: str | None = None
-    profile_reason: str = ""
-    datapoints: list[DatapointModel] = Field(default_factory=list)
-    intel: list[IntelModel] = Field(default_factory=list)
-
-
-def parse_analysis(raw: str) -> Analysis:
-    """Extract and validate the JSON object from a model answer."""
-    match = JSON_OBJECT.search(raw)
-    if not match:
-        msg = "No JSON object in agent answer"
-        raise AgentError(msg)
-    try:
-        return Analysis.model_validate(json.loads(match.group(0)))
-    except (json.JSONDecodeError, ValidationError) as exc:
-        msg = f"Agent answer does not match schema: {exc}"
-        raise AgentError(msg) from exc
-
-
-def _category(value: str) -> InsightCategory:
-    try:
-        return InsightCategory(value)
-    except ValueError:
-        return InsightCategory.NOTE
-
-
-def _status(value: str | None) -> ThesisStatus:
-    try:
-        return ThesisStatus(value or ThesisStatus.ACTIVE)
-    except ValueError:
-        return ThesisStatus.ACTIVE
 
 
 class LlmWorkflow(Workflow):
@@ -246,28 +155,36 @@ class LlmWorkflow(Workflow):
             )
         return drafts
 
+    @staticmethod
+    def _thesis_draft(analysis: Analysis, ctx: WorkflowContext) -> ThesisDraft | None:
+        """A new thesis, or the old text re-rated; ``None`` if the agent said nothing usable."""
+        if not (analysis.thesis or analysis.thesis_status):
+            return None
+        previous = ctx.stock.theses[0].text if ctx.stock.theses else ""
+        text = analysis.thesis or previous
+        if not text:
+            return None
+        return ThesisDraft(text, status_or_active(analysis.thesis_status))
+
     def _to_result(
         self,
         analysis: Analysis,
         facts: Facts,
         ctx: WorkflowContext,
     ) -> WorkflowResult:
-        insights = [InsightDraft(_category(i.category), i.text) for i in analysis.insights]
+        insights = [
+            InsightDraft(category_or_note(entry.category), entry.text)
+            for entry in analysis.insights
+        ]
         if analysis.goal:
             insights.insert(0, InsightDraft(InsightCategory.GOAL, analysis.goal))
-        thesis = None
-        if analysis.thesis or analysis.thesis_status:
-            old = ctx.stock.theses[0].text if ctx.stock.theses else ""
-            thesis = ThesisDraft(analysis.thesis or old, _status(analysis.thesis_status))
-            if not thesis.text:
-                thesis = None
         return WorkflowResult(
             summary=analysis.summary,
             insights=insights,
             scores=facts.fresh_scores if self.persist_scores else [],
-            thesis=thesis,
+            thesis=self._thesis_draft(analysis, ctx),
             followups=[FollowUp(f.workflow, f.topic, f.reason) for f in analysis.followups],
-            datapoints=[DatapointDraft(**d.model_dump()) for d in analysis.datapoints],
+            datapoints=[DatapointDraft(**point.model_dump()) for point in analysis.datapoints],
             intel=self._intel_drafts(analysis, ctx),
             profile=ProfileDraft(analysis.profile, analysis.profile_reason)
             if analysis.profile
