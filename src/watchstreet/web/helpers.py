@@ -7,11 +7,14 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
 
+from watchstreet.container import Container
 from watchstreet.services.portfolio import PortfolioError
+from watchstreet.services.status import system_status
 from watchstreet.web.flash import FLASH_MESSAGES, FLASH_PARAM, with_flash
 from watchstreet.web.formatting import register_filters
 
@@ -52,3 +55,21 @@ def render(request: Request, name: str, status_code: int = 200, **ctx: Any) -> H
 def redirect(url: str, flash: str | None = None) -> RedirectResponse:
     """303 redirect; ``flash`` is a ``web.flash`` message code shown once afterwards."""
     return RedirectResponse(with_flash(url, flash), status_code=REDIRECT_STATUS)
+
+
+def get_or_404[Model](session: Session, model: type[Model], primary_key: int) -> Model:
+    """Load one row by primary key or answer HTTP 404."""
+    row = session.get(model, primary_key)
+    if row is None:
+        raise HTTPException(404)
+    return row
+
+
+def current_system_status(session: Session, container: Container) -> dict[str, Any]:
+    """System-status panel data (dashboard and system page) for the running container."""
+    return system_status(
+        session,
+        market=container.market.name,
+        runner=container.runner.name,
+        scan_interval_min=container.settings.event_scan_interval_min,
+    )

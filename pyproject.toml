@@ -74,7 +74,6 @@ max-returns = 5
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "PLR2004", "PLR0133", "PLR0911", "ANN", "SLF001", "ARG", "FBT", "E501"]
 "scripts/**" = ["T201", "ANN", "PLR2004", "E501"]
-"src/watchstreet/web/routes.py" = ["FBT"]
 "src/watchstreet/migrations/**" = ["PLR0915"]  # one statement per table in the baseline
 "src/watchstreet/intel/demo.py" = ["E501"]  # fixture text
 
@@ -131,7 +130,7 @@ name = "Web internals: app > routes > shared helpers/deps > formatting (routes n
 type = "layers"
 layers = [
     "watchstreet.web.app",
-    "watchstreet.web.routes | watchstreet.web.routes_intel",
+    "watchstreet.web.routes_portfolio | watchstreet.web.routes_stocks | watchstreet.web.routes_tickets | watchstreet.web.routes_intel | watchstreet.web.routes_system",
     "watchstreet.web.helpers | watchstreet.web.deps",
     "watchstreet.web.formatting",
 ]
