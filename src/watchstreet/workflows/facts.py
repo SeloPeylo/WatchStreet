@@ -141,6 +141,3 @@ def gather_facts(ctx: WorkflowContext, extra: dict[str, Any] | None = None) -> F
     ]
     data.update(extra or {})
     return Facts(data=data, fresh_scores=[_draft(r) for r in results])
-
-
-__all__ = ["Facts", "gather_facts", "latest_scores"]

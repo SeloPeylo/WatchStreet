@@ -6,11 +6,11 @@ Imports point **downwards only**. The rule is enforced by import-linter (`make a
 contracts in `pyproject.toml`); the reasoning is in [ADR 0001](adr/0001-architecture-review.md).
 
 ```
- web (app, routes, routes_intel, helpers, deps, formatting)  |  worker      HTTP / process edges
+ web (app, routes_*, helpers, deps, formatting)  |  worker      HTTP / process edges
  ─────────────────────────────────────────────────────────────────────────
  harness     executor, scheduler, ingest (feeds -> tickets), tripwires        runs inside the worker
  container   composition root: settings, engine + migrations, market, runner, fetcher
- workflows   Workflow classes, LlmWorkflow, ToolBox, facts, briefing           what a ticket does
+ workflows   Workflow classes, LlmWorkflow, tools (+args/schemas/payloads), facts   what a ticket does
  ─────────────────────────────────────────────────────────────────────────
  services  | agents      use cases on the database  |  AgentRunner adapters (llama, OpenAI, CLI, offline)
  profiles                 profile tables, classify, derive, scoring (pure)
@@ -33,8 +33,8 @@ Siblings separated by `|` must not import each other. What goes where:
   services `flush`, they do not `commit`.
 * **Ports**: `MarketDataProvider`, `AgentRunner`, `Fetcher` (+ `EdgarClient`). `container.build_container`
   is the only place that picks implementations; tests inject fakes there.
-* **Web** routes parse input, call a service, render. Shared helpers live in `web/helpers.py`; route
-  modules never import each other.
+* **Web** routes parse input, call a service, render. One router module per area (`routes_portfolio`, `routes_stocks`, `routes_tickets`, `routes_intel`,
+  `routes_system`); shared helpers live in `web/helpers.py`; route modules never import each other.
 
 
 ```
@@ -54,7 +54,7 @@ Siblings separated by `|` must not import each other. What goes where:
 * **Profiles** (`profiles/`): `classify` (sector/industry -> profile, deterministic), `registry` (declarative criteria tables, required datapoints, view *lens*), `derive` (pure maths: mine NAV via NPV annuity, margins, rule of 40, P/FFO). Precedence of who set a profile: user > agent > auto.
 * **Datapoints**: sourced inputs (`key`, `subject`, `value`, `source`, `confidence`, `origin`), newest per key+subject wins, user entries are protected from agents. The agent supplies inputs, code computes results; missing inputs surface as `missing` and `provisional` on the score instead of guesses.
 * **Layered stock page**: briefing on top (stored in `briefings`, rule-based draft first, agent polish via `set_briefing`, regenerated after each finished ticket and deduplicated), then panels in the profile's lens order.
-* **Tool calling** (`agents/tools.py`, `workflows/tools.py`): the harness computes everything deterministic first (quote, SMA/RSI, scores, P/L) and sends a compact fact sheet (token saving). The agent may call read tools (`get_price_summary`, `get_fundamentals`, `get_news`, `get_knowledge`) and write tools (`add_insight`, `set_goal`, `set_thesis`, `propose_followup`). Write tools only fill drafts; the harness persists them after the run. `propose_followup` runs the guardrail check immediately and returns the verdict to the model. Loop limit `MAX_TOOL_STEPS`; tool errors are fed back as text. Token usage and tool calls are stored on the ticket. If the server rejects `tools`, the workflow falls back to the JSON path.
+* **Tool calling** (`agents/tools.py`, `workflows/tools.py`; schemas in `tool_schemas.py`, argument parsing in `tool_args.py`): the harness computes everything deterministic first (quote, SMA/RSI, scores, P/L) and sends a compact fact sheet (token saving). The agent may call read tools (`get_price_summary`, `get_fundamentals`, `get_news`, `get_knowledge`) and write tools (`add_insight`, `set_goal`, `set_thesis`, `propose_followup`). Write tools only fill drafts; the harness persists them after the run. `propose_followup` runs the guardrail check immediately and returns the verdict to the model. Loop limit `MAX_TOOL_STEPS`; tool errors are fed back as text. Token usage and tool calls are stored on the ticket. If the server rejects `tools`, the workflow falls back to the JSON path.
 * **Local LLM**: `llama.cpp` server container (`llm-cpu` / `llm-gpu` profiles), model files from `./models`, OpenAI-compatible API at `http://llama:8080/v1`; runner kind `llama`.
 * **Agents**: `offline` is a deterministic rule engine producing the same JSON schema (labelled as such). Real LLMs receive `SYSTEM_PROMPT` + facts.
 * **Schema management**: Alembic (`migrations/`, runtime dependency). `build_container` runs `migrate.upgrade_to_head` in web and worker; PostgreSQL serialises concurrent starters with an advisory lock; databases created before migrations existed are stamped with the baseline and upgraded. Change a model -> `alembic -c alembic.ini revision --autogenerate -m "..."` -> review -> commit; `tests/test_migrations.py` fails on model/migration drift.

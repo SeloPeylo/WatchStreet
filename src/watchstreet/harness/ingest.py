@@ -137,6 +137,3 @@ def run_ingest(container: Container) -> IngestReport:
     for message in report.errors:
         logger.warning("Ingest: %s", message)
     return report
-
-
-__all__ = ["IngestReport", "create_triage_tickets", "run_ingest"]

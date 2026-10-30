@@ -32,4 +32,4 @@ make install   # editable install + dev tools + pre-commit
 make check     # ruff format/lint, import-linter (architecture), mypy --strict, bandit, pytest (coverage >= 80 %)
 ```
 
-Static analysis with SonarQube: see [docs/engineering-rules.md](docs/engineering-rules.md). Architecture: [docs/architecture.md](docs/architecture.md). Rules for coding agents: [CLAUDE.md](CLAUDE.md).
+Static analysis with SonarQube: see [docs/engineering-rules.md](docs/engineering-rules.md). New here? Start with the [code tour](docs/CODE_TOUR.md) (German). Architecture: [docs/architecture.md](docs/architecture.md). Rules for coding agents: [CLAUDE.md](CLAUDE.md).
