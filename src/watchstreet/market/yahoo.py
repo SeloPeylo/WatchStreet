@@ -9,6 +9,7 @@ import httpx
 from watchstreet.constants import HTTP_TIMEOUT_S, INTERVAL_RANGES, MAX_NEWS_PER_STOCK
 from watchstreet.market.base import (
     Candle,
+    CompanyInfo,
     Fundamentals,
     MarketDataError,
     NewsItem,
@@ -147,6 +148,18 @@ class YahooProvider:
             if isinstance(number, int | float):
                 values[key] = float(number)
         return Fundamentals(values)
+
+    def company_info(self, symbol: str) -> CompanyInfo:
+        try:
+            data = self._get_json(
+                SUMMARY_URL.format(symbol=symbol),
+                {"modules": "assetProfile", "crumb": self._ensure_crumb()},
+            )
+        except MarketDataError:
+            return CompanyInfo()
+        result = ((data.get("quoteSummary") or {}).get("result") or [{}])[0]
+        profile = result.get("assetProfile") or {}
+        return CompanyInfo(profile.get("sector", ""), profile.get("industry", ""))
 
     def news(self, symbol: str) -> list[NewsItem]:
         data = self._get_json(

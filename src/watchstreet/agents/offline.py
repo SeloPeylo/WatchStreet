@@ -14,8 +14,8 @@ from watchstreet.constants import (
     SCORE_DROP_WEAKENS_THESIS,
     SCORE_GOOD,
     TECHNICAL_SCHEME,
-    VALUATION_SCHEME,
 )
+from watchstreet.profiles.classify import classify
 
 OFFLINE_NOTE = "(Offline-Modus: regelbasiert, kein LLM)"
 NEGATIVE_WORDS = (
@@ -59,8 +59,13 @@ def _score(facts: dict[str, Any], scheme: str) -> dict[str, Any] | None:
     return found
 
 
+def _valuation(facts: dict[str, Any]) -> dict[str, Any] | None:
+    """The profile-specific valuation score, whatever its scheme key is."""
+    return next((v for k, v in facts.get("scores", {}).items() if k.startswith("valuation")), None)
+
+
 def _facts_line(facts: dict[str, Any]) -> str:
-    val = _score(facts, VALUATION_SCHEME)
+    val = _valuation(facts)
     tech = _score(facts, TECHNICAL_SCHEME)
     parts = [
         f"Kurs {_fmt(facts.get('price'))} {facts.get('currency', '')}".strip(),
@@ -75,7 +80,7 @@ def _facts_line(facts: dict[str, Any]) -> str:
 
 
 def _stance(facts: dict[str, Any]) -> str:
-    val = _score(facts, VALUATION_SCHEME)
+    val = _valuation(facts)
     tech = _score(facts, TECHNICAL_SCHEME)
     avg = [s["value"] for s in (val, tech) if s]
     if not avg:
@@ -136,6 +141,30 @@ def _initial_watch(facts: dict[str, Any]) -> dict[str, Any]:
                 "reason": "Kaufprüfung abgeschlossen; Einstieg konkretisieren.",
             },
         ],
+    }
+
+
+def _classify(facts: dict[str, Any]) -> dict[str, Any]:
+    info = facts.get("company_info", {})
+    key = classify(info.get("sector", ""), info.get("industry", ""))
+    text = f"Sektor '{info.get('sector', '')}', Branche '{info.get('industry', '')}'"
+    return {
+        "summary": f"Profil für {facts['symbol']}: {key or 'kein Treffer'} ({text}). "
+        f"{OFFLINE_NOTE}",
+        "profile": key,
+        "profile_reason": text,
+        "insights": [],
+        "followups": [],
+    }
+
+
+def _research(facts: dict[str, Any]) -> dict[str, Any]:
+    missing = facts.get("missing_inputs", [])
+    return {
+        "summary": f"Der Offline-Modus kann nicht recherchieren. Fehlende Eingaben: "
+        f"{', '.join(missing) or 'keine'}. Bitte manuell erfassen. {OFFLINE_NOTE}",
+        "insights": [{"category": "note", "text": f"Datenlücke: {m}"} for m in missing],
+        "followups": [],
     }
 
 
@@ -209,6 +238,8 @@ HANDLERS = {
     "topic_analysis": _topic,
     "event_review": _event_review,
     "thesis_check": _thesis_check,
+    "classify_stock": _classify,
+    "research_datapoints": _research,
 }
 
 

@@ -4,10 +4,11 @@ from typing import Any
 
 from sqlalchemy import select
 
-from watchstreet.constants import DEFAULT_INTERVAL, TECHNICAL_SCHEME, VALUATION_SCHEME
+from watchstreet.constants import DEFAULT_INTERVAL, TECHNICAL_SCHEME
 from watchstreet.domain import InsightCategory, WorkflowKey
 from watchstreet.market.base import MarketDataError
 from watchstreet.models import MarketEvent
+from watchstreet.profiles.registry import PROFILES, get_profile
 from watchstreet.workflows.base import (
     InsightDraft,
     ScoreDraft,
@@ -15,8 +16,10 @@ from watchstreet.workflows.base import (
     WorkflowContext,
     WorkflowResult,
 )
+from watchstreet.workflows.briefing import Briefing
 from watchstreet.workflows.llm import LlmWorkflow
-from watchstreet.workflows.scoring import technical_score, valuation_score
+from watchstreet.workflows.scoring import technical_score
+from watchstreet.workflows.valuation import compute_valuation
 
 
 class InitialHolding(LlmWorkflow):
@@ -86,25 +89,68 @@ class ThesisCheck(LlmWorkflow):
     )
 
 
+class ClassifyStock(LlmWorkflow):
+    key = WorkflowKey.CLASSIFY_STOCK
+    label = "Profil bestimmen"
+    description = (
+        "Ordnet die Aktie einem Typ zu (Minen, Tech, ...); der Typ bestimmt das Bewertungsschema."
+    )
+    task = (
+        "Bestimme, welches Bewertungsprofil zu dieser Aktie passt (siehe 'company_info' und "
+        "'available_profiles'). Setze es mit set_profile bzw. im Feld 'profile'. Ändere es nur, "
+        "wenn das aktuelle Profil offensichtlich falsch ist."
+    )
+
+    def extra_facts(self, ctx: WorkflowContext) -> dict[str, Any]:  # noqa: ARG002
+        return {"available_profiles": {k: p.description for k, p in PROFILES.items()}}
+
+
+class ResearchDatapoints(LlmWorkflow):
+    key = WorkflowKey.RESEARCH_DATAPOINTS
+    label = "Datenpunkte recherchieren"
+    description = "Trägt fehlende Bewertungs-Eingaben (z. B. Minen, AISC, Reserven) mit Quelle ein."
+    task = (
+        "Das Bewertungsprofil braucht Eingaben ('missing_inputs'), die keine Kennzahlen-API "
+        "liefert. Rufe get_datapoint_specs auf und trage nur Werte ein, die du belastbar kennst, "
+        "mit Quelle und ehrlicher Konfidenz. Rate nicht; nicht Gewusstes bleibt eine Lücke. "
+        "Schlage danach valuation_score als Folgeticket vor."
+    )
+
+    def extra_facts(self, ctx: WorkflowContext) -> dict[str, Any]:
+        profile = get_profile(ctx.stock.profile)
+        return {
+            "datapoint_specs": [
+                {"key": d.key, "label": d.label, "unit": d.unit, "per_subject": d.per_subject}
+                for d in profile.datapoints
+            ],
+        }
+
+
 class ValuationScore(Workflow):
     key = WorkflowKey.VALUATION_SCORE
     label = "Bewertungs-Score"
-    description = "Deterministisches Bewertungsschema aus Kennzahlen (kein LLM)."
+    description = (
+        "Deterministisches, profilabhängiges Bewertungsschema inkl. NAV/Margen (kein LLM)."
+    )
 
     def run(self, ctx: WorkflowContext) -> WorkflowResult:
         quote = ctx.market.try_quote(ctx.stock.symbol)
-        result = valuation_score(
-            ctx.market.fundamentals(ctx.stock.symbol),
-            quote.price if quote else None,
+        fundamentals = ctx.market.fundamentals(ctx.stock.symbol)
+        result = compute_valuation(
+            ctx.market, ctx.stock, quote.price if quote else None, fundamentals
         )
         if result is None:
             return WorkflowResult(summary="Zu wenige Kennzahlen für einen Bewertungs-Score.")
+        missing = result.details.get("missing", [])
+        note = " (vorläufig)" if result.details.get("provisional") else ""
+        gaps = f" Lücken: {', '.join(missing)}." if missing else ""
         return WorkflowResult(
-            summary=f"Bewertung {result.label} ({result.value}), "
-            f"Abdeckung {result.details['coverage']}.",
+            summary=f"{get_profile(ctx.stock.profile).label}: {result.label} "
+            f"({result.value}){note}, "
+            f"Abdeckung {result.details['coverage']}.{gaps}",
             scores=[ScoreDraft(result.scheme, result.value, result.label, result.details)],
             insights=[
-                InsightDraft(InsightCategory.VALUATION, f"{VALUATION_SCHEME}: {result.label}")
+                InsightDraft(InsightCategory.VALUATION, f"{result.scheme}: {result.label}{note}")
             ],
         )
 
@@ -139,6 +185,9 @@ REGISTRY: dict[str, Workflow] = {
         TopicAnalysis(),
         EventReview(),
         ThesisCheck(),
+        ClassifyStock(),
+        ResearchDatapoints(),
+        Briefing(),
         ValuationScore(),
         TechnicalSnapshot(),
     )

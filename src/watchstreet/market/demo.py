@@ -17,6 +17,7 @@ from watchstreet.constants import (
 )
 from watchstreet.market.base import (
     Candle,
+    CompanyInfo,
     Fundamentals,
     NewsItem,
     Quote,
@@ -31,6 +32,20 @@ DEMO_HEADLINES = (
     "{name}: Management kündigt neues Aktienrückkaufprogramm an",
 )
 HASH_BYTES = 8
+# Demo only: fixed sectors for well-known symbols so every profile can be shown offline.
+DEMO_COMPANIES: dict[str, CompanyInfo] = {
+    "AAPL": CompanyInfo("Technology", "Consumer Electronics"),
+    "MSFT": CompanyInfo("Technology", "Software - Infrastructure"),
+    "NVDA": CompanyInfo("Technology", "Semiconductors"),
+    "SAP.DE": CompanyInfo("Technology", "Software - Application"),
+    "NEM": CompanyInfo("Basic Materials", "Gold"),
+    "GOLD": CompanyInfo("Basic Materials", "Gold"),
+    "XOM": CompanyInfo("Energy", "Oil & Gas Integrated"),
+    "NEE": CompanyInfo("Utilities", "Utilities - Regulated Electric"),
+    "JPM": CompanyInfo("Financial Services", "Banks - Diversified"),
+    "O": CompanyInfo("Real Estate", "REIT - Retail"),
+    "PFE": CompanyInfo("Healthcare", "Drug Manufacturers - General"),
+}
 
 
 def _rng(symbol: str, salt: str = "") -> random.Random:
@@ -101,6 +116,9 @@ class DemoProvider:
                 "beta": 0.6 + rng.random() * 1.2,
             },
         )
+
+    def company_info(self, symbol: str) -> CompanyInfo:
+        return DEMO_COMPANIES.get(symbol.upper(), CompanyInfo("Consumer Defensive", "Beverages"))
 
     def news(self, symbol: str) -> list[NewsItem]:
         name = f"Demo {symbol.upper()}"

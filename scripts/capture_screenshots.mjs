@@ -34,8 +34,13 @@ await shot("03-holdings-error", "/holdings", {
   full: false,
 });
 await shot("04-watchlist", "/watchlist");
-await shot("05-stock-detail", "/stocks/1");
-await shot("06-stock-chart-daily", "/stocks/1", {
+// Resolve stock ids by symbol from the holdings page.
+await page.goto(`${BASE}/holdings`, { waitUntil: "networkidle" });
+const ids = await page.$$eval('a[href^="/stocks/"] strong', (els) =>
+  Object.fromEntries(els.map((e) => [e.textContent.trim(), e.parentElement.getAttribute("href")])));
+
+await shot("05-stock-tech", ids["AAPL"]);
+await shot("06-stock-chart-daily", ids["AAPL"], {
   full: false,
   prepare: async () => {
     await page.click('button[data-interval="1d"]');
@@ -43,6 +48,20 @@ await shot("06-stock-chart-daily", "/stocks/1", {
     await page.hover("#chart svg", { position: { x: 500, y: 150 } });
   },
 });
+await shot("10-stock-mining", ids["NEM"]);
+await shot("11-mining-valuation", ids["NEM"], {
+  full: false,
+  prepare: async () => {
+    await page.locator("#valuation").scrollIntoViewIfNeeded();
+  },
+});
+await shot("12-mining-evidence", ids["NEM"], {
+  full: false,
+  prepare: async () => {
+    await page.locator("#evidence").scrollIntoViewIfNeeded();
+  },
+});
+await shot("13-stock-oil", ids["XOM"]);
 await shot("07-tickets", "/tickets");
 await shot("08-ticket-detail", "/tickets/1");
 await shot("09-system", "/system");

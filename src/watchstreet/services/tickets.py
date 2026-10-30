@@ -43,6 +43,27 @@ def create_ticket(  # noqa: PLR0913
     return ticket
 
 
+def ensure_open(
+    session: Session,
+    stock: Stock,
+    workflow: WorkflowKey,
+    *,
+    origin: TicketOrigin,
+    priority: int = DEFAULT_PRIORITY,
+) -> Ticket:
+    """Return the queued/running ticket of this workflow for the stock, creating one if absent."""
+    existing = session.scalars(
+        select(Ticket).where(
+            Ticket.stock_id == stock.id,
+            Ticket.workflow == workflow,
+            Ticket.status.in_(OPEN_STATUSES),
+        ),
+    ).first()
+    if existing:
+        return existing
+    return create_ticket(session, stock, workflow, origin=origin, priority=priority)
+
+
 def claim_next(session: Session) -> Ticket | None:
     """Atomically move the best queued ticket to running; ``None`` if nothing is queued."""
     candidate = session.scalars(

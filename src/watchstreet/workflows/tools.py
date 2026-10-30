@@ -8,6 +8,7 @@ previewed to the model so it can correct itself immediately instead of wasting a
 """
 
 import json
+from dataclasses import asdict
 from typing import Any
 
 from watchstreet.agents.tools import Tool, ToolError
@@ -15,6 +16,8 @@ from watchstreet.constants import (
     DEFAULT_INTERVAL,
     DEFAULT_NEWS_LIMIT,
     INTERVAL_RANGES,
+    MAX_BRIEFING_BULLETS,
+    MAX_DATAPOINTS_PER_TICKET,
     MAX_INSIGHTS_PER_TICKET,
     MOMENTUM_BARS,
     PRICE_SUMMARY_TAIL_BARS,
@@ -28,9 +31,20 @@ from watchstreet.constants import (
 from watchstreet.domain import InsightCategory, ThesisStatus, WorkflowKey
 from watchstreet.market.base import MarketDataError
 from watchstreet.market.indicators import pct_change, rsi, sma
+from watchstreet.profiles.registry import PANELS, PROFILES, get_profile
+from watchstreet.services.datapoints import (
+    CONFIDENCE,
+    DatapointError,
+    DatapointInput,
+    is_user_protected,
+    validate,
+)
 from watchstreet.workflows.base import (
+    BriefingDraft,
+    DatapointDraft,
     FollowUp,
     InsightDraft,
+    ProfileDraft,
     ThesisDraft,
     WorkflowContext,
     WorkflowResult,
@@ -38,6 +52,7 @@ from watchstreet.workflows.base import (
 
 FOLLOWUP_WORKFLOWS = (
     WorkflowKey.TOPIC_ANALYSIS,
+    WorkflowKey.RESEARCH_DATAPOINTS,
     WorkflowKey.THESIS_CHECK,
     WorkflowKey.VALUATION_SCORE,
     WorkflowKey.TECHNICAL_SNAPSHOT,
@@ -77,6 +92,9 @@ class ToolBox:
         self.goal: str | None = None
         self.thesis: ThesisDraft | None = None
         self.followups: list[FollowUp] = []
+        self.datapoints: list[DatapointDraft] = []
+        self.profile: ProfileDraft | None = None
+        self.briefing: BriefingDraft | None = None
 
     # ---- read tools -------------------------------------------------------
     def _price_summary(self, args: dict[str, Any]) -> str:
@@ -136,7 +154,85 @@ class ToolBox:
             },
         )
 
+    def _datapoint_specs(self, _args: dict[str, Any]) -> str:
+        profile = get_profile(self._ctx.stock.profile)
+        have = {(d.key, d.subject) for d in self._ctx.stock.datapoints}
+        return _dump(
+            {
+                "profile": profile.key,
+                "subject_label": profile.subject_label,
+                "specs": [
+                    {
+                        "key": d.key,
+                        "label": d.label,
+                        "unit": d.unit,
+                        "hint": d.hint,
+                        "required": d.required,
+                        "per_subject": d.per_subject,
+                        "textual": d.textual,
+                        "recorded": any(k == d.key for k, _s in have),
+                    }
+                    for d in profile.datapoints
+                ],
+            },
+        )
+
     # ---- write tools ------------------------------------------------------
+    def _record_datapoint(self, args: dict[str, Any]) -> str:
+        if len(self.datapoints) >= MAX_DATAPOINTS_PER_TICKET:
+            msg = f"datapoint limit ({MAX_DATAPOINTS_PER_TICKET}) reached"
+            raise ToolError(msg)
+        raw = args.get("value")
+        try:
+            value = float(raw) if raw is not None and raw != "" else None
+        except (TypeError, ValueError) as exc:
+            msg = "'value' must be a number"
+            raise ToolError(msg) from exc
+        entry = DatapointInput(
+            key=str(args.get("key", "")),
+            subject=str(args.get("subject", "")).strip(),
+            value=value,
+            text=str(args.get("text", "")),
+            unit=str(args.get("unit", "")),
+            source=str(args.get("source", "")),
+            confidence=str(args.get("confidence", "medium")),
+        )
+        try:
+            validate(self._ctx.stock, entry)
+        except DatapointError as exc:
+            raise ToolError(str(exc)) from exc
+        draft = DatapointDraft(**asdict(entry))
+        if is_user_protected(self._ctx.stock, draft.key, draft.subject):
+            msg = "protected: the user entered this value; do not overwrite"
+            raise ToolError(msg)
+        self.datapoints.append(draft)
+        return "recorded"
+
+    def _set_profile(self, args: dict[str, Any]) -> str:
+        key = str(args.get("profile", ""))
+        if key not in PROFILES:
+            msg = f"'profile' must be one of: {', '.join(PROFILES)}"
+            raise ToolError(msg)
+        if self._ctx.stock.profile_source == "user":
+            msg = "the user fixed the profile; do not change it"
+            raise ToolError(msg)
+        self.profile = ProfileDraft(key, str(args.get("reason", "")))
+        return "recorded"
+
+    def _set_briefing(self, args: dict[str, Any]) -> str:
+        bullets = [str(b).strip() for b in args.get("bullets", []) if str(b).strip()]
+        focus = str(args.get("focus", ""))
+        if focus and focus not in PANELS:
+            msg = f"'focus' must be one of: {', '.join(PANELS)}"
+            raise ToolError(msg)
+        self.briefing = BriefingDraft(
+            _text_arg(args, "headline"),
+            bullets[:MAX_BRIEFING_BULLETS],
+            focus,
+            "agent",
+        )
+        return "recorded"
+
     def _add_insight(self, args: dict[str, Any]) -> str:
         if len(self.insights) >= MAX_INSIGHTS_PER_TICKET:
             msg = f"insight limit ({MAX_INSIGHTS_PER_TICKET}) reached; summarise instead"
@@ -216,6 +312,44 @@ class ToolBox:
                 self._knowledge,
             ),
             Tool(
+                "get_datapoint_specs",
+                "Inputs the stock's valuation profile needs and which are already recorded.",
+                NO_ARGS,
+                self._datapoint_specs,
+            ),
+            Tool(
+                "record_datapoint",
+                "Record a sourced input (e.g. a mine's AISC). Give a source and honest "
+                "confidence; never guess. Per-subject keys need 'subject'.",
+                {
+                    "type": "object",
+                    "properties": {
+                        "key": text,
+                        "subject": text,
+                        "value": {"type": "number"},
+                        "text": text,
+                        "unit": text,
+                        "source": text,
+                        "confidence": {"type": "string", "enum": list(CONFIDENCE)},
+                    },
+                    "required": ["key", "source", "confidence"],
+                },
+                self._record_datapoint,
+            ),
+            Tool(
+                "set_profile",
+                "Set the valuation profile (stock type) if the current one is wrong.",
+                {
+                    "type": "object",
+                    "properties": {
+                        "profile": {"type": "string", "enum": list(PROFILES)},
+                        "reason": text,
+                    },
+                    "required": ["profile"],
+                },
+                self._set_profile,
+            ),
+            Tool(
                 "add_insight",
                 "Record one durable finding.",
                 {
@@ -263,6 +397,23 @@ class ToolBox:
             ),
         ]
 
+    def briefing_tool(self) -> Tool:
+        text = {"type": "string"}
+        return Tool(
+            "set_briefing",
+            "Write the stock's briefing: a headline, a few bullets, the panel to open first.",
+            {
+                "type": "object",
+                "properties": {
+                    "headline": text,
+                    "bullets": {"type": "array", "items": text},
+                    "focus": {"type": "string", "enum": list(PANELS)},
+                },
+                "required": ["headline", "bullets"],
+            },
+            self._set_briefing,
+        )
+
     def result(self, summary: str, data: dict[str, Any]) -> WorkflowResult:
         insights = list(self.insights)
         if self.goal:
@@ -272,5 +423,8 @@ class ToolBox:
             insights=insights,
             thesis=self.thesis,
             followups=list(self.followups),
+            datapoints=list(self.datapoints),
+            profile=self.profile,
+            briefing=self.briefing,
             data=data,
         )

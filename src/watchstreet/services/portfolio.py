@@ -11,6 +11,7 @@ from watchstreet.domain import TicketOrigin, WorkflowKey
 from watchstreet.market.base import MarketDataError
 from watchstreet.market.service import MarketService
 from watchstreet.models import Holding, Stock, WatchEntry
+from watchstreet.services.profiles import auto_classify
 from watchstreet.services.tickets import create_ticket
 
 SYMBOL_MAX_LEN = 32
@@ -41,6 +42,7 @@ def get_or_create_stock(session: Session, market: MarketService, raw_symbol: str
         msg = f"Symbol '{symbol}' wurde beim Datenanbieter nicht gefunden: {exc}"
         raise PortfolioError(msg) from exc
     stock.name, stock.currency, stock.exchange = quote.name, quote.currency, quote.exchange
+    auto_classify(stock, market)
     session.add(stock)
     session.flush()
     return stock

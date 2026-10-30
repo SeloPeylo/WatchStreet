@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy import JSON, Date, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from watchstreet.constants import DEFAULT_PRIORITY
+from watchstreet.constants import DEFAULT_PRIORITY, DEFAULT_PROFILE
 from watchstreet.db import UtcDateTime
 from watchstreet.domain import InsightCategory, ThesisStatus, TicketOrigin, TicketStatus
 from watchstreet.timeutil import utcnow
@@ -26,6 +26,10 @@ class Stock(Base):
     name: Mapped[str] = mapped_column(String(200), default="")
     currency: Mapped[str] = mapped_column(String(8), default="")
     exchange: Mapped[str] = mapped_column(String(64), default="")
+    sector: Mapped[str] = mapped_column(String(120), default="")
+    industry: Mapped[str] = mapped_column(String(120), default="")
+    profile: Mapped[str] = mapped_column(String(24), default=DEFAULT_PROFILE)
+    profile_source: Mapped[str] = mapped_column(String(8), default="none")  # none|auto|agent|user
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
     holding: Mapped["Holding | None"] = relationship(
@@ -58,6 +62,14 @@ class Stock(Base):
     events: Mapped[list["MarketEvent"]] = relationship(
         cascade="all, delete-orphan",
         order_by="MarketEvent.published_at.desc()",
+    )
+    datapoints: Mapped[list["Datapoint"]] = relationship(
+        cascade="all, delete-orphan",
+        order_by="Datapoint.id.desc()",
+    )
+    briefings: Mapped[list["Briefing"]] = relationship(
+        cascade="all, delete-orphan",
+        order_by="Briefing.id.desc()",
     )
 
 
@@ -176,6 +188,41 @@ class MarketEvent(Base):
     published_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     reviewed: Mapped[bool] = mapped_column(default=False)
     ticket_id: Mapped[int | None] = mapped_column(ForeignKey("tickets.id"), nullable=True)
+
+
+class Datapoint(Base):
+    """A sourced input for valuation schemes (e.g. a mine's AISC). Newest per key+subject wins."""
+
+    __tablename__ = "datapoints"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    stock_id: Mapped[int] = mapped_column(ForeignKey("stocks.id"), index=True)
+    ticket_id: Mapped[int | None] = mapped_column(ForeignKey("tickets.id"), nullable=True)
+    key: Mapped[str] = mapped_column(String(48))
+    subject: Mapped[str] = mapped_column(String(120), default="")  # e.g. mine name
+    value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    text: Mapped[str] = mapped_column(String(200), default="")
+    unit: Mapped[str] = mapped_column(String(32), default="")
+    source: Mapped[str] = mapped_column(Text, default="")
+    confidence: Mapped[str] = mapped_column(String(8), default="medium")  # high|medium|low
+    origin: Mapped[str] = mapped_column(String(8), default="user")  # user|agent
+    as_of: Mapped[date | None] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
+class Briefing(Base):
+    """The short 'what matters now' layer shown on top of a stock; stored, never ephemeral."""
+
+    __tablename__ = "briefings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    stock_id: Mapped[int] = mapped_column(ForeignKey("stocks.id"), index=True)
+    ticket_id: Mapped[int | None] = mapped_column(ForeignKey("tickets.id"), nullable=True)
+    headline: Mapped[str] = mapped_column(Text)
+    bullets: Mapped[list[str]] = mapped_column(JSON, default=list)
+    focus: Mapped[str] = mapped_column(String(24), default="")  # panel to open first
+    author: Mapped[str] = mapped_column(String(8), default="rules")  # rules|agent
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
 
 class SystemState(Base):

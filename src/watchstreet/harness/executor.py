@@ -3,12 +3,14 @@
 import logging
 from dataclasses import asdict
 
+from watchstreet.constants import BRIEFING_PRIORITY
 from watchstreet.container import Container
 from watchstreet.db import session_scope
-from watchstreet.domain import TicketStatus
+from watchstreet.domain import TicketOrigin, TicketStatus, WorkflowKey
 from watchstreet.models import Ticket
 from watchstreet.services.followups import apply_followups, rejection_reason
 from watchstreet.services.knowledge import store_result
+from watchstreet.services.tickets import ensure_open
 from watchstreet.timeutil import utcnow
 from watchstreet.workflows.base import WorkflowContext
 from watchstreet.workflows.definitions import get_workflow
@@ -61,6 +63,14 @@ def execute_ticket(container: Container, ticket_id: int) -> TicketStatus:
             ticket.runner = container.runner.name
             ticket.status = TicketStatus.DONE
             ticket.finished_at = utcnow()
+            if ticket.workflow != WorkflowKey.BRIEFING:
+                ensure_open(
+                    session,
+                    ticket.stock,
+                    WorkflowKey.BRIEFING,
+                    origin=TicketOrigin.SCHEDULE,
+                    priority=BRIEFING_PRIORITY,
+                )
     except Exception as exc:  # harness boundary: record, never crash the worker
         logger.exception("Ticket %s failed", ticket_id)
         _fail(container, ticket_id, f"{type(exc).__name__}: {exc}")

@@ -57,6 +57,12 @@ class Fundamentals:
         return self.values.get(key)
 
 
+@dataclass(frozen=True)
+class CompanyInfo:
+    sector: str = ""
+    industry: str = ""
+
+
 class MarketDataError(RuntimeError):
     """Raised when a provider cannot deliver the requested data."""
 
@@ -71,5 +77,7 @@ class MarketDataProvider(Protocol):
     def candles(self, symbol: str, interval: str) -> list[Candle]: ...
 
     def fundamentals(self, symbol: str) -> Fundamentals: ...
+
+    def company_info(self, symbol: str) -> CompanyInfo: ...
 
     def news(self, symbol: str) -> list[NewsItem]: ...

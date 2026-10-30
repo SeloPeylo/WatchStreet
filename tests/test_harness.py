@@ -35,7 +35,7 @@ def test_holding_intake_creates_assessment_that_stores_knowledge(container):
         stock = s.scalar(select(Stock))
         goal = [i for i in stock.insights if i.category == "goal"]
         assert goal and goal[-1].text == "langfristig halten"
-        assert {sc.scheme for sc in stock.scores} == {"valuation_v1", "technical_v1"}
+        assert {sc.scheme for sc in stock.scores} == {"valuation_tech_v1", "technical_v1"}
         assert stock.theses and stock.theses[0].ticket_id == first.id
         follow = s.scalars(select(Ticket).where(Ticket.parent_id == first.id)).all()
         assert [t.workflow for t in follow] == [WorkflowKey.TOPIC_ANALYSIS]
@@ -57,7 +57,9 @@ def test_followup_guardrails(container):
     add_holding(container)
     drain_queue(container)
     with container.session_factory() as s:
-        parent = s.scalars(select(Ticket).order_by(Ticket.id.desc())).first()  # depth 1
+        parent = s.scalars(
+            select(Ticket).where(Ticket.workflow == "topic_analysis").order_by(Ticket.id.desc()),
+        ).first()  # depth 1
         assert parent.depth == 1
         decisions = apply_followups(
             s,

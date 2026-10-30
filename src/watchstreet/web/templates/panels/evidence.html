@@ -1,0 +1,34 @@
+<details class="card panel" id="evidence" {{ 'open' if is_open }}>
+  <summary><h2>Belege &amp; Datenpunkte <span class="muted small">{{ datapoints|length }}</span></h2></summary>
+  <p class="muted">Eingaben für das Bewertungsschema, die keine kostenlose API liefert. Jeder Wert trägt Quelle und Konfidenz; deine Einträge überschreibt der Agent nie.</p>
+  <table class="mini">
+    <thead><tr><th>Datenpunkt</th><th>{{ profile.subject_label or 'Bezug' }}</th><th class="r">Wert</th><th>Einheit</th><th>Quelle</th><th>Konfidenz</th><th>Von</th><th></th></tr></thead>
+    <tbody>
+    {% for p in datapoints|sort(attribute='subject') %}
+      <tr><td>{{ specs[p.key].label if p.key in specs else p.key }}</td><td>{{ p.subject }}</td>
+        <td class="r">{{ p.text if p.text else (p.value|number) }}</td><td>{{ p.unit }}</td>
+        <td>{{ p.source|preview }}</td><td><span class="badge cf-{{ p.confidence }}">{{ p.confidence }}</span></td>
+        <td>{{ 'Du' if p.origin == 'user' else 'Agent' }} · {{ p.created_at|dt }}</td>
+        <td class="r"><form method="post" action="/datapoints/{{ p.id }}/delete"><button class="link danger">×</button></form></td></tr>
+    {% else %}<tr><td colspan="8" class="muted">Noch keine Datenpunkte.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% if specs %}
+  <h3>Datenpunkt erfassen</h3>
+  <form method="post" action="/stocks/{{ stock.id }}/datapoints" class="form-grid">
+    <label>Datenpunkt
+      <select name="key">{% for s in specs.values() %}<option value="{{ s.key }}">{{ s.label }}{% if s.required %} *{% endif %}{% if s.per_subject %} (je {{ profile.subject_label or 'Bezug' }}){% endif %}</option>{% endfor %}</select></label>
+    <label>{{ profile.subject_label or 'Bezug' }} (falls „je …“) <input name="subject" placeholder="z. B. Carlin"></label>
+    <label>Wert <input name="value" inputmode="decimal" placeholder="1150"></label>
+    <label>Text (nur Symbole/Währung) <input name="text" placeholder="GC=F"></label>
+    <label>Einheit <input name="unit" placeholder="USD/oz"></label>
+    <label>Quelle <input name="source" placeholder="URL oder Dokument" required></label>
+    <label>Konfidenz <select name="confidence"><option>high</option><option selected>medium</option><option>low</option></select></label>
+    <label>Stand <input name="as_of" type="date"></label>
+    <button>Speichern &amp; neu bewerten</button>
+  </form>
+  <details class="inner"><summary>Welche Eingaben braucht dieses Profil?</summary>
+    <ul>{% for s in specs.values() %}<li><strong>{{ s.label }}</strong> <code>{{ s.key }}</code>{% if s.unit %} · {{ s.unit }}{% endif %}{% if s.hint %} – {{ s.hint }}{% endif %}</li>{% endfor %}</ul>
+  </details>
+  {% else %}<p class="muted">Das Profil „{{ profile.label }}“ benötigt keine zusätzlichen Datenpunkte.</p>{% endif %}
+</details>

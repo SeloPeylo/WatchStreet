@@ -20,9 +20,8 @@ from watchstreet.constants import (
     SMA_FAST,
     SMA_SLOW,
     TECHNICAL_SCHEME,
-    VALUATION_SCHEME,
 )
-from watchstreet.market.base import Candle, Fundamentals
+from watchstreet.market.base import Candle
 from watchstreet.market.indicators import pct_change, rsi, sma
 
 
@@ -43,19 +42,6 @@ class ScoreResult:
     label: str
     details: dict[str, Any]
 
-
-VALUATION_CRITERIA: tuple[Criterion, ...] = (
-    Criterion("trailing_pe", "KGV (trailing)", 1.5, good=12.0, bad=35.0, positive_only=True),
-    Criterion("forward_pe", "KGV (erwartet)", 1.5, good=12.0, bad=30.0, positive_only=True),
-    Criterion("price_to_book", "Kurs/Buchwert", 1.0, good=1.5, bad=8.0, positive_only=True),
-    Criterion("peg_ratio", "PEG", 1.0, good=1.0, bad=3.0, positive_only=True),
-    Criterion("dividend_yield", "Dividendenrendite", 0.5, good=0.04, bad=0.0),
-    Criterion("profit_margin", "Gewinnmarge", 1.0, good=0.20, bad=0.0),
-    Criterion("return_on_equity", "Eigenkapitalrendite", 1.0, good=0.20, bad=0.0),
-    Criterion("revenue_growth", "Umsatzwachstum", 1.0, good=0.15, bad=-0.05),
-    Criterion("debt_to_equity", "Verschuldung (D/E)", 0.75, good=40.0, bad=250.0),
-    Criterion("analyst_upside", "Analysten-Kurspotenzial", 0.75, good=0.20, bad=-0.10),
-)
 
 # Technical criteria operate on derived percentages computed in `technical_score`.
 TECHNICAL_CRITERIA: tuple[Criterion, ...] = (
@@ -79,9 +65,9 @@ def interpolate(value: float, good: float, bad: float) -> float:
 def label_for(value: float, scheme: str) -> str:
     """Human label for a score band."""
     if value >= SCORE_GOOD:
-        return "attraktiv" if scheme == VALUATION_SCHEME else "bullisch"
+        return "bullisch" if scheme == TECHNICAL_SCHEME else "attraktiv"
     if value <= SCORE_BAD:
-        return "schwach" if scheme == VALUATION_SCHEME else "bärisch"
+        return "bärisch" if scheme == TECHNICAL_SCHEME else "schwach"
     return "neutral"
 
 
@@ -116,21 +102,25 @@ def _row(criterion: Criterion, value: float) -> dict[str, Any]:
     }
 
 
-def valuation_score(
-    fundamentals: Fundamentals,
-    price: float | None,
+def score_metrics(
+    scheme: str,
+    criteria: tuple[Criterion, ...],
+    metrics: dict[str, float],
+    *,
+    core_metrics: tuple[str, ...] = (),
+    missing: list[str] | None = None,
+    breakdown: dict[str, Any] | None = None,
 ) -> ScoreResult | None:
-    """Weighted fundamental valuation score from whatever key figures are available."""
-    figures = dict(fundamentals.values)
-    target = figures.get("target_mean_price")
-    if target and price:
-        figures["analyst_upside"] = target / price - 1.0
-    rows = [
-        _row(criterion, figures[criterion.key])
-        for criterion in VALUATION_CRITERIA
-        if criterion.key in figures
-    ]
-    return _aggregate(VALUATION_SCHEME, rows, len(VALUATION_CRITERIA) + 0)
+    """Generic criteria engine: score whichever criteria have a metric available."""
+    rows = [_row(c, metrics[c.key]) for c in criteria if c.key in metrics]
+    result = _aggregate(scheme, rows, len(criteria))
+    if result is None:
+        return None
+    result.details["missing"] = list(missing or [])
+    result.details["provisional"] = any(k not in metrics for k in core_metrics)
+    if breakdown:
+        result.details["breakdown"] = breakdown
+    return result
 
 
 def _rsi_row(rsi_value: float) -> dict[str, Any]:

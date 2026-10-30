@@ -24,6 +24,22 @@ def number(value: float | None) -> str:
     return EMPTY if value is None else f"{value:,.4f}".rstrip("0").rstrip(".").replace(",", " ")
 
 
+BILLION = 1e9
+MILLION = 1e6
+
+
+def compact(value: float | None) -> str:
+    """Large amounts as 'Mrd'/'Mio' for tables; small ones via ``number``."""
+    if value is None:
+        return EMPTY
+    magnitude = abs(value)
+    if magnitude >= BILLION:
+        return f"{value / BILLION:.2f} Mrd".replace(".", ",")
+    if magnitude >= MILLION:
+        return f"{value / MILLION:.1f} Mio".replace(".", ",")
+    return number(value)
+
+
 def dt(value: datetime | None) -> str:
     return EMPTY if value is None else value.strftime("%d.%m.%Y %H:%M")
 
@@ -43,6 +59,7 @@ def register_filters(env: Environment) -> None:
         "money": money,
         "pct": pct,
         "number": number,
+        "compact": compact,
         "dt": dt,
         "sign": sign_class,
         "preview": preview,

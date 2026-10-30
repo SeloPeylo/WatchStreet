@@ -9,6 +9,7 @@ from watchstreet.config import Settings
 from watchstreet.constants import CANDLE_CACHE_TTL_S, QUOTE_CACHE_TTL_S
 from watchstreet.market.base import (
     Candle,
+    CompanyInfo,
     Fundamentals,
     MarketDataError,
     MarketDataProvider,
@@ -78,6 +79,13 @@ class MarketService:
             ("f", symbol),
             CANDLE_CACHE_TTL_S,
             lambda: self.provider.fundamentals(symbol),
+        )
+
+    def company_info(self, symbol: str) -> CompanyInfo:
+        return self._cached(
+            ("i", symbol),
+            CANDLE_CACHE_TTL_S,
+            lambda: self.provider.company_info(symbol),
         )
 
     def news(self, symbol: str) -> list[NewsItem]:

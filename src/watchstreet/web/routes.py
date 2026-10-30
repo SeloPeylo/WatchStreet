@@ -17,16 +17,22 @@ from sqlalchemy.orm import Session
 from watchstreet.constants import (
     DEFAULT_INTERVAL,
     HEARTBEAT_STALE_AFTER,
+    HIGH_PRIORITY,
     INTERVAL_RANGES,
     LAST_SCAN_KEY,
+    OPEN_PANELS,
     RECENT_LIMIT,
+    TECHNICAL_SCHEME,
     WORKER_HEARTBEAT_KEY,
 )
 from watchstreet.container import Container
-from watchstreet.domain import InsightCategory, TicketOrigin, TicketStatus
+from watchstreet.domain import InsightCategory, TicketOrigin, TicketStatus, WorkflowKey
 from watchstreet.market.base import MarketDataError
-from watchstreet.models import Holding, Insight, MarketEvent, Stock, Ticket, WatchEntry
+from watchstreet.models import Datapoint, Holding, Insight, MarketEvent, Stock, Ticket, WatchEntry
+from watchstreet.profiles.registry import PROFILES, get_profile
+from watchstreet.services import datapoints as datapoints_service
 from watchstreet.services import portfolio, tickets
+from watchstreet.services import profiles as profiles_service
 from watchstreet.services.portfolio import PortfolioError
 from watchstreet.services.state import updated_at
 from watchstreet.services.timeline import build_timeline
@@ -256,16 +262,16 @@ def _latest_per_scheme(stock: Stock) -> list[dict[str, Any]]:
     ]
 
 
-@router.get("/stocks/{stock_id}", response_class=HTMLResponse)
-def stock_page(
-    stock_id: int,
+def _stock_view(
     request: Request,
-    session: SessionDep,
-    container: ContainerDep,
+    session: Session,
+    container: Container,
+    stock: Stock,
+    *,
+    error: str | None = None,
+    status_code: int = 200,
 ) -> HTMLResponse:
-    stock = session.get(Stock, stock_id)
-    if stock is None:
-        raise HTTPException(404)
+    profile = get_profile(stock.profile)
     quote = container.market.try_quote(stock.symbol)
     row = next(
         (
@@ -276,19 +282,152 @@ def stock_page(
         None,
     )
     goal = next((i for i in stock.insights if i.category == InsightCategory.GOAL), None)
+    scores = _latest_per_scheme(stock)
+    valuation = next((s for s in scores if s["latest"].scheme == profile.scheme), None)
+    technical = next((s for s in scores if s["latest"].scheme == TECHNICAL_SCHEME), None)
+    briefing = stock.briefings[0] if stock.briefings else None
+    lens = list(profile.lens)
     return _render(
         request,
         "stock.html",
+        status_code,
         stock=stock,
         quote=quote,
         row=row,
         goal=goal,
-        scores=_latest_per_scheme(stock),
+        profile=profile,
+        profiles=PROFILES,
+        lens=lens,
+        scores=scores,
+        valuation=valuation,
+        technical=technical,
+        briefing=briefing,
+        datapoints=datapoints_service.latest(stock),
+        specs={d.key: d for d in profile.datapoints},
         timeline=build_timeline(stock),
         workflows=user_workflows(),
         intervals=list(INTERVAL_RANGES),
         default_interval=DEFAULT_INTERVAL,
+        error=error,
+        open_panels=set(lens[:OPEN_PANELS]) | ({briefing.focus} if briefing else set()),
     )
+
+
+@router.get("/stocks/{stock_id}", response_class=HTMLResponse)
+def stock_page(
+    stock_id: int,
+    request: Request,
+    session: SessionDep,
+    container: ContainerDep,
+) -> HTMLResponse:
+    stock = session.get(Stock, stock_id)
+    if stock is None:
+        raise HTTPException(404)
+    return _stock_view(request, session, container, stock)
+
+
+@router.post("/stocks/{stock_id}/profile")
+def stock_profile_set(stock_id: int, session: SessionDep, profile: FormStr) -> RedirectResponse:
+    stock = session.get(Stock, stock_id)
+    if stock is None:
+        raise HTTPException(404)
+    try:
+        profiles_service.set_profile_by_user(session, stock, profile)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    tickets.ensure_open(
+        session,
+        stock,
+        WorkflowKey.VALUATION_SCORE,
+        origin=TicketOrigin.USER,
+        priority=HIGH_PRIORITY,
+    )
+    return _redirect(f"/stocks/{stock_id}#valuation")
+
+
+class DatapointForm(BaseModel):
+    key: str
+    subject: str = ""
+    value: str = ""
+    text: str = ""
+    unit: str = ""
+    source: str = ""
+    confidence: str = "medium"
+    as_of: str = ""
+
+
+@router.post("/stocks/{stock_id}/datapoints", response_model=None)
+def datapoint_add(
+    stock_id: int,
+    request: Request,
+    session: SessionDep,
+    container: ContainerDep,
+    form: Annotated[DatapointForm, Form()],
+) -> Response:
+    stock = session.get(Stock, stock_id)
+    if stock is None:
+        raise HTTPException(404)
+    try:
+        datapoints_service.add_datapoint(
+            session,
+            stock,
+            datapoints_service.DatapointInput(
+                key=form.key,
+                subject=form.subject,
+                value=_number(form.value, "Wert") if form.value.strip() else None,
+                text=form.text,
+                unit=form.unit,
+                source=form.source,
+                confidence=form.confidence,
+                as_of=_date(form.as_of),
+            ),
+            origin="user",
+        )
+    except (datapoints_service.DatapointError, PortfolioError) as exc:
+        session.rollback()
+        return _stock_view(request, session, container, stock, error=str(exc), status_code=400)
+    tickets.ensure_open(
+        session,
+        stock,
+        WorkflowKey.VALUATION_SCORE,
+        origin=TicketOrigin.USER,
+        priority=HIGH_PRIORITY,
+    )
+    return _redirect(f"/stocks/{stock_id}#evidence")
+
+
+@router.post("/datapoints/{datapoint_id}/delete")
+def datapoint_delete(datapoint_id: int, session: SessionDep) -> RedirectResponse:
+    point = session.get(Datapoint, datapoint_id)
+    if point is None:
+        raise HTTPException(404)
+    stock_id = point.stock_id
+    session.delete(point)
+    stock = session.get(Stock, stock_id)
+    if stock:
+        tickets.ensure_open(
+            session,
+            stock,
+            WorkflowKey.VALUATION_SCORE,
+            origin=TicketOrigin.USER,
+            priority=HIGH_PRIORITY,
+        )
+    return _redirect(f"/stocks/{stock_id}#evidence")
+
+
+@router.post("/stocks/{stock_id}/briefing")
+def briefing_refresh(stock_id: int, session: SessionDep) -> RedirectResponse:
+    stock = session.get(Stock, stock_id)
+    if stock is None:
+        raise HTTPException(404)
+    tickets.ensure_open(
+        session,
+        stock,
+        WorkflowKey.BRIEFING,
+        origin=TicketOrigin.USER,
+        priority=HIGH_PRIORITY,
+    )
+    return _redirect(f"/stocks/{stock_id}")
 
 
 @router.get("/api/stocks/{stock_id}/candles")

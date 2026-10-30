@@ -30,6 +30,9 @@ class WorkflowKey(StrEnum):
     THESIS_CHECK = "thesis_check"
     VALUATION_SCORE = "valuation_score"
     TECHNICAL_SNAPSHOT = "technical_snapshot"
+    CLASSIFY_STOCK = "classify_stock"
+    RESEARCH_DATAPOINTS = "research_datapoints"
+    BRIEFING = "briefing"
 
 
 class InsightCategory(StrEnum):

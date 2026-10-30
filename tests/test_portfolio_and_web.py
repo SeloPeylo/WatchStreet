@@ -59,7 +59,7 @@ def test_full_user_flow(client, container):
 
     detail = client.get(f"/stocks/{stock_id}")
     assert detail.status_code == 200
-    for needle in ("Investmentthese", "valuation_v1", "technical_v1", "Zeitleiste", "halten"):
+    for needle in ("Investmentthese", "valuation_tech_v1", "technical_v1", "Zeitleiste", "halten"):
         assert needle in detail.text
 
     candles = client.get(f"/api/stocks/{stock_id}/candles?interval=1d").json()

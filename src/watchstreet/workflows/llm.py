@@ -12,8 +12,10 @@ from watchstreet.agents.tools import ToolCapableRunner
 from watchstreet.constants import MAX_LLM_ATTEMPTS
 from watchstreet.domain import InsightCategory, ThesisStatus
 from watchstreet.workflows.base import (
+    DatapointDraft,
     FollowUp,
     InsightDraft,
+    ProfileDraft,
     ThesisDraft,
     Workflow,
     WorkflowContext,
@@ -51,7 +53,10 @@ Schema:
   "thesis": "Investmentthese oder null",
   "thesis_status": "active|confirmed|weakened|invalidated oder null",
   "insights": [{"category": "goal|risk|catalyst|valuation|technical|action|note", "text": "..."}],
-  "followups": [{"workflow": "<einer der erlaubten>", "topic": "...", "reason": "..."}]
+  "followups": [{"workflow": "<einer der erlaubten>", "topic": "...", "reason": "..."}],
+  "profile": "Profilschlüssel oder null",
+  "datapoints": [{"key": "...", "subject": "...", "value": 0, "source": "...",
+                  "confidence": "high|medium|low"}]
 }
 Erlaubte Folge-Workflows: %(followups)s. Schlage nur Folgetickets vor, die echten Mehrwert bringen.
 """
@@ -69,6 +74,16 @@ class FollowUpModel(BaseModel):
     reason: str = ""
 
 
+class DatapointModel(BaseModel):
+    key: str
+    subject: str = ""
+    value: float | None = None
+    text: str = ""
+    unit: str = ""
+    source: str = ""
+    confidence: str = "medium"
+
+
 class Analysis(BaseModel):
     """The JSON document an agent must return."""
 
@@ -78,6 +93,9 @@ class Analysis(BaseModel):
     thesis_status: str | None = None
     insights: list[InsightModel] = Field(default_factory=list)
     followups: list[FollowUpModel] = Field(default_factory=list)
+    profile: str | None = None
+    profile_reason: str = ""
+    datapoints: list[DatapointModel] = Field(default_factory=list)
 
 
 def parse_analysis(raw: str) -> Analysis:
@@ -202,5 +220,9 @@ class LlmWorkflow(Workflow):
             scores=facts.fresh_scores if self.persist_scores else [],
             thesis=thesis,
             followups=[FollowUp(f.workflow, f.topic, f.reason) for f in analysis.followups],
+            datapoints=[DatapointDraft(**d.model_dump()) for d in analysis.datapoints],
+            profile=ProfileDraft(analysis.profile, analysis.profile_reason)
+            if analysis.profile
+            else None,
             data={"runner": ctx.runner.name, "mode": "json"},
         )

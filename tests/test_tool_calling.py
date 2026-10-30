@@ -5,9 +5,11 @@ import httpx
 from sqlalchemy import select
 
 from watchstreet.agents.http_runners import OpenAICompatibleRunner
-from watchstreet.domain import TicketStatus
-from watchstreet.models import Insight, Stock, Thesis, Ticket
-from watchstreet.services import portfolio
+from watchstreet.domain import TicketStatus, WorkflowKey
+from watchstreet.harness.executor import execute_ticket
+from watchstreet.models import Briefing, Insight, Stock, Thesis, Ticket
+from watchstreet.services import datapoints as dps
+from watchstreet.services import portfolio, tickets
 from watchstreet.worker import drain_queue
 
 _ids = itertools.count()
@@ -134,7 +136,7 @@ def test_prompt_is_compact_and_tools_are_offered(container, monkeypatch):
     names = {t["function"]["name"] for t in first["tools"]}
     assert {"get_price_summary", "add_insight", "propose_followup", "set_thesis"} <= names
     user_prompt = first["messages"][1]["content"]
-    assert "valuation_v1" in user_prompt  # deterministic scores are handed over
+    assert "valuation_tech_v1" in user_prompt  # deterministic scores are handed over
     assert "fundamentals" not in user_prompt  # details are pulled on demand
 
 
@@ -168,3 +170,151 @@ def test_tool_loop_stops_after_max_steps(container, monkeypatch):
         first = s.scalars(select(Ticket).order_by(Ticket.id)).first()
         assert first.status == TicketStatus.DONE
         assert "Tool-Schleife" in first.summary and first.result["data"]["steps"] == 8
+
+
+def mining_holding(container):
+    with container.session_factory() as s:
+        portfolio.add_holding(s, container.market, portfolio.NewHolding("NEM", 5, 40.0))
+        s.commit()
+
+
+def test_agent_records_sourced_datapoints_and_cannot_overwrite_user_values(container, monkeypatch):
+
+    with container.session_factory() as s:
+        portfolio.add_holding(s, container.market, portfolio.NewHolding("NEM", 5, 40.0))
+        stock = s.scalar(select(Stock))
+        dps.add_datapoint(
+            s, stock, dps.DatapointInput("net_debt", value=7, source="me"), origin="user"
+        )
+        s.commit()
+    llm = FakeLlm(
+        [
+            reply(
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        call("get_datapoint_specs"),
+                        call(
+                            "record_datapoint",
+                            key="mine_aisc",
+                            subject="Carlin",
+                            value=1250,
+                            unit="USD/oz",
+                            source="10-K 2025",
+                            confidence="high",
+                        ),
+                        call(
+                            "record_datapoint",
+                            key="mine_aisc",
+                            value=1,
+                            source="x",
+                            confidence="high",
+                        ),
+                        call(
+                            "record_datapoint",
+                            key="net_debt",
+                            value=1,
+                            source="x",
+                            confidence="low",
+                        ),
+                        call(
+                            "record_datapoint", key="bogus", value=1, source="x", confidence="low"
+                        ),
+                        call(
+                            "record_datapoint",
+                            key="mine_aisc",
+                            subject="B",
+                            value="abc",
+                            source="x",
+                        ),
+                        call("set_profile", profile="oil_gas", reason="test"),
+                        call("set_profile", profile="nonsense"),
+                    ],
+                }
+            ),
+            reply({"role": "assistant", "content": "ok"}),
+        ]
+    )
+    use_llm(container, llm, monkeypatch)
+
+    with container.session_factory() as s:
+        t = tickets.create_ticket(s, s.scalar(select(Stock)), WorkflowKey.RESEARCH_DATAPOINTS)
+        s.commit()
+        tid = t.id
+
+    execute_ticket(container, tid)
+    answers = [m["content"] for m in llm.requests[1]["messages"] if m["role"] == "tool"]
+    assert '"profile":"mining"' in answers[0] and answers[1] == "recorded"
+    assert "needs a subject" in answers[2] or "Bezug" in answers[2]
+    assert "protected" in answers[3]
+    assert "gehört nicht zum Profil" in answers[4] and "must be a number" in answers[5]
+    assert answers[6] == "recorded" and "must be one of" in answers[7]
+    with container.session_factory() as s:
+        stock = s.scalar(select(Stock))
+        aisc = next(p for p in stock.datapoints if p.key == "mine_aisc")
+        assert (aisc.subject, aisc.value, aisc.origin, aisc.source) == (
+            "Carlin",
+            1250,
+            "agent",
+            "10-K 2025",
+        )
+        assert aisc.ticket_id == tid and aisc.confidence == "high"
+        assert [p.value for p in stock.datapoints if p.key == "net_debt"] == [7]
+        assert stock.profile == "oil_gas" and stock.profile_source == "agent"
+
+
+def test_briefing_agent_polish_and_fallback(container, monkeypatch):
+    mining_holding(container)
+    drain_queue(container)
+    llm = FakeLlm(
+        [
+            reply(
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        call(
+                            "set_briefing",
+                            headline="NEM: Datenlage dünn",
+                            bullets=["AISC fehlt", "Preis prüfen"],
+                            focus="evidence",
+                        ),
+                        call("set_briefing", headline="x", bullets=[], focus="bogus"),
+                    ],
+                }
+            ),
+            reply({"role": "assistant", "content": "fertig"}),
+        ]
+    )
+    use_llm(container, llm, monkeypatch)
+
+    with container.session_factory() as s:
+        t = tickets.create_ticket(s, s.scalar(select(Stock)), WorkflowKey.BRIEFING)
+        s.commit()
+        tid = t.id
+    execute_ticket(container, tid)
+    assert [t["function"]["name"] for t in llm.requests[0]["tools"]] == ["set_briefing"]
+    with container.session_factory() as s:
+        latest = s.scalars(select(Briefing).order_by(Briefing.id.desc())).first()
+        assert (latest.headline, latest.author, latest.focus) == (
+            "NEM: Datenlage dünn",
+            "agent",
+            "evidence",
+        )
+        assert s.get(Ticket, tid).result["data"]["mode"] == "tools"
+
+    def broken(_request):
+        return httpx.Response(500)
+
+    runner = OpenAICompatibleRunner("http://llm/v1", "m", "", 5, tools_enabled=True)
+    monkeypatch.setattr(runner, "_client", httpx.Client(transport=httpx.MockTransport(broken)))
+    container.runner = runner
+    with container.session_factory() as s:
+        t = tickets.create_ticket(s, s.scalar(select(Stock)), WorkflowKey.BRIEFING)
+        s.commit()
+        tid = t.id
+    execute_ticket(container, tid)
+    with container.session_factory() as s:
+        assert s.get(Ticket, tid).status == TicketStatus.DONE
+        assert s.scalars(select(Briefing).order_by(Briefing.id.desc())).first().author == "rules"

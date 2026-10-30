@@ -15,14 +15,15 @@ from watchstreet.constants import (
     MOMENTUM_BARS,
     PERCENT,
     RECENT_LIMIT,
-    TECHNICAL_SCHEME,
-    VALUATION_SCHEME,
 )
 from watchstreet.market.base import MarketDataError
 from watchstreet.market.indicators import pct_change
 from watchstreet.models import Insight, MarketEvent, Score
+from watchstreet.profiles.registry import get_profile
+from watchstreet.services.datapoints import latest
 from watchstreet.workflows.base import ScoreDraft, WorkflowContext
-from watchstreet.workflows.scoring import ScoreResult, technical_score, valuation_score
+from watchstreet.workflows.scoring import ScoreResult, technical_score
+from watchstreet.workflows.valuation import compute_valuation
 
 RECENT_INSIGHTS = 12
 
@@ -63,7 +64,7 @@ def _market_block(ctx: WorkflowContext) -> tuple[dict[str, Any], list[ScoreResul
         fundamentals = ctx.market.fundamentals(symbol)
         data["fundamentals"] = dict(fundamentals.values)
         tech = technical_score(candles)
-        val = valuation_score(fundamentals, quote.price)
+        val = compute_valuation(ctx.market, ctx.stock, quote.price, fundamentals)
         scores = [s for s in (val, tech) if s is not None]
     except MarketDataError as exc:
         data["market_error"] = str(exc)
@@ -91,10 +92,26 @@ def gather_facts(ctx: WorkflowContext, extra: dict[str, Any] | None = None) -> F
     stock = ctx.stock
     data, results = _market_block(ctx)
     data.update(symbol=stock.symbol, name=stock.name)
+    profile = get_profile(stock.profile)
+    data["profile"] = {"key": profile.key, "label": profile.label, "source": stock.profile_source}
+    data["company_info"] = {"sector": stock.sector, "industry": stock.industry}
+    data["missing_inputs"] = next(
+        (r.details.get("missing", []) for r in results if r.scheme == profile.scheme),
+        [],
+    )
+    data["datapoints"] = [
+        {"key": d.key, "subject": d.subject, "value": d.value, "text": d.text, "origin": d.origin}
+        for d in latest(stock)
+    ]
     data["holding"] = _holding_block(ctx, data.get("price"))
     data["watch_note"] = stock.watch.note if stock.watch else None
     data["scores"] = {
-        r.scheme: {"value": r.value, "label": r.label, "coverage": r.details.get("coverage")}
+        r.scheme: {
+            "value": r.value,
+            "label": r.label,
+            "coverage": r.details.get("coverage"),
+            "provisional": r.details.get("provisional"),
+        }
         for r in results
     }
     data["previous_scores"] = latest_scores(ctx)
@@ -118,4 +135,4 @@ def gather_facts(ctx: WorkflowContext, extra: dict[str, Any] | None = None) -> F
     return Facts(data=data, fresh_scores=[_draft(r) for r in results])
 
 
-__all__ = ["TECHNICAL_SCHEME", "VALUATION_SCHEME", "Facts", "gather_facts", "latest_scores"]
+__all__ = ["Facts", "gather_facts", "latest_scores"]
