@@ -5,7 +5,12 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from watchstreet.constants import DEFAULT_PRIORITY, LIST_LIMIT, STUCK_TICKET_TIMEOUT
+from watchstreet.constants import (
+    CLAIM_ATTEMPTS,
+    DEFAULT_PRIORITY,
+    LIST_LIMIT,
+    STUCK_TICKET_TIMEOUT,
+)
 from watchstreet.domain import OPEN_STATUSES, TicketOrigin, TicketStatus, WorkflowKey
 from watchstreet.models import Stock, Ticket
 from watchstreet.timeutil import utcnow
@@ -65,24 +70,29 @@ def ensure_open(
 
 
 def claim_next(session: Session) -> Ticket | None:
-    """Atomically move the best queued ticket to running; ``None`` if nothing is queued."""
-    candidate = session.scalars(
-        select(Ticket.id)
-        .where(Ticket.status == TicketStatus.QUEUED)
-        .order_by(Ticket.priority.desc(), Ticket.id)
-        .limit(1),
-    ).first()
-    if candidate is None:
-        return None
-    claimed = session.execute(
-        update(Ticket)
-        .where(Ticket.id == candidate, Ticket.status == TicketStatus.QUEUED)
-        .values(status=TicketStatus.RUNNING, started_at=utcnow()),
-    )
-    session.commit()
-    if claimed.rowcount != 1:  # type: ignore[attr-defined]
-        return None
-    return session.get(Ticket, candidate)
+    """Move the best queued ticket to running; ``None`` if nothing is queued.
+
+    The claim is a conditional ``UPDATE ... WHERE status = 'queued'``, so concurrent workers can
+    never both win the same ticket; the loser simply tries the next candidate. The caller owns the
+    transaction: the claim becomes visible to other workers when the caller commits.
+    """
+    for _ in range(CLAIM_ATTEMPTS):
+        candidate = session.scalars(
+            select(Ticket.id)
+            .where(Ticket.status == TicketStatus.QUEUED)
+            .order_by(Ticket.priority.desc(), Ticket.id)
+            .limit(1),
+        ).first()
+        if candidate is None:
+            return None
+        claimed = session.execute(
+            update(Ticket)
+            .where(Ticket.id == candidate, Ticket.status == TicketStatus.QUEUED)
+            .values(status=TicketStatus.RUNNING, started_at=utcnow()),
+        )
+        if claimed.rowcount == 1:  # type: ignore[attr-defined]
+            return session.get(Ticket, candidate)
+    return None
 
 
 def requeue_stuck(session: Session) -> int:

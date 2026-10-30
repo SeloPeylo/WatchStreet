@@ -243,14 +243,7 @@ def _stock_view(
 ) -> HTMLResponse:
     profile = get_profile(stock.profile)
     quote = container.market.try_quote(stock.symbol)
-    row = next(
-        (
-            r
-            for r in portfolio.holding_rows(session, container.market)
-            if r.holding.stock_id == stock.id
-        ),
-        None,
-    )
+    row = next(iter(portfolio.holding_rows(session, container.market, stock.id)), None)
     goal = next((i for i in stock.insights if i.category == InsightCategory.GOAL), None)
     scores = _latest_per_scheme(stock)
     valuation = next((s for s in scores if s["latest"].scheme == profile.scheme), None)

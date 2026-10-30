@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from watchstreet.constants import (
     DEFAULT_RELATION_STRENGTH,
@@ -231,25 +231,62 @@ class CountryExposure:
     contributions: list[dict[str, Any]] = field(default_factory=list)
 
 
-def _asset_shares(session: Session, company: Entity, stock: Stock) -> list[tuple[Entity, float]]:
+def _asset_shares(
+    stock: Stock,
+    owned: list[tuple[Relation, Entity]],
+) -> list[tuple[Entity, float]]:
     """Owned assets with their weight inside the company (production x ownership if known)."""
-    edges = list(
-        session.scalars(
-            select(Relation).where(Relation.source_id == company.id, Relation.kind == "owns"),
-        ),
-    )
     production = {
         d.subject: d.value for d in stock.datapoints if d.key == "mine_production" and d.value
     }
     rows: list[tuple[Entity, float]] = []
-    for edge in edges:
-        asset = session.get(Entity, edge.target_id)
-        if asset is None or asset.kind not in ASSET_KINDS:
+    for edge, asset in owned:
+        if asset.kind not in ASSET_KINDS:
             continue
         weight = (production.get(asset.name) or 1.0) * (edge.strength or 1.0)
         rows.append((asset, weight))
     total = sum(w for _a, w in rows)
     return [(a, w / total) for a, w in rows] if total else []
+
+
+def _load_exposure_inputs(
+    session: Session, stock_ids: list[int]
+) -> tuple[dict[int, Stock], dict[int, Entity], dict[int, list[tuple[Relation, Entity]]]]:
+    """Load stocks, company entities and connected relations in a fixed number of queries."""
+    stocks = {
+        s.id: s
+        for s in session.scalars(
+            select(Stock).where(Stock.id.in_(stock_ids)).options(selectinload(Stock.datapoints)),
+        )
+    }
+    companies: dict[int, Entity] = {}
+    for company in session.scalars(
+        select(Entity)
+        .where(Entity.stock_id.in_(stock_ids), Entity.kind == "company")
+        .order_by(Entity.id),
+    ):
+        if company.stock_id is not None:
+            companies.setdefault(company.stock_id, company)
+    company_ids = {c.id for c in companies.values()}
+    relations = list(
+        session.scalars(
+            select(Relation)
+            .where(Relation.source_id.in_(company_ids) | Relation.target_id.in_(company_ids))
+            .order_by(Relation.id),
+        ),
+    )
+    other_ids = {r.target_id for r in relations} | {r.source_id for r in relations}
+    others = {e.id: e for e in session.scalars(select(Entity).where(Entity.id.in_(other_ids)))}
+    connected: dict[int, list[tuple[Relation, Entity]]] = {}
+    for rel in relations:
+        for company_id, other_id in (
+            (rel.source_id, rel.target_id),
+            (rel.target_id, rel.source_id),
+        ):
+            other = others.get(other_id)
+            if company_id in company_ids and other is not None:
+                connected.setdefault(company_id, []).append((rel, other))
+    return stocks, companies, connected
 
 
 def country_exposure(session: Session, values: dict[int, float]) -> dict[str, CountryExposure]:
@@ -266,25 +303,22 @@ def country_exposure(session: Session, values: dict[int, float]) -> dict[str, Co
             entry.share += share
             entry.contributions.append({"stock": stock.symbol, "via": via, "share": share})
 
+    stocks, companies, connected = _load_exposure_inputs(session, list(values))
     for stock_id, value in values.items():
-        stock = session.get(Stock, stock_id)
-        company = session.scalar(
-            select(Entity).where(Entity.stock_id == stock_id, Entity.kind == "company"),
-        )
+        stock, company = stocks.get(stock_id), companies.get(stock_id)
         if stock is None or company is None:
             continue
         weight = value / total
-        for asset, share in _asset_shares(session, company, stock):
+        edges = connected.get(company.id, [])
+        owned = [
+            (rel, other)
+            for rel, other in edges
+            if rel.source_id == company.id and rel.kind == "owns"
+        ]
+        for asset, share in _asset_shares(stock, owned):
             add(asset.country, weight * share, stock, f"Asset {asset.name}")
-        for rel in session.scalars(
-            select(Relation).where(
-                (Relation.source_id == company.id) | (Relation.target_id == company.id)
-            ),
-        ):
-            other = session.get(
-                Entity, rel.target_id if rel.source_id == company.id else rel.source_id
-            )
-            if other is None or rel.kind == "owns":
+        for rel, other in edges:
+            if rel.kind == "owns":
                 continue
             strength = rel.strength if rel.strength is not None else DEFAULT_RELATION_STRENGTH
             country = other.name if other.kind == "country" else other.country

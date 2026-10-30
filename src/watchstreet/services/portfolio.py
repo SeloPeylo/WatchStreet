@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from watchstreet.constants import HIGH_PRIORITY
 from watchstreet.domain import TicketOrigin, WorkflowKey
@@ -140,9 +140,15 @@ class HoldingRow:
     day_change_pct: float | None
 
 
-def holding_rows(session: Session, market: MarketService) -> list[HoldingRow]:
+def holding_rows(
+    session: Session, market: MarketService, stock_id: int | None = None
+) -> list[HoldingRow]:
+    """Priced holding rows, optionally restricted to one stock (its detail page)."""
+    query = select(Holding).options(joinedload(Holding.stock)).order_by(Holding.id)
+    if stock_id is not None:
+        query = query.where(Holding.stock_id == stock_id)
     rows: list[HoldingRow] = []
-    for holding in session.scalars(select(Holding).order_by(Holding.id)):
+    for holding in session.scalars(query):
         quote = market.try_quote(holding.stock.symbol)
         if quote is None:
             rows.append(HoldingRow(holding, None, None, None, None, None))

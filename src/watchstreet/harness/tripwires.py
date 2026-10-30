@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from watchstreet.constants import (
     COMMODITY_MOVE_PCT,
@@ -96,7 +96,7 @@ def quake_alerts(session: Session, quakes: list[Quake]) -> int:
 def commodity_alerts(session: Session, market: MarketService) -> int:
     """Large daily moves in commodities my stocks depend on."""
     exposed: dict[str, tuple[Commodity, list[Stock]]] = {}
-    for stock in session.scalars(select(Stock)):
+    for stock in session.scalars(select(Stock).options(selectinload(Stock.datapoints))):
         for commodity in stock_commodities(stock):
             exposed.setdefault(commodity.key, (commodity, []))[1].append(stock)
     created = 0

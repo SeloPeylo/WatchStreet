@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from watchstreet.commodities import BY_SYMBOL, COMMODITIES, COPPER_GOLD_FACTOR, MACRO, Commodity
 from watchstreet.constants import COMMODITY_SYMBOL_KEY, PERCENT
@@ -91,7 +91,7 @@ def exposure_by_commodity(
     """Which stocks depend on which commodity, and their share of the portfolio value."""
     total = sum(values.values()) or 1.0
     grouped: dict[str, tuple[Commodity, list[Stock], float]] = {}
-    for stock in session.scalars(select(Stock)):
+    for stock in session.scalars(select(Stock).options(selectinload(Stock.datapoints))):
         for commodity in stock_commodities(stock):
             entry = grouped.setdefault(commodity.key, (commodity, [], 0.0))
             entry[1].append(stock)
