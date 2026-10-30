@@ -3,8 +3,8 @@ from sqlalchemy import select
 from tests.test_intel_flows import mining_stock
 from watchstreet.domain import WorkflowKey
 from watchstreet.harness.executor import execute_ticket
+from watchstreet.harness.ingest import run_ingest
 from watchstreet.harness.scheduler import scan_due
-from watchstreet.intel.ingest import run_ingest
 from watchstreet.models import Document, Entity, Feed, IntelItem, Stock, Ticket
 from watchstreet.services import tickets as tk
 from watchstreet.worker import drain_queue

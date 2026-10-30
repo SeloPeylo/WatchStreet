@@ -5,8 +5,8 @@ from fastapi.testclient import TestClient
 
 from watchstreet.config import Settings
 from watchstreet.container import build_container
-from watchstreet.intel.ingest import seed_feeds
 from watchstreet.models import Base
+from watchstreet.services.feeds import seed_feeds
 from watchstreet.web.app import create_app
 
 

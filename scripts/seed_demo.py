@@ -19,8 +19,8 @@ from watchstreet.container import Container, build_container
 from watchstreet.domain import WorkflowKey
 from watchstreet.drafts import IntelDraft
 from watchstreet.harness.executor import execute_ticket
+from watchstreet.harness.ingest import run_ingest
 from watchstreet.intel.documents import store_document
-from watchstreet.intel.ingest import run_ingest
 from watchstreet.models import Document, Stock
 from watchstreet.services import datapoints as dps
 from watchstreet.services import entities, portfolio, tickets
