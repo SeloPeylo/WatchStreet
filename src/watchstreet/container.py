@@ -12,9 +12,9 @@ from watchstreet.db import make_engine, make_session_factory, session_scope
 from watchstreet.intel.connectors.edgar import EdgarClient
 from watchstreet.intel.demo import demo_client, demo_resolver
 from watchstreet.intel.fetch import Fetcher
-from watchstreet.intel.ingest import seed_feeds
 from watchstreet.market.service import MarketService, build_provider
-from watchstreet.models import Base
+from watchstreet.migrate import upgrade_to_head
+from watchstreet.services.feeds import seed_feeds
 
 SEC_MIN_INTERVAL_S = 0.15  # SEC allows 10 requests per second; stay well below
 
@@ -46,7 +46,7 @@ def build_container(
         min_interval_s=SEC_MIN_INTERVAL_S,
     )
     engine = make_engine(settings.database_url)
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     factory = make_session_factory(engine)
     with session_scope(factory) as session:
         seed_feeds(session)

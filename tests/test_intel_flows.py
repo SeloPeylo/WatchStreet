@@ -10,12 +10,12 @@ from watchstreet.constants import LAST_SCAN_KEY, SCAN_REQUEST_KEY
 from watchstreet.db import session_scope
 from watchstreet.domain import TicketStatus, WorkflowKey
 from watchstreet.harness.executor import execute_ticket
+from watchstreet.harness.ingest import run_ingest
 from watchstreet.harness.scheduler import scan_due
+from watchstreet.harness.tripwires import commodity_alerts, quake_alerts
 from watchstreet.intel.connectors import usgs
 from watchstreet.intel.documents import store_document
 from watchstreet.intel.fetch import FetchError
-from watchstreet.intel.ingest import run_ingest
-from watchstreet.intel.tripwires import commodity_alerts, quake_alerts
 from watchstreet.market.base import Quote
 from watchstreet.models import (
     Datapoint,

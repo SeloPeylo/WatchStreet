@@ -3,21 +3,24 @@
 from datetime import datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from watchstreet.constants import (
     INTEL_CATEGORIES,
     INTEL_DIRECTIONS,
+    LIST_LIMIT,
+    PRIMARY_KINDS,
     SEVERITY_MAX,
     SEVERITY_MIN,
 )
+from watchstreet.drafts import IntelDraft
+from watchstreet.errors import WatchStreetError
 from watchstreet.geo import country_point, normalize_country
 from watchstreet.models import Document, IntelImpact, IntelItem, Stock
 from watchstreet.timeutil import utcnow
-from watchstreet.workflows.base import IntelDraft
 
 
-class IntelError(ValueError):
+class IntelError(WatchStreetError, ValueError):
     """An intel item that is not acceptable (e.g. without a source)."""
 
 
@@ -90,6 +93,35 @@ def recent_for_stock(session: Session, stock_id: int, limit: int) -> list[IntelI
             .limit(limit),
         ),
     )
+
+
+def list_items(
+    session: Session,
+    *,
+    category: str = "",
+    stock_id: int = 0,
+    min_severity: int = SEVERITY_MIN,
+    primary_only: bool = False,
+) -> list[IntelItem]:
+    """Newest items first. ``primary_only`` keeps items backed by a primary source (or none)."""
+    query = (
+        select(IntelItem)
+        .options(joinedload(IntelItem.document))
+        .order_by(IntelItem.published_at.desc())
+        .limit(LIST_LIMIT)
+    )
+    if category in INTEL_CATEGORIES:
+        query = query.where(IntelItem.category == category)
+    if min_severity > SEVERITY_MIN:
+        query = query.where(IntelItem.severity >= min_severity)
+    if stock_id:
+        query = query.where(
+            IntelItem.id.in_(select(IntelImpact.intel_id).where(IntelImpact.stock_id == stock_id))
+        )
+    items = list(session.scalars(query))
+    if primary_only:
+        items = [i for i in items if i.document is None or i.document.kind in PRIMARY_KINDS]
+    return items
 
 
 def age_days(item: IntelItem, now: datetime | None = None) -> float:

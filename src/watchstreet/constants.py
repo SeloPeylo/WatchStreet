@@ -32,6 +32,8 @@ DEFAULT_OWNERSHIP = 1.0
 DEFAULT_REPORTING_CURRENCY = "USD"
 PROVISIONAL_NOTE = "vorläufig"
 STUCK_TICKET_TIMEOUT = timedelta(minutes=30)
+MIGRATION_LOCK_ID = 7_352_001  # PostgreSQL advisory lock key serialising schema upgrades
+CLAIM_ATTEMPTS = 3  # tries to claim a ticket before giving up when other workers win the race
 DEFAULT_PRIORITY = 50
 HIGH_PRIORITY = 80
 LOW_PRIORITY = 20
@@ -113,6 +115,9 @@ FETCH_MIN_INTERVAL_S = 0.2
 FETCH_USER_AGENT = "WatchStreet/0.1 (+https://github.com/selopeylo/watchstreet)"
 DOCUMENT_KINDS = ("filing", "gov", "press", "news", "dataset", "other")
 PRIMARY_KINDS = ("filing", "gov", "press", "dataset")
+FEED_DOC_KINDS = ("news", "gov", "press", "filing")  # kinds a user may assign to a custom feed
+SCORE_HISTORY_POINTS = RECENT_LIMIT * 2  # sparkline length per score scheme
+MAP_REASONS_PER_COUNTRY = 6  # contributions shown per country on the map
 
 # --- Intel ----------------------------------------------------------------
 INTEL_CATEGORIES = (

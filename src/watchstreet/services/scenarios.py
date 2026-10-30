@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from watchstreet.market.base import MarketDataError
 from watchstreet.market.service import MarketService
 from watchstreet.models import Stock
-from watchstreet.workflows.valuation import compute_valuation
+from watchstreet.services.valuation import compute_valuation
 
 NEUTRAL_SHOCK = 0.0
 

@@ -11,24 +11,17 @@ from watchstreet.constants import (
     SEC_FORMS_FULLTEXT,
 )
 from watchstreet.domain import InsightCategory, WorkflowKey
+from watchstreet.drafts import DatapointDraft, FollowUp, InsightDraft, IntelDraft, WorkflowResult
 from watchstreet.intel.connectors.edgar import ANNUAL_QUARTERLY_FORMS, extract_facts
 from watchstreet.intel.documents import outline, store_document
 from watchstreet.intel.fetch import FetchError
 from watchstreet.models import Document
 from watchstreet.profiles.registry import get_profile
 from watchstreet.services.datapoints import as_points, latest
-from watchstreet.workflows.base import (
-    DatapointDraft,
-    FollowUp,
-    InsightDraft,
-    IntelDraft,
-    Workflow,
-    WorkflowContext,
-    WorkflowResult,
-)
+from watchstreet.services.valuation import missing_inputs
+from watchstreet.workflows.base import Workflow, WorkflowContext
 from watchstreet.workflows.doc_tools import DocToolBox, IntelToolBox
 from watchstreet.workflows.llm import LlmWorkflow
-from watchstreet.workflows.valuation import missing_inputs
 
 FULLTEXT_PER_RUN = 2
 OUTLINE_IN_PROMPT = 25
@@ -56,11 +49,6 @@ INTEL_SYSTEM = (
 
 class SecSync(Workflow):
     key = WorkflowKey.SEC_SYNC
-    label = "SEC-Abgleich"
-    description = (
-        "Holt neue Einreichungen von SEC EDGAR und leitet Aktienzahl/Nettoverschuldung aus den "
-        "XBRL-Daten ab (deterministisch, mit Quelle; kein LLM)."
-    )
 
     def run(self, ctx: WorkflowContext) -> WorkflowResult:
         edgar, stock = ctx.edgar, ctx.stock
@@ -175,13 +163,6 @@ class SecSync(Workflow):
 
 class ReadFiling(Workflow):
     key = WorkflowKey.READ_FILING
-    label = "Einreichung lesen"
-    description = (
-        "Ein Agent liest eine Einreichung gezielt und extrahiert Datenpunkte, "
-        "Zulieferer/Kunden und "
-        "Assets – jeweils mit wörtlichem, vom Harness geprüftem Zitat."
-    )
-    user_creatable = False
 
     def run(self, ctx: WorkflowContext) -> WorkflowResult:
         runner = ctx.runner
@@ -249,11 +230,6 @@ class ReadFiling(Workflow):
 
 class IntelTriage(LlmWorkflow):
     key = WorkflowKey.INTEL_TRIAGE
-    label = "Nachrichten-Zuschnitt"
-    description = (
-        "Bewertet neue Quellen auf Relevanz für die Aktie und veröffentlicht belegte Intel-Items."
-    )
-    user_creatable = False
     tool_system_prompt = INTEL_SYSTEM
     task = (
         "Prüfe die gelieferten Quellen ('documents') auf Relevanz für diese Aktie, ihre These und "

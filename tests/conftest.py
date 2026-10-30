@@ -2,18 +2,25 @@ import os
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from watchstreet.config import Settings
 from watchstreet.container import build_container
-from watchstreet.intel.ingest import seed_feeds
+from watchstreet.migrate import upgrade_to_head
 from watchstreet.models import Base
+from watchstreet.services.feeds import seed_feeds
 from watchstreet.web.app import create_app
 
 
 @pytest.fixture
 def container(tmp_path):
-    """Runs on SQLite by default; set WATCHSTREET_TEST_DATABASE_URL to test another backend."""
-    url = os.environ.get("WATCHSTREET_TEST_DATABASE_URL") or f"sqlite:///{tmp_path / 'test.db'}"
+    """Runs on SQLite by default; set WATCHSTREET_TEST_DATABASE_URL to test another backend.
+
+    The schema always comes from the Alembic migrations (``build_container`` upgrades to head).
+    A shared external database is reset first so every test starts empty.
+    """
+    external = os.environ.get("WATCHSTREET_TEST_DATABASE_URL")
+    url = external or f"sqlite:///{tmp_path / 'test.db'}"
     settings = Settings(
         database_url=url,
         market_provider="demo",
@@ -21,11 +28,14 @@ def container(tmp_path):
         docs_dir=str(tmp_path / "docs"),
     )
     built = build_container(settings)
-    Base.metadata.drop_all(built.engine)
-    Base.metadata.create_all(built.engine)
-    with built.session_factory() as session:
-        seed_feeds(session)
-        session.commit()
+    if external:
+        Base.metadata.drop_all(built.engine)
+        with built.engine.begin() as connection:
+            connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
+        upgrade_to_head(built.engine)
+        with built.session_factory() as session:
+            seed_feeds(session)
+            session.commit()
     yield built
     built.engine.dispose()
 

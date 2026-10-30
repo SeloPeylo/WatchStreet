@@ -5,8 +5,8 @@ from watchstreet.market.service import MarketService
 from watchstreet.models import Stock
 from watchstreet.profiles.derive import DeriveInput, Point
 from watchstreet.profiles.registry import Profile, get_profile
+from watchstreet.profiles.scoring import ScoreResult, score_metrics
 from watchstreet.services.datapoints import as_points, latest
-from watchstreet.workflows.scoring import ScoreResult, score_metrics
 
 COMMODITY_SYMBOL_KEY = "commodity_symbol"
 COMMODITY_PRICE_KEY = "commodity_price"

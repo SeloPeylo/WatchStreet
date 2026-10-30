@@ -2,7 +2,6 @@
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,10 +11,11 @@ from watchstreet.constants import (
     LOW_PRIORITY,
     MAX_DOCS_PER_TRIAGE,
     MAX_OPEN_TICKETS_PER_STOCK,
-    RELEVANCE_THRESHOLD,
 )
+from watchstreet.container import Container
 from watchstreet.db import session_scope
 from watchstreet.domain import TicketOrigin, WorkflowKey
+from watchstreet.harness.tripwires import commodity_alerts, quake_alerts
 from watchstreet.intel.connectors import gdelt, usgs
 from watchstreet.intel.connectors.rss import parse_feed
 from watchstreet.intel.connectors.types import RawItem
@@ -28,36 +28,11 @@ from watchstreet.intel.triage import (
     score_document,
     watch_terms,
 )
-from watchstreet.intel.tripwires import commodity_alerts, quake_alerts
 from watchstreet.models import Document, Feed, Stock
 from watchstreet.services.tickets import count_open, create_ticket
 from watchstreet.timeutil import utcnow
 
-if TYPE_CHECKING:
-    from watchstreet.container import Container
-
 logger = logging.getLogger(__name__)
-
-DEFAULT_FEEDS: tuple[tuple[str, str, str, str, str], ...] = (
-    # name, kind, url, publisher, document kind
-    (
-        "SEC EDGAR – aktuelle 8-K",
-        "rss",
-        "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&count=40&output=atom",
-        "SEC EDGAR",
-        "filing",
-    ),
-    (
-        "Federal Reserve – Pressemitteilungen",
-        "rss",
-        "https://www.federalreserve.gov/feeds/press_all.xml",
-        "Federal Reserve",
-        "gov",
-    ),
-    ("EZB – Pressemitteilungen", "rss", "https://www.ecb.europa.eu/rss/press.xml", "EZB", "gov"),
-    ("EIA – Today in Energy", "rss", "https://www.eia.gov/rss/todayinenergy.xml", "US EIA", "gov"),
-    ("USGS – Erdbeben (Tripwire)", "usgs", "", "USGS", "gov"),
-)
 
 
 @dataclass
@@ -66,16 +41,6 @@ class IngestReport:
     tickets: int = 0
     alerts: int = 0
     errors: list[str] = field(default_factory=list)
-
-
-def seed_feeds(session: Session) -> int:
-    """Insert the default feeds once (users can edit/disable them afterwards)."""
-    if session.scalar(select(Feed.id).limit(1)) is not None:
-        return 0
-    for name, kind, url, publisher, doc_kind in DEFAULT_FEEDS:
-        session.add(Feed(name=name, kind=kind, url=url, publisher=publisher, doc_kind=doc_kind))
-    session.flush()
-    return len(DEFAULT_FEEDS)
 
 
 def _store_raw(
@@ -101,9 +66,7 @@ def _store_raw(
     return doc
 
 
-def _ingest_feed(
-    container: "Container", session: Session, feed: Feed, terms: list[WatchTerm]
-) -> int:
+def _ingest_feed(container: Container, session: Session, feed: Feed, terms: list[WatchTerm]) -> int:
     fetched = container.fetcher.fetch(feed.url)
     items = parse_feed(fetched.text, feed.publisher or feed.name, feed.doc_kind)
     return sum(_store_raw(session, i, feed.doc_kind, terms) is not None for i in items)
@@ -145,7 +108,7 @@ def create_triage_tickets(session: Session) -> int:
     return created
 
 
-def run_ingest(container: "Container") -> IngestReport:
+def run_ingest(container: Container) -> IngestReport:
     """One polling pass. Individual source failures are recorded, never fatal."""
     report = IngestReport()
     with session_scope(container.session_factory) as session:
@@ -176,4 +139,4 @@ def run_ingest(container: "Container") -> IngestReport:
     return report
 
 
-__all__ = ["DEFAULT_FEEDS", "RELEVANCE_THRESHOLD", "IngestReport", "run_ingest", "seed_feeds"]
+__all__ = ["IngestReport", "create_triage_tickets", "run_ingest"]

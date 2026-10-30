@@ -29,7 +29,7 @@ Offline demo (synthetic data, rule-based agent, no network): `make demo` after `
 
 ```bash
 make install   # editable install + dev tools + pre-commit
-make check     # ruff format/lint, mypy --strict, bandit, pytest (coverage >= 80 %)
+make check     # ruff format/lint, import-linter (architecture), mypy --strict, bandit, pytest (coverage >= 80 %)
 ```
 
 Static analysis with SonarQube: see [docs/engineering-rules.md](docs/engineering-rules.md). Architecture: [docs/architecture.md](docs/architecture.md). Rules for coding agents: [CLAUDE.md](CLAUDE.md).

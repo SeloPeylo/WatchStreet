@@ -1,4 +1,4 @@
-.PHONY: install fmt lint typecheck security test check run worker demo sonar
+.PHONY: install fmt lint architecture typecheck security test check run worker demo sonar
 
 PY ?= python
 
@@ -14,6 +14,10 @@ lint:
 	ruff format --check .
 	ruff check .
 
+# Layering and dependency rules from [tool.importlinter] in pyproject.toml.
+architecture:
+	lint-imports
+
 typecheck:
 	mypy
 
@@ -24,7 +28,7 @@ test:
 	pytest
 
 # The full quality gate. CI and pre-commit run exactly this; nothing merges red.
-check: lint typecheck security test
+check: lint architecture typecheck security test
 
 run:
 	uvicorn watchstreet.web.app:app_factory --factory --reload --port 8000

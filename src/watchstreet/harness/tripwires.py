@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from watchstreet.constants import (
     COMMODITY_MOVE_PCT,
@@ -18,6 +18,7 @@ from watchstreet.constants import (
     SEVERITY_HIGH,
     SEVERITY_MAX,
 )
+from watchstreet.drafts import IntelDraft
 from watchstreet.geo import haversine_km
 from watchstreet.intel.connectors.usgs import Quake
 from watchstreet.intel.documents import store_document
@@ -25,7 +26,6 @@ from watchstreet.market.service import MarketService
 from watchstreet.models import Entity, Stock
 from watchstreet.services.cockpit import stock_commodities
 from watchstreet.services.intel import create_intel
-from watchstreet.workflows.base import IntelDraft
 
 if TYPE_CHECKING:
     from watchstreet.commodities import Commodity
@@ -96,7 +96,7 @@ def quake_alerts(session: Session, quakes: list[Quake]) -> int:
 def commodity_alerts(session: Session, market: MarketService) -> int:
     """Large daily moves in commodities my stocks depend on."""
     exposed: dict[str, tuple[Commodity, list[Stock]]] = {}
-    for stock in session.scalars(select(Stock)):
+    for stock in session.scalars(select(Stock).options(selectinload(Stock.datapoints))):
         for commodity in stock_commodities(stock):
             exposed.setdefault(commodity.key, (commodity, []))[1].append(stock)
     created = 0

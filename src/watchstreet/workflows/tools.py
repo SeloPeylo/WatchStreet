@@ -30,6 +30,17 @@ from watchstreet.constants import (
     THESIS_PREVIEW_CHARS,
 )
 from watchstreet.domain import InsightCategory, ThesisStatus, WorkflowKey
+from watchstreet.drafts import (
+    BriefingDraft,
+    DatapointDraft,
+    FollowUp,
+    InsightDraft,
+    IntelDraft,
+    ProfileDraft,
+    RelationDraft,
+    ThesisDraft,
+    WorkflowResult,
+)
 from watchstreet.intel.documents import verify_quote
 from watchstreet.market.base import MarketDataError
 from watchstreet.market.indicators import pct_change, rsi, sma
@@ -42,18 +53,7 @@ from watchstreet.services.datapoints import (
     is_user_protected,
     validate,
 )
-from watchstreet.workflows.base import (
-    BriefingDraft,
-    DatapointDraft,
-    FollowUp,
-    InsightDraft,
-    IntelDraft,
-    ProfileDraft,
-    RelationDraft,
-    ThesisDraft,
-    WorkflowContext,
-    WorkflowResult,
-)
+from watchstreet.workflows.base import WorkflowContext
 
 FOLLOWUP_WORKFLOWS = (
     WorkflowKey.TOPIC_ANALYSIS,

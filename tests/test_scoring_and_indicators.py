@@ -3,7 +3,7 @@ import pytest
 from watchstreet.market.demo import DemoProvider
 from watchstreet.market.indicators import pct_change, rsi, sma
 from watchstreet.profiles.registry import get_profile
-from watchstreet.workflows.scoring import interpolate, score_metrics, technical_score
+from watchstreet.profiles.scoring import interpolate, score_metrics, technical_score
 
 
 def test_sma_and_pct_change():

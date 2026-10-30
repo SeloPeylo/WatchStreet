@@ -12,7 +12,7 @@ from watchstreet.profiles.derive import (
     derive_reit,
     derive_tech,
 )
-from watchstreet.workflows.scoring import Criterion
+from watchstreet.profiles.scoring import Criterion
 
 # Panels a stock page can show. The profile decides their order (its "lens").
 PANELS = ("valuation", "chart", "evidence", "thesis", "history")
