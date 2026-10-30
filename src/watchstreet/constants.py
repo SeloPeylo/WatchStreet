@@ -114,6 +114,9 @@ FETCH_MIN_INTERVAL_S = 0.2
 FETCH_USER_AGENT = "WatchStreet/0.1 (+https://github.com/selopeylo/watchstreet)"
 DOCUMENT_KINDS = ("filing", "gov", "press", "news", "dataset", "other")
 PRIMARY_KINDS = ("filing", "gov", "press", "dataset")
+FEED_DOC_KINDS = ("news", "gov", "press", "filing")  # kinds a user may assign to a custom feed
+SCORE_HISTORY_POINTS = RECENT_LIMIT * 2  # sparkline length per score scheme
+MAP_REASONS_PER_COUNTRY = 6  # contributions shown per country on the map
 
 # --- Intel ----------------------------------------------------------------
 INTEL_CATEGORIES = (

@@ -14,14 +14,11 @@ from sqlalchemy.orm import Session
 
 from watchstreet.constants import (
     DEFAULT_INTERVAL,
-    HEARTBEAT_STALE_AFTER,
     HIGH_PRIORITY,
     INTERVAL_RANGES,
-    LAST_SCAN_KEY,
     OPEN_PANELS,
     RECENT_LIMIT,
     TECHNICAL_SCHEME,
-    WORKER_HEARTBEAT_KEY,
 )
 from watchstreet.container import Container
 from watchstreet.domain import InsightCategory, TicketOrigin, TicketStatus, WorkflowKey
@@ -32,9 +29,9 @@ from watchstreet.services import datapoints as datapoints_service
 from watchstreet.services import portfolio, tickets
 from watchstreet.services import profiles as profiles_service
 from watchstreet.services.portfolio import PortfolioError
-from watchstreet.services.state import updated_at
+from watchstreet.services.scores import latest_per_scheme
+from watchstreet.services.status import system_status
 from watchstreet.services.timeline import build_timeline
-from watchstreet.timeutil import utcnow
 from watchstreet.web.deps import ContainerDep, SessionDep
 from watchstreet.web.helpers import parse_date as _date
 from watchstreet.web.helpers import parse_number as _number
@@ -222,16 +219,6 @@ def api_search(q: str, container: ContainerDep) -> list[dict[str, str]]:
 
 
 # ------------------------------------------------------------------ stock detail
-def _latest_per_scheme(stock: Stock) -> list[dict[str, Any]]:
-    grouped: dict[str, list[Any]] = {}
-    for score in stock.scores:  # newest first
-        grouped.setdefault(score.scheme, []).append(score)
-    return [
-        {"latest": rows[0], "history": [r.value for r in reversed(rows)][-RECENT_LIMIT * 2 :]}
-        for rows in grouped.values()
-    ]
-
-
 def _stock_view(
     request: Request,
     session: Session,
@@ -245,7 +232,7 @@ def _stock_view(
     quote = container.market.try_quote(stock.symbol)
     row = next(iter(portfolio.holding_rows(session, container.market, stock.id)), None)
     goal = next((i for i in stock.insights if i.category == InsightCategory.GOAL), None)
-    scores = _latest_per_scheme(stock)
+    scores = latest_per_scheme(stock)
     valuation = next((s for s in scores if s["latest"].scheme == profile.scheme), None)
     technical = next((s for s in scores if s["latest"].scheme == TECHNICAL_SCHEME), None)
     briefing = stock.briefings[0] if stock.briefings else None
@@ -489,15 +476,12 @@ def ticket_cancel(ticket_id: int, session: SessionDep) -> RedirectResponse:
 
 # ------------------------------------------------------------------ system + manual
 def _system_status(session: Session, container: Container) -> dict[str, Any]:
-    beat = updated_at(session, WORKER_HEARTBEAT_KEY)
-    return {
-        "market": container.market.name,
-        "runner": container.runner.name,
-        "worker_alive": beat is not None and utcnow() - beat < HEARTBEAT_STALE_AFTER,
-        "worker_beat": beat,
-        "last_scan": updated_at(session, LAST_SCAN_KEY),
-        "scan_interval": container.settings.event_scan_interval_min,
-    }
+    return system_status(
+        session,
+        market=container.market.name,
+        runner=container.runner.name,
+        scan_interval_min=container.settings.event_scan_interval_min,
+    )
 
 
 @router.get("/system", response_class=HTMLResponse)

@@ -221,6 +221,17 @@ def graph(
     return {"nodes": nodes, "edges": edges}
 
 
+def relations_for_document(session: Session, doc_id: int) -> list[dict[str, Any]]:
+    """Relations quoted from one document, with entity names resolved in a single query."""
+    rels = list(session.scalars(select(Relation).where(Relation.document_id == doc_id)))
+    ids = {r.source_id for r in rels} | {r.target_id for r in rels}
+    names = {e.id: e.name for e in session.scalars(select(Entity).where(Entity.id.in_(ids)))}
+    return [
+        {"rel": r, "source": names.get(r.source_id, "?"), "target": names.get(r.target_id, "?")}
+        for r in rels
+    ]
+
+
 def assets(session: Session) -> list[Entity]:
     return list(session.scalars(select(Entity).where(Entity.kind.in_(ASSET_KINDS))))
 

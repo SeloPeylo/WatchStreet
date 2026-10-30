@@ -1,6 +1,5 @@
 """Intel area: news center, world map, dependency graph, commodity cockpit, documents."""
 
-from datetime import timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -14,9 +13,7 @@ from watchstreet.constants import (
     ENTITY_KINDS,
     GRAPH_DEFAULT_DEPTH,
     INTEL_CATEGORIES,
-    LIST_LIMIT,
     MAP_RECENT_DAYS,
-    PRIMARY_KINDS,
     RELATION_KINDS,
     SCAN_REQUEST_KEY,
     SCENARIO_SHOCKS,
@@ -31,15 +28,16 @@ from watchstreet.models import (
     Entity,
     Feed,
     Insight,
-    IntelImpact,
     IntelItem,
-    Relation,
     Stock,
 )
 from watchstreet.services import cockpit, entities, portfolio, scenarios, tickets
+from watchstreet.services import feeds as feeds_service
+from watchstreet.services import intel as intel_service
 from watchstreet.services.entities import GraphError, RelationInput
+from watchstreet.services.feeds import FeedError
+from watchstreet.services.mapdata import map_payload
 from watchstreet.services.state import touch
-from watchstreet.timeutil import utcnow
 from watchstreet.web.deps import ContainerDep, SessionDep
 from watchstreet.web.helpers import parse_number as _number
 from watchstreet.web.helpers import redirect as _redirect
@@ -59,18 +57,13 @@ def intel_page(
     severity: int = SEVERITY_MIN,
     primary: str = "",
 ) -> HTMLResponse:
-    query = select(IntelItem).order_by(IntelItem.published_at.desc()).limit(LIST_LIMIT)
-    if category in INTEL_CATEGORIES:
-        query = query.where(IntelItem.category == category)
-    if severity > SEVERITY_MIN:
-        query = query.where(IntelItem.severity >= severity)
-    if stock:
-        query = query.where(
-            IntelItem.id.in_(select(IntelImpact.intel_id).where(IntelImpact.stock_id == stock))
-        )
-    items = list(session.scalars(query))
-    if primary:
-        items = [i for i in items if i.document is None or i.document.kind in PRIMARY_KINDS]
+    items = intel_service.list_items(
+        session,
+        category=category,
+        stock_id=stock,
+        min_severity=severity,
+        primary_only=bool(primary),
+    )
     stocks = list(session.scalars(select(Stock).order_by(Stock.symbol)))
     return _render(
         request,
@@ -108,19 +101,16 @@ class FeedForm(BaseModel):
 
 @router.post("/intel/feeds")
 def feed_add(session: SessionDep, form: Annotated[FeedForm, Form()]) -> RedirectResponse:
-    if not form.url.startswith(("http://", "https://")) or not form.name.strip():
-        raise HTTPException(400, "Name und http(s)-URL sind nötig")
-    session.add(
-        Feed(
-            name=form.name.strip(),
-            kind="rss",
-            url=form.url.strip(),
-            publisher=form.publisher.strip() or form.name.strip(),
-            doc_kind=form.doc_kind
-            if form.doc_kind in ("news", "gov", "press", "filing")
-            else "news",
+    try:
+        feeds_service.add_feed(
+            session,
+            name=form.name,
+            url=form.url,
+            publisher=form.publisher,
+            doc_kind=form.doc_kind,
         )
-    )
+    except FeedError as exc:
+        raise HTTPException(400, str(exc)) from exc
     return _redirect("/intel/feeds")
 
 
@@ -156,21 +146,11 @@ def document_page(doc_id: int, request: Request, session: SessionDep) -> HTMLRes
         truncated=len(doc.text) > DOC_PREVIEW_CHARS,
         stock=session.get(Stock, doc.stock_id) if doc.stock_id else None,
         datapoints=list(session.scalars(select(Datapoint).where(Datapoint.document_id == doc.id))),
-        relations=_relations_for_document(session, doc.id),
+        relations=entities.relations_for_document(session, doc.id),
         insights=list(session.scalars(select(Insight).where(Insight.document_id == doc.id))),
         intel=list(session.scalars(select(IntelItem).where(IntelItem.document_id == doc.id))),
         sections=outline(doc)[:30],
     )
-
-
-def _relations_for_document(session: Session, doc_id: int) -> list[dict[str, Any]]:
-    rows = []
-    for rel in session.scalars(select(Relation).where(Relation.document_id == doc_id)):
-        src, dst = session.get(Entity, rel.source_id), session.get(Entity, rel.target_id)
-        rows.append(
-            {"rel": rel, "source": src.name if src else "?", "target": dst.name if dst else "?"}
-        )
-    return rows
 
 
 @router.post("/documents/{doc_id}/read")
@@ -258,45 +238,7 @@ def map_page(request: Request, session: SessionDep) -> HTMLResponse:
 
 @router.get("/api/map")
 def api_map(session: SessionDep, container: ContainerDep) -> dict[str, Any]:
-    symbols = {s.id: s.symbol for s in session.scalars(select(Stock))}
-    cutoff = utcnow() - timedelta(days=MAP_RECENT_DAYS)
-    exposure = entities.country_exposure(session, _position_values(session, container))
-    items = session.scalars(
-        select(IntelItem).where(IntelItem.lat.is_not(None), IntelItem.published_at >= cutoff),
-    )
-    asset_ids = {a.id: a for a in entities.assets(session) if a.lat is not None}
-    return {
-        "assets": [
-            {
-                "id": a.id,
-                "name": a.name,
-                "kind": a.kind,
-                "lat": a.lat,
-                "lon": a.lon,
-                "country": a.country,
-                "stock": symbols.get(a.stock_id or 0, ""),
-            }
-            for a in asset_ids.values()
-        ],
-        "intel": [
-            {
-                "id": i.id,
-                "headline": i.headline,
-                "category": i.category,
-                "severity": i.severity,
-                "lat": i.lat,
-                "lon": i.lon,
-                "country": i.country,
-                "why": i.why_it_matters,
-                "url": i.source_url,
-                "stocks": [symbols.get(x.stock_id, "") for x in i.impacts],
-            }
-            for i in items
-        ],
-        "exposure": {
-            name: {"share": e.share, "reasons": e.contributions[:6]} for name, e in exposure.items()
-        },
-    }
+    return map_payload(session, _position_values(session, container))
 
 
 class LocationForm(BaseModel):
