@@ -8,14 +8,14 @@ from sqlalchemy.orm import Session, selectinload
 
 from watchstreet.constants import MAP_REASONS_PER_COUNTRY, MAP_RECENT_DAYS
 from watchstreet.models import IntelItem, Stock
-from watchstreet.services import entities
+from watchstreet.services import entities, exposure
 from watchstreet.timeutil import utcnow
 
 
 def map_payload(session: Session, position_values: dict[int, float]) -> dict[str, Any]:
     symbols = {s.id: s.symbol for s in session.scalars(select(Stock))}
     cutoff = utcnow() - timedelta(days=MAP_RECENT_DAYS)
-    exposure = entities.country_exposure(session, position_values)
+    by_country = exposure.country_exposure(session, position_values)
     items = session.scalars(
         select(IntelItem)
         .where(IntelItem.lat.is_not(None), IntelItem.published_at >= cutoff)
@@ -52,6 +52,6 @@ def map_payload(session: Session, position_values: dict[int, float]) -> dict[str
         ],
         "exposure": {
             name: {"share": e.share, "reasons": e.contributions[:MAP_REASONS_PER_COUNTRY]}
-            for name, e in exposure.items()
+            for name, e in by_country.items()
         },
     }

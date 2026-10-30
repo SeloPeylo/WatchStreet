@@ -8,7 +8,7 @@ from sqlalchemy.engine import Engine
 
 from watchstreet.domain import TicketStatus
 from watchstreet.models import Entity, Stock, Ticket
-from watchstreet.services import entities, portfolio, tickets
+from watchstreet.services import entities, exposure, portfolio, tickets
 from watchstreet.services.entities import RelationInput
 
 SYMBOLS = ("AAA", "BBB", "CCC", "DDD")
@@ -114,8 +114,8 @@ def test_country_exposure_uses_a_constant_number_of_selects(container):
         assert s.scalars(select(Entity)).all()
         small = dict(list(values.items())[:1])
         with _count_selects(container.engine) as few:
-            entities.country_exposure(s, small)
+            exposure.country_exposure(s, small)
         with _count_selects(container.engine) as many:
-            result = entities.country_exposure(s, values)
+            result = exposure.country_exposure(s, values)
     assert len(many) == len(few)
     assert result["Peru"].share == 1.0 or abs(result["Peru"].share - 1.0) < 1e-9

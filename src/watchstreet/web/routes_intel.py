@@ -31,7 +31,7 @@ from watchstreet.models import (
     IntelItem,
     Stock,
 )
-from watchstreet.services import cockpit, entities, portfolio, scenarios, tickets
+from watchstreet.services import cockpit, entities, graph, portfolio, scenarios, tickets
 from watchstreet.services import feeds as feeds_service
 from watchstreet.services import intel as intel_service
 from watchstreet.services.entities import GraphError, RelationInput
@@ -146,7 +146,7 @@ def document_page(doc_id: int, request: Request, session: SessionDep) -> HTMLRes
         truncated=len(doc.text) > DOC_PREVIEW_CHARS,
         stock=session.get(Stock, doc.stock_id) if doc.stock_id else None,
         datapoints=list(session.scalars(select(Datapoint).where(Datapoint.document_id == doc.id))),
-        relations=entities.relations_for_document(session, doc.id),
+        relations=graph.relations_for_document(session, doc.id),
         insights=list(session.scalars(select(Insight).where(Insight.document_id == doc.id))),
         intel=list(session.scalars(select(IntelItem).where(IntelItem.document_id == doc.id))),
         sections=outline(doc)[:30],
@@ -188,7 +188,7 @@ def graph_page(request: Request, session: SessionDep, stock: int = 0) -> HTMLRes
 def api_graph(
     session: SessionDep, stock: int = 0, depth: int = GRAPH_DEFAULT_DEPTH
 ) -> dict[str, Any]:
-    return entities.graph(session, stock or None, max(1, min(depth, 3)))
+    return graph.build_graph(session, stock or None, max(1, min(depth, 3)))
 
 
 class RelationForm(BaseModel):

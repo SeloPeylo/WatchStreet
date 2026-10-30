@@ -10,7 +10,7 @@ from watchstreet.constants import (
     SEC_FORMS_ALERT,
     SEC_FORMS_FULLTEXT,
 )
-from watchstreet.domain import InsightCategory, WorkflowKey
+from watchstreet.domain import DataOrigin, InsightCategory, WorkflowKey
 from watchstreet.drafts import DatapointDraft, FollowUp, InsightDraft, IntelDraft, WorkflowResult
 from watchstreet.intel.connectors.edgar import ANNUAL_QUARTERLY_FORMS, extract_facts
 from watchstreet.intel.documents import outline, store_document
@@ -147,7 +147,7 @@ class SecSync(Workflow):
                     unit=fact.unit,
                     source=edgar.facts_url(cik),
                     confidence="high",
-                    origin="api",
+                    origin=DataOrigin.API,
                     text="",
                 ),
             )

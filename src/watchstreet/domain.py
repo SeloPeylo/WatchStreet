@@ -69,3 +69,4 @@ class DataOrigin(StrEnum):
 
     USER = "user"
     AGENT = "agent"
+    API = "api"  # derived from market/filing data without a person or agent deciding

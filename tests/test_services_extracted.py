@@ -8,7 +8,7 @@ from sqlalchemy import select
 from watchstreet.constants import HEARTBEAT_STALE_AFTER, SCORE_HISTORY_POINTS
 from watchstreet.drafts import IntelDraft
 from watchstreet.models import Document, Feed, Score, Stock
-from watchstreet.services import entities, feeds, intel, portfolio
+from watchstreet.services import entities, feeds, graph, intel, portfolio
 from watchstreet.services.entities import RelationInput
 from watchstreet.services.scores import latest_per_scheme
 from watchstreet.services.status import system_status, worker_alive
@@ -103,7 +103,7 @@ def test_relations_for_document_resolves_names(session, container):
     )
     relation.document_id = doc.id
     session.flush()
-    rows = entities.relations_for_document(session, doc.id)
+    rows = graph.relations_for_document(session, doc.id)
     assert [(r["source"], r["target"]) for r in rows] == [("Supplier", "Acme")]
-    assert entities.relations_for_document(session, doc.id + 99) == []
+    assert graph.relations_for_document(session, doc.id + 99) == []
     assert isinstance(session.scalars(select(Stock)).first(), Stock)

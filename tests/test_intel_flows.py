@@ -29,7 +29,7 @@ from watchstreet.models import (
     Ticket,
 )
 from watchstreet.services import datapoints as dps
-from watchstreet.services import entities, portfolio, scenarios, tickets
+from watchstreet.services import entities, exposure, graph, portfolio, scenarios, tickets
 from watchstreet.services.entities import GraphError, RelationInput
 from watchstreet.services.state import touch
 from watchstreet.worker import drain_queue
@@ -166,23 +166,23 @@ def test_graph_neighbourhood_and_country_exposure(container):
         other = entities.get_or_create_entity(s, "Far Away Ltd", "supplier")
         entities.add_relation(s, other, supplier, RelationInput("supplies", origin="user"))
         s.commit()
-        whole = entities.graph(s)
-        near = entities.graph(s, stock_id, depth=1)
-        far = entities.graph(s, stock_id, depth=2)
+        whole = graph.build_graph(s)
+        near = graph.build_graph(s, stock_id, depth=1)
+        far = graph.build_graph(s, stock_id, depth=2)
         assert {n["name"] for n in near["nodes"]} >= {"Carlin", "Cadia", "Orica Limited"}
         assert "Far Away Ltd" not in {n["name"] for n in near["nodes"]} and "Far Away Ltd" in {
             n["name"] for n in far["nodes"]
         }
         assert len(whole["edges"]) == 4
-        exposure = entities.country_exposure(s, {stock_id: 1000.0})
+        by_country = exposure.country_exposure(s, {stock_id: 1000.0})
         # assets weighted by production: Carlin 900k vs Cadia 500k; supplier adds 20 % to Australia
-        assert exposure["United States of America"].share == pytest.approx(900 / 1400)
-        assert exposure["Australia"].share == pytest.approx(500 / 1400 + 0.2)
-        assert {c["via"].split(":")[0] for c in exposure["Australia"].contributions} == {
+        assert by_country["United States of America"].share == pytest.approx(900 / 1400)
+        assert by_country["Australia"].share == pytest.approx(500 / 1400 + 0.2)
+        assert {c["via"].split(":")[0] for c in by_country["Australia"].contributions} == {
             "Asset Cadia",
             "supplies",
         }
-        assert entities.country_exposure(s, {}) == {}
+        assert exposure.country_exposure(s, {}) == {}
         assert {a.name for a in entities.assets(s)} == {"Carlin", "Cadia"}
 
 
