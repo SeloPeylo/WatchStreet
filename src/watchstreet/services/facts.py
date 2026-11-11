@@ -120,9 +120,9 @@ def current_fact(
 
 def display_value(fact: Fact) -> str:
     if fact.value is not None:
-        return f"{fact.value:g} {fact.unit}".strip()
+        return f"{fact.value:,.10g} {fact.unit}".strip()
     if fact.value_low is not None and fact.value_high is not None:
-        return f"{fact.value_low:g}–{fact.value_high:g} {fact.unit}".strip()
+        return f"{fact.value_low:,.10g}–{fact.value_high:,.10g} {fact.unit}".strip()
     return fact.text
 
 

@@ -63,6 +63,25 @@ ihrem öffentlich bekannten Vorgehen.
 | SOLL | Nebenproduktpreise im Szenario berücksichtigen | Mengen als Fact |
 | KANN | Quellen nach Trefferhistorie gewichten | Bewertung am Dokument |
 
+## Zweiter Durchlauf (Rule-Sicht, nach Umsetzung der Unternehmensansicht)
+
+Behoben: Datum „Kasse rechnerisch leer“, Stichtag wirkt auch auf Kurs und Finanzierungen, Prüfung des
+Finanzierungsformulars (Betrag Pflicht, kein Zukunftsdatum, Art wählbar), keine doppelten eigenen
+Vorschläge, Preishebel „nicht anwendbar“ statt Nullen und ohne Verlustminen, NAV-Summe nennt ihre
+Abdeckung und zählt nur Objekte mit Eigentumsanteil, Börsenwert voll verwässert, Lücke als Vielfaches
+des Börsenwerts, Formeltexte nennen die Royalty, Zahlen im Lagebericht ohne Exponentialschreibweise.
+
+| Prio | Offen | Begründung |
+|---|---|---|
+| MUSS | Finanzierungen strukturiert (Warrants, Abschlag, Zeichner) mit Pro-forma-Wirkung auf Kasse und Aktienzahl | die Konditionen sind die eigentliche Verwässerung |
+| MUSS | Projektbewertung nach Capex: Studien-NPV/IRR gegen Börsenwert | „Preis gegen Wert“ für Entwickler |
+| MUSS | Eigene Einträge korrigieren und stornieren | Tippfehler dürfen nicht bleiben |
+| SOLL | Personen mit früheren Unternehmen, Aktienbesitz, Insiderkäufen | Menschen zuerst |
+| SOLL | Genehmigungs- und Jurisdiktionsstatus je Projekt | entscheidet, ob gebaut wird |
+| SOLL | Wertmodell für Royalty-Halter; Preishebel für Entwickler | Optionalität |
+| SOLL | Rechercheergebnis „nicht belegt“ statt „abgeschlossen“; Prüfkatalog strenger (Kosten aller Minen) | falsche Sicherheit |
+| KANN | Unternehmensvergleich, Zyklusindikator | |
+
 ## Wo die Anwendung weiterhin zu falscher Sicherheit verleiten kann
 
 * **NAV und Cashflow** lesen sich wie Bewertungen, enthalten aber weder Steuern, Royalties,

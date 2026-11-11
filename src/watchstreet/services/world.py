@@ -274,14 +274,19 @@ def economics_payload(econ: AssetEconomics | None, commodity: str) -> list[dict[
             econ,
         ),
         _derived(
-            "margin_pct", "Marge", result.margin_pct, "Anteil", "(Preis − Kosten) / Preis", econ
+            "margin_pct",
+            "Marge",
+            result.margin_pct,
+            "Anteil",
+            "(Preis nach Royalties − Kosten) / Preis",
+            econ,
         ),
         _derived(
             "cash_flow",
             "Operativer Cashflow p. a.",
             result.cash_flow,
             "USD",
-            "Produktion × (Preis − Kosten)",
+            "Produktion × (Preis nach Royalties − Kosten)",
             econ,
         ),
         _derived("mine_life", "Restlaufzeit", life, "Jahre", "Reserven / Produktion", econ),

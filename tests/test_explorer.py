@@ -837,3 +837,25 @@ def test_funding_gap_ev_and_user_entries_for_people_and_financings(client, sessi
 def _cash(client, company_id):
     metrics = client.get(f"{API}/companies/{company_id}").json()["metrics"]
     return next(m["value"] for m in metrics if m["metric"] == "cash")
+
+
+def test_company_view_is_honest_about_dates_duplicates_and_coverage(client, session):
+    junior = _company_id(session, "Demo Junior Explorers Ltd")
+    view = client.get(f"{API}/companies/{junior}").json()
+    derived = {m["metric"]: m for m in view["derived"]}
+    assert derived["cash_empty"]["text"].startswith("seit ") and derived["cash_empty"]["stale"]
+    assert derived["gap_to_market_cap"]["value"] > 1
+    assert derived["market_cap_diluted"]["value"] > derived["market_cap"]["value"]
+    assert view["sensitivity"] == []  # nothing producing: not applicable instead of zeros
+    future = {"day": "2099-01-01", "amount": 1e6}
+    assert client.post(f"{API}/companies/{junior}/financings", json=future).status_code == 422
+    assert (
+        client.post(f"{API}/companies/{junior}/financings", json={"day": "2026-01-01"}).status_code
+        == 422
+    )
+    past = client.get(f"{API}/companies/{junior}", params={"asof": "2020-01-01"}).json()
+    assert past["financings"] == [] and past["price"] is None
+    body = {"subject_type": "company", "subject_id": junior, "template": "management"}
+    first = client.post(f"{API}/proposals", json=body).json()
+    second = client.post(f"{API}/proposals", json=body).json()
+    assert first["id"] == second["id"]

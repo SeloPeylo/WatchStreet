@@ -1,6 +1,9 @@
 """Company-level ratios (pure). Missing inputs yield ``None``, never a guess."""
 
+from datetime import date, timedelta
+
 MONTHS_PER_QUARTER = 3.0
+DAYS_PER_MONTH = 30.44
 
 
 def net_cash(cash: float | None, debt: float | None) -> float | None:
@@ -37,6 +40,13 @@ def funding_gap(capex: float | None, cash: float | None) -> float | None:
     if capex is None or cash is None:
         return None
     return max(capex - cash, 0.0)
+
+
+def cash_empty_on(as_at: date | None, months: float | None) -> date | None:
+    """The day the cash runs out if the burn continues from the balance sheet date."""
+    if as_at is None or months is None:
+        return None
+    return as_at + timedelta(days=round(months * DAYS_PER_MONTH))
 
 
 def ratio(numerator: float | None, denominator: float | None) -> float | None:

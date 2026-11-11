@@ -104,11 +104,19 @@ Bewertung.
 Ist eine These aktiv, lässt sich im Herleitungsdialog jede Kennzahl der These als stützende oder
 widersprechende Evidenz zuordnen.
 
+**Wann ist die Kasse leer?** Die Reichweite zählt ab dem Bilanzstichtag, nicht ab heute. Darunter
+steht deshalb „Kasse rechnerisch leer am …“ oder, wenn das Datum schon vorbei ist, „seit …“ mit
+Warnzeichen. Später erfasste Finanzierungen sind darin nicht eingerechnet. Bei einem Stichtag in der
+Vergangenheit werden kein Kurs und keine späteren Finanzierungen gezeigt.
+
 **Finanzierungslücke und Unternehmenswert:** Unter „Abgeleitet“ stehen zusätzlich der Unternehmenswert
 (Börsenwert + Finanzschulden − Kasse), der anteilige Capex der noch nicht produzierenden Projekte und
 die Finanzierungslücke (Capex − Kasse, mindestens 0). Die Lücke zeigt, wie viel Kapital noch beschafft
 werden muss – in aller Regel über neue Aktien. Personen und Finanzierungen lassen sich unter „Person
 erfassen“ und „Finanzierung erfassen“ selbst eintragen; sie gelten als eigene Angabe ohne Quelle.
+Eine Finanzierung braucht Datum (nicht in der Zukunft), Art und Betrag. Zusätzlich stehen der Börsenwert
+voll verwässert und die Finanzierungslücke als Vielfaches des Börsenwerts in der Liste. Die Summe der
+Asset-NAV nennt, aus wie vielen der produzierenden Objekte sie gebildet ist.
 
 ## 5. Auswahl und Vergleich
 

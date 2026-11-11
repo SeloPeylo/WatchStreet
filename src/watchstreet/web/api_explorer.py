@@ -267,7 +267,7 @@ class PersonBody(BaseModel):
 class FinancingBody(BaseModel):
     day: date
     kind: Literal["equity", "debt", "royalty_sale"] = "equity"
-    amount: float | None = Field(default=None, gt=0)
+    amount: float = Field(gt=0)
     price: float | None = Field(default=None, gt=0)
     shares: float | None = Field(default=None, gt=0)
     note: str = ""
@@ -288,6 +288,8 @@ def add_person(company_id: int, body: PersonBody, session: SessionDep) -> dict[s
 def add_financing(company_id: int, body: FinancingBody, session: SessionDep) -> dict[str, int]:
     """A user entry: one capital raise."""
     company = get_or_404(session, Company, company_id)
+    if body.day > utcnow().date():
+        raise HTTPException(status_code=422, detail="Das Datum liegt in der Zukunft")
     financing = Financing(company_id=company.id, origin=DataOrigin.USER, **body.model_dump())
     session.add(financing)
     log_change(

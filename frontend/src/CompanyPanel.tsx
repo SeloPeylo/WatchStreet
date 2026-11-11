@@ -29,7 +29,7 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
   const [open, setOpen] = useState("");
   const [entry, setEntry] = useState({ metric: "cash", value: "" });
   const [person, setPerson] = useState({ name: "", role: "", track_record: "" });
-  const [fin, setFin] = useState({ day: "", amount: "", price: "", note: "" });
+  const [fin, setFin] = useState({ day: "", amount: "", price: "", note: "", kind: "equity" });
   useEffect(() => {
     get(`/companies/${id}`, viewParams(state)).then(setData).catch(() => setData(null));
   }, [id, state.asof, state.view, state.sc, tick]);
@@ -50,7 +50,7 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
     act(() => post("/facts", { subject_type: "company", subject_id: id, metric: entry.metric, ...(isText ? { text: entry.value } : { value: Number(entry.value) }) }), "Kennzahl gespeichert").then(() => setEntry({ ...entry, value: "" }));
   const savePerson = () => act(() => post(`/companies/${id}/people`, person), "Person erfasst").then(() => setPerson({ name: "", role: "", track_record: "" }));
   const saveFin = () =>
-    act(() => post(`/companies/${id}/financings`, { day: fin.day, note: fin.note, ...(fin.amount ? { amount: Number(fin.amount) } : {}), ...(fin.price ? { price: Number(fin.price) } : {}) }), "Finanzierung erfasst").then(() => setFin({ day: "", amount: "", price: "", note: "" }));
+    act(() => post(`/companies/${id}/financings`, { day: fin.day, note: fin.note, kind: fin.kind, ...(fin.amount ? { amount: Number(fin.amount) } : {}), ...(fin.price ? { price: Number(fin.price) } : {}) }), "Finanzierung erfasst").then(() => setFin({ day: "", amount: "", price: "", note: "", kind: "equity" }));
   const answered = data.checklist.filter((q: Json) => q.answered).length;
   return (
     <div data-testid="company-panel">
@@ -124,13 +124,17 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
           <summary className="small">Finanzierung erfassen</summary>
           <div className="row">
             <input type="date" value={fin.day} onChange={(e) => setFin({ ...fin, day: e.target.value })} data-testid="fin-day" />
+            <select value={fin.kind} onChange={(e) => setFin({ ...fin, kind: e.target.value })}>
+              <option value="equity">Eigenkapital</option><option value="debt">Fremdkapital</option><option value="royalty_sale">Royalty-Verkauf</option>
+            </select>
             <input type="number" placeholder="Betrag USD" value={fin.amount} onChange={(e) => setFin({ ...fin, amount: e.target.value })} />
             <input type="number" placeholder="Preis je Aktie" value={fin.price} onChange={(e) => setFin({ ...fin, price: e.target.value })} />
           </div>
           <div className="row">
             <input className="grow" placeholder="Notiz, z. B. mit Warrants, Zeichner" value={fin.note} onChange={(e) => setFin({ ...fin, note: e.target.value })} />
-            <button disabled={!fin.day} onClick={saveFin}>Speichern</button>
+            <button disabled={!fin.day || !fin.amount} onClick={saveFin}>Speichern</button>
           </div>
+          <p className="small muted">Kasse und Aktienzahl oben bleiben auf dem Bilanzstichtag; eine spätere Finanzierung wird dort nicht eingerechnet.</p>
         </details>
       </div>
 
@@ -142,8 +146,9 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
 
       <div className="section">
         <h3>Preishebel (anteiliger Cashflow p. a. der produzierenden Objekte)</h3>
+        {data.sensitivity.length === 0 && <p className="muted small">Nicht anwendbar: kein produzierendes Objekt mit Eigentumsanteil und bekannten Kosten.</p>}
         <table><tbody>
-          <tr>{data.sensitivity.map((row: Json) => <th key={row.change}>{row.change === 0 ? "heute" : `${row.change > 0 ? "+" : ""}${row.change * 100} %`}</th>)}</tr>
+          <tr>{data.sensitivity.map((row: Json) => <th key={row.change}>{row.change === 0 ? (state.sc ? "Szenario" : "heute") : `${row.change > 0 ? "+" : ""}${row.change * 100} %`}</th>)}</tr>
           <tr>{data.sensitivity.map((row: Json) => <td key={row.change} className={`n ${row.cash_flow < 0 ? "down" : ""}`}>{num(row.cash_flow)}</td>)}</tr>
         </tbody></table>
         <p className="small muted">Alle Rohstoffpreise bewegen sich gleich; Kosten bleiben fest.</p>

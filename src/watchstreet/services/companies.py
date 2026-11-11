@@ -6,6 +6,7 @@ them. Everything derived here names its formula and inherits the weakest origin 
 
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
+from datetime import date
 from typing import Any
 
 from sqlalchemy import select
@@ -88,6 +89,28 @@ def _derived(
     }
 
 
+def _cash_empty(
+    empty_on: date | None, reference: date, inputs: tuple[Fact | None, ...]
+) -> dict[str, Any]:
+    """States plainly when the reported cash is used up; an old balance sheet must not look fresh."""
+    formula = "Bilanzstichtag + Reichweite; spätere Finanzierungen sind nicht eingerechnet"
+    label = "Kasse rechnerisch leer"
+    if empty_on is None:
+        return {
+            "metric": "cash_empty",
+            "label": label,
+            "provenance": Provenance.UNKNOWN,
+            "formula": formula,
+        }
+    word = "seit" if empty_on <= reference else "am"
+    return {
+        "metric": "cash_empty", "label": label, "text": f"{word} {empty_on:%d.%m.%Y}",
+        "provenance": Provenance.DERIVED, "claim_kind": "actual", "formula": formula,
+        "stale": empty_on <= reference, "origin": DataOrigin.ENGINE,
+        "input_fact_ids": [f.id for f in inputs if f is not None],
+    }  # fmt: skip
+
+
 def _value(fact: Fact | None) -> float | None:
     return fact.value if fact else None
 
@@ -100,9 +123,16 @@ def owner_share(stakes: list[Stake], company_id: int) -> float:
     return (shares[0] or 0.0) / PERCENT if shares else 0.0
 
 
-def _attributable(bundle: Bundle, company_id: int, ctx: ViewContext) -> tuple[float | None, float]:
-    """(sum of simple asset NAVs, sum of yearly cash flow) attributable to the company."""
-    nav_total, cash_flow, any_nav = 0.0, 0.0, False
+@dataclass(frozen=True)
+class Attributable:
+    nav: float | None  # sum of the simple asset NAVs, by ownership
+    cash_flow: float  # per year, by ownership
+    valued: int  # producing assets that entered the NAV
+    producing: int
+
+
+def _attributable(bundle: Bundle, company_id: int, ctx: ViewContext) -> Attributable:
+    nav_total, cash_flow, valued, producing = 0.0, 0.0, 0, 0
     for asset in bundle.assets:
         period = status_on(asset, ctx.reference)
         if period is None or period.status not in PRODUCING_STATUSES:
@@ -110,14 +140,15 @@ def _attributable(bundle: Bundle, company_id: int, ctx: ViewContext) -> tuple[fl
         facts = latest_per_metric(bundle.facts.get(asset.id, []), ctx.as_of, ctx.view)
         econ = asset_economics(asset, facts, period.status, ctx)
         share = owner_share(stakes_on(asset, ctx.reference), company_id)
-        if econ is None:
+        producing += 1
+        if econ is None or share <= 0:
             continue
         if econ.result.nav is not None:
             nav_total += econ.result.nav.mid * share
-            any_nav = True
+            valued += 1
         if econ.result.cash_flow is not None:
-            cash_flow += econ.result.cash_flow.mid * share
-    return (nav_total if any_nav else None), cash_flow
+            cash_flow += max(econ.result.cash_flow.mid, 0.0) * share  # a losing mine is closed
+    return Attributable(nav_total if valued else None, cash_flow, valued, producing)
 
 
 def _open_capex(
@@ -144,8 +175,10 @@ def _sensitivity(bundle: Bundle, company_id: int, ctx: ViewContext) -> list[dict
     rows = []
     for change in SENSITIVITY_FACTORS:
         shifted = replace(ctx, prices={k: v * (1 + change) for k, v in ctx.prices.items()})
-        rows.append({"change": change, "cash_flow": _attributable(bundle, company_id, shifted)[1]})
-    return rows
+        rows.append(
+            {"change": change, "cash_flow": _attributable(bundle, company_id, shifted).cash_flow}
+        )
+    return rows if _attributable(bundle, company_id, ctx).valued else []
 
 
 def _burdens(bundle: Bundle, ctx: ViewContext) -> list[dict[str, Any]]:
@@ -172,7 +205,7 @@ def _checklist(
 ) -> list[dict[str, Any]]:
     """Answered means evidence is on file; it does not mean the answer is good."""
     evidence = {
-        "people": bool(people),
+        "people": any(p.track_record.strip() for p in people),
         "financings": bool(financings),
         "costs": any(m["provenance"] != Provenance.UNKNOWN for c in cards for m in c["economics"]),
         "royalties": bool(burdens),
@@ -199,24 +232,31 @@ def company_view(
     financings = list(
         session.scalars(
             select(Financing)
-            .where(Financing.company_id == company.id)
+            .where(Financing.company_id == company.id, Financing.day <= ctx.reference)
             .order_by(Financing.day.desc())
         )
     )
     cash, debt, burn = facts.get("cash"), facts.get("debt"), facts.get("burn_rate")
     shares, diluted = facts.get("shares_outstanding"), facts.get("shares_diluted")
-    quote = market.try_quote(company.stock.symbol) if company.stock else None
+    # only today's quote is known here; a past reference date gets no price instead of today's
+    quote = market.try_quote(company.stock.symbol) if company.stock and not ctx.as_of else None
     market_cap = quote.price * shares.value if quote and shares and shares.value else None
     net = ratios.net_cash(_value(cash), _value(debt))
-    nav_sum, _cash_flow = _attributable(bundle, company.id, ctx)
-    burdens = _burdens(bundle, ctx)
+    attributable = _attributable(bundle, company.id, ctx)
+    nav_sum = attributable.nav
     capex, capex_facts = _open_capex(bundle, company.id, ctx)
+    runway = ratios.runway_months(_value(cash), _value(burn))
+    empty_on = ratios.cash_empty_on(cash.period_end if cash else None, runway)
+    gap = ratios.funding_gap(capex, _value(cash))
+    cap_diluted = quote.price * diluted.value if quote and diluted and diluted.value else None
+    burdens = _burdens(bundle, ctx)
     derived = [
         _derived("net_cash", "Nettokasse", net, "USD", "Kasse − Finanzschulden", (cash, debt)),
         _derived(
-            "runway_months", "Reichweite", ratios.runway_months(_value(cash), _value(burn)),
+            "runway_months", "Reichweite ab Bilanzstichtag", runway,
             "Monate", "Kasse / Mittelabfluss je Quartal × 3", (cash, burn),
         ),
+        _cash_empty(empty_on, ctx.reference, (cash, burn)),
         _derived(
             "dilution_overhang", "Verwässerungsüberhang",
             ratios.dilution_overhang(_value(shares), _value(diluted)),
@@ -224,6 +264,10 @@ def company_view(
         ),
         _derived(
             "market_cap", "Börsenwert", market_cap, "USD", "Kurs × ausstehende Aktien", (shares,)
+        ),
+        _derived(
+            "market_cap_diluted", "Börsenwert voll verwässert", cap_diluted, "USD",
+            "Kurs × Aktien voll verwässert", (diluted,),
         ),
         _derived(
             "enterprise_value", "Unternehmenswert (EV)",
@@ -235,13 +279,20 @@ def company_view(
             "Σ Capex laut Studie × Eigentumsanteil, nur Objekte ohne Produktion", tuple(capex_facts),
         ),
         _derived(
-            "funding_gap", "Finanzierungslücke", ratios.funding_gap(capex, _value(cash)), "USD",
+            "funding_gap", "Finanzierungslücke", gap, "USD",
             "Capex der Projekte − Kasse (mindestens 0): muss über Aktien, Schulden oder Royalties beschafft werden",
             (cash, *capex_facts),
         ),
         _derived(
+            "gap_to_market_cap", "Finanzierungslücke / Börsenwert", ratios.ratio(gap, market_cap),
+            "×", "Finanzierungslücke / Börsenwert: Mass für die bevorstehende Verwässerung",
+            (cash, shares, *capex_facts),
+        ),
+        _derived(
             "nav_sum", "Summe einfacher Asset-NAV (anteilig)", nav_sum, "USD",
-            "Σ Asset-NAV × Eigentumsanteil – ohne Steuern, Investitionen, Schulden", (),
+            f"Σ Asset-NAV × Eigentumsanteil, aus {attributable.valued} von "
+            f"{attributable.producing} produzierenden Objekten – ohne Steuern, Investitionen, Schulden",
+            (),
         ),
         _derived(
             "p_nav", "Börsenwert / Asset-NAV", ratios.ratio(market_cap, nav_sum), "×",

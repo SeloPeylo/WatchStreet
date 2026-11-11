@@ -197,6 +197,14 @@ def create_proposal(  # noqa: PLR0913
         msg = "Die Frage darf nicht leer sein"
         raise ProposalError(msg)
     existing = open_proposals(session, subject_type, subject_id)
+    same = [
+        p
+        for p in existing
+        if (p.origin, p.template_key, p.params, p.question)
+        == (DataOrigin.USER, template_key, params, text)
+    ]
+    if origin == DataOrigin.USER and same:
+        return same[0]  # a second click must not queue the same question twice
     if origin != DataOrigin.USER:
         duplicate = any(p.template_key == template_key and p.params == params for p in existing)
         if duplicate or len(existing) >= MAX_OPEN_PROPOSALS_PER_SUBJECT:

@@ -125,7 +125,7 @@ await shot("system");
 await page.getByRole("button", { name: "Explorer", exact: true }).click();
 await page.getByPlaceholder("Suche").fill("Junior");
 await page.locator(".search li button", { hasText: "Demo Junior Explorers" }).click();
-await company.getByText("Reichweite").waitFor();
+await company.getByText("Reichweite ab Bilanzstichtag").waitFor();
 await shot("junior_unternehmen");
 
 await browser.close();
