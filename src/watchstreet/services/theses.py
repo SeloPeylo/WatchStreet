@@ -3,9 +3,10 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from watchstreet.domain import Stance
+from watchstreet.domain import Stance, SubjectType
 from watchstreet.errors import WatchStreetError
 from watchstreet.models import Thesis, ThesisAssumption, ThesisLink
+from watchstreet.services.changes import log_change
 
 LINK_TARGETS = ("asset", "company", "finding", "document")
 ASSUMPTION_STATES = ("open", "supported", "contradicted", "unclear")
@@ -29,6 +30,7 @@ def create_thesis(
     )
     session.add(thesis)
     session.flush()
+    log_change(session, SubjectType.THESIS, thesis.id, "thesis", f"These angelegt: {thesis.title}")
     return thesis
 
 
@@ -56,8 +58,17 @@ def set_assumption_status(session: Session, assumption: ThesisAssumption, status
     if status not in ASSUMPTION_STATES:
         msg = "Unbekannter Status der Annahme"
         raise ThesisError(msg)
-    assumption.status = status
+    old, assumption.status = assumption.status, status
     session.flush()
+    log_change(
+        session,
+        SubjectType.THESIS,
+        assumption.thesis_id,
+        "thesis",
+        f"Annahme neu eingeordnet: {assumption.text}",
+        old=old,
+        new=status,
+    )
 
 
 def link(

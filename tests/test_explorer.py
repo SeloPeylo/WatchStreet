@@ -264,7 +264,9 @@ class JsonAgent:
 
 def test_agent_answer_is_validated_and_followups_become_proposals(client, container, session):
     asset = _asset(session, "Demo Mina Altiplano")
-    document = session.scalars(select(Document).where(Document.title.contains("Altiplano"))).one()
+    document = session.scalars(
+        select(Document).where(Document.title.contains("2025 – Demo Mina Altiplano"))
+    ).one()
     quote = "Annual production of 420,000,000 lb in fiscal 2025."
     container.runner = JsonAgent(
         {
@@ -346,7 +348,9 @@ class ToolAgent:
 
 def test_tool_capable_agent_reads_documents_and_records_sourced_facts(client, container, session):
     asset = _asset(session, "Demo Mina Altiplano")
-    document = session.scalars(select(Document).where(Document.title.contains("Altiplano"))).one()
+    document = session.scalars(
+        select(Document).where(Document.title.contains("2025 – Demo Mina Altiplano"))
+    ).one()
     container.runner = ToolAgent(document.id)
     client.post(
         f"{API}/proposals", json={"subject_id": asset.id, "template": "strategic", "start": True}
@@ -566,3 +570,61 @@ def test_ticket_states(container, session):
     drain_queue(container)
     session.refresh(ticket)
     assert ticket.status == TicketStatus.FAILED and "Kennzahl" in ticket.error
+
+
+# --- corrections after the requirements review -------------------------------------------
+
+
+def test_prior_year_figure_comes_from_its_own_earlier_report(client, session):
+    asset = _asset(session, "Demo Mina Altiplano")
+    history = client.get(f"{API}/assets/{asset.id}/facts/aisc").json()["history"]
+    assert history[1]["document"]["published_at"] == "2025-02-20"
+    assert client.get(f"{API}/system").json()["documents"] == 38
+    project = _asset(session, "Demo Projekt Cobre Alto")
+    resources = client.get(f"{API}/assets/{project.id}/facts/resources").json()["history"][0]
+    assert "resources" in resources["quote"] and "reserves" not in resources["quote"]
+
+
+def test_unsuccessful_research_is_neither_hypothesis_nor_deep_nor_visible_in_the_past(
+    client, container, session
+):
+    asset = _asset(session, "Demo Projekt Vecino")
+    body = {"subject_id": asset.id, "template": "fill_metric", "metric": "capex", "start": True}
+    client.post(f"{API}/proposals", json=body)
+    drain_queue(container)
+    detail = client.get(f"{API}/assets/{asset.id}").json()
+    assert detail["findings"][0]["epistemic"] == "unresolved"
+    assert detail["card"]["knowledge"]["status"] != "deep"
+    past = client.get(f"{API}/assets/{asset.id}", params={"asof": "2025-06-30"}).json()
+    assert past["findings"] == [] and past["tickets"] == []
+
+
+def test_scenario_summary_and_cost_figures(client):
+    params = {"commodity": "copper", "scenario": "copper:3.0"}
+    world = client.get(f"{API}/map", params=params).json()
+    summary = world["summary"]
+    assert summary["producing"] == 5 and summary["unknown"] == 1 and summary["under_water"] == 1
+    assert 0 < summary["production_share_under_water"] < 0.2
+    costs = {f["properties"]["name"]: f["properties"]["unit_cost"] for f in world["features"]}
+    assert costs["Demo Mina Kupferberg"] == 4.4 and costs["Demo Projekt Cobre Alto"] is None
+
+
+def test_thesis_changes_are_logged_and_evidence_is_readable(client, session):
+    client.post(f"{API}/visits")
+    made = client.post(
+        f"{API}/theses", json={"title": "Realzinsen und Gold", "horizon": "5 Jahre"}
+    ).json()
+    added = client.post(
+        f"{API}/theses/{made['id']}/assumptions", json={"text": "Realzins fällt"}
+    ).json()
+    client.patch(f"{API}/assumptions/{added['assumptions'][0]['id']}", json={"status": "supported"})
+    report = client.get(f"{API}/changes").json()["changes"]
+    assert [c["kind"] for c in report] == ["thesis", "thesis"] and report[0]["new"] == "supported"
+    assert len(client.get(f"{API}/changes", params={"since": "2000-01-01"}).json()["changes"]) > 10
+    assert client.get(f"{API}/changes", params={"since": "gestern"}).status_code == 422
+
+
+def test_compare_keeps_selection_order(client, session):
+    a, b = _asset(session, "Demo Projekt Vecino"), _asset(session, "Demo Mina Altiplano")
+    cards = client.get(f"{API}/compare", params={"ids": f"{a.id},{b.id}"}).json()["cards"]
+    assert [c["id"] for c in cards] == [a.id, b.id]

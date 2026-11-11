@@ -1,7 +1,7 @@
 // Context panel for one asset: the character card first, depth on demand.
 import { useEffect, useState } from "react";
 import type { Card, Json, Metric } from "./api";
-import { CLAIM_LABEL, EPISTEMIC_LABEL, KNOWLEDGE_LABEL, METHOD_LABEL, PROVENANCE, STATUS_LABEL, TICKET_LABEL, day, get, metricText, post } from "./api";
+import { CLAIM_LABEL, COMMODITY_LABEL, EPISTEMIC_LABEL, KNOWLEDGE_LABEL, METHOD_LABEL, PROVENANCE, STATUS_LABEL, TICKET_LABEL, day, get, metricText, post } from "./api";
 import type { ViewState } from "./state";
 import { selection, viewParams } from "./state";
 
@@ -29,7 +29,7 @@ export function MetricRow({ m, onOpen, action }: { m: Metric; onOpen?: () => voi
         {action}
         {m.provenance !== "unknown" && (
           <div className="muted small">
-            {m.period_end ? `Stand ${m.period_end.slice(0, 4)}` : m.formula ?? ""}
+            {m.period_end ? `Stand ${m.period_end.slice(0, 4)}` : m.published_at ? `veröffentlicht ${m.published_at.slice(0, 4)}, Zeitraum unbekannt` : m.formula ?? ""}
             {forecast ? " · Prognose" : ""}
           </div>
         )}
@@ -88,11 +88,12 @@ interface Props {
   update: (change: Partial<ViewState>) => void;
   tick: number;
   templates: Json[];
+  thesisTitle: string;
   onChanged: () => void;
   notify: (text: string) => void;
 }
 
-export function AssetPanel({ id, state, update, tick, templates, onChanged, notify }: Props) {
+export function AssetPanel({ id, state, update, tick, templates, thesisTitle, onChanged, notify }: Props) {
   const [data, setData] = useState<Json>(null);
   const [open, setOpen] = useState("");
   const [ask, setAsk] = useState({ template: "takeover", question: "" });
@@ -133,7 +134,7 @@ export function AssetPanel({ id, state, update, tick, templates, onChanged, noti
           </button>
         ))}
         {!card.operator && <span className="muted">unbekannt</span>}
-        {" · "}Rohstoffe: {card.commodities.map((c) => `${c.key}${c.role === "by_product" ? " (Nebenprodukt)" : ""}`).join(", ")}
+        {" · "}Rohstoffe: {card.commodities.map((c) => `${COMMODITY_LABEL[c.key] ?? c.key}${c.role === "by_product" ? " (Nebenprodukt)" : ""}`).join(", ")}
       </p>
       {modeText && <div className="note"><b>{modeText}</b>{card.price != null && ` · Preis ${card.price.toLocaleString("de-DE")}`}</div>}
       <div className="row">
@@ -179,6 +180,7 @@ export function AssetPanel({ id, state, update, tick, templates, onChanged, noti
 
       <div className="section">
         <h3>Frage vormerken</h3>
+        {thesisTitle && <div className="small muted">Das Ergebnis wird der These „{thesisTitle}“ zugeordnet.</div>}
         <div className="row">
           <select value={ask.template} onChange={(e) => setAsk({ ...ask, template: e.target.value })}>
             {templates.filter((t) => !["fill_metric", "read_document"].includes(t.key)).map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}

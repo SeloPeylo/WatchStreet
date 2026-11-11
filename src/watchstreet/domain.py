@@ -101,6 +101,7 @@ class FindingKind(StrEnum):
 class Epistemic(StrEnum):
     """Strength of a claimed relationship; only sourced agent research may raise it."""
 
+    UNRESOLVED = "unresolved"  # research ran but could not source an answer
     CORRELATION = "correlation"
     HYPOTHESIS = "hypothesis"
     EVIDENCED = "evidenced"

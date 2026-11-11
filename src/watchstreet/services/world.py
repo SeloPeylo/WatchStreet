@@ -102,7 +102,8 @@ def load_bundle(session: Session, asset_ids: Iterable[int] | None = None) -> Bun
         if ticket.status in (TicketStatus.QUEUED, TicketStatus.RUNNING):
             running.add(ticket.subject_id)
         elif ticket.status == TicketStatus.DONE:
-            researched.add(ticket.subject_id)
+            if ticket.result.get("fact_ids") or ticket.result.get("agent_used"):
+                researched.add(ticket.subject_id)
             if not ticket.seen:
                 unseen.add(ticket.subject_id)
     visit = last_visit(session)
@@ -390,6 +391,10 @@ def map_feature(asset: Asset, bundle: Bundle, ctx: ViewContext, color: str) -> d
             "operator": data["operator"] or "",
             "country": asset.country,
             "color_value": value,
+            # plain figures for the cost table and the scenario summary (no forecasts)
+            "margin": _mid(econ.result.margin_pct) if econ and not econ.is_forecast else None,
+            "unit_cost": _mid(econ.result.cost) if econ and not econ.is_forecast else None,
+            "production": _mid(_interval(facts.get("production"))),
             "color_known": value is not None,
             "knowledge": knowledge["status"],
             "open_questions": knowledge["open_questions"],
@@ -398,6 +403,10 @@ def map_feature(asset: Asset, bundle: Bundle, ctx: ViewContext, color: str) -> d
             "is_demo": asset.is_demo,
         },
     }
+
+
+def _mid(value: Interval | None) -> float | None:
+    return value.mid if value is not None else None
 
 
 def existed_on(asset: Asset, day: date) -> bool:

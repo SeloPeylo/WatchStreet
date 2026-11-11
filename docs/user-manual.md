@@ -137,6 +137,9 @@ oder ausdrücklich „nicht gefunden“.
 
 **Szenario:** Mit dem Regler „Szenariopreis“ in der Zeitleiste ändert sich der angenommene Preis des
 gewählten Rohstoffs. Karte und Charakterkarten rechnen neu; ein Banner zeigt den Szenariomodus.
+Das Banner nennt, wie viele produzierende Minen bei diesem Preis eine negative Marge haben, welchen
+Anteil der Produktion das betrifft und für wie viele Minen Kostendaten fehlen. Die Übersicht rechts
+listet die Objekte nach Stückkosten sortiert (niedrigste zuerst) mit ihrer Marge in dieser Ansicht.
 
 ![Szenario](screenshots/12_szenario.png)
 
@@ -214,6 +217,9 @@ nur mit deterministischen Schritten.
 vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehrbar.
 
 ## 14. Grenzen des aktuellen Stands
+
+* Marge, Cashflow und NAV sind einfache Modellrechnungen (Preis minus Stückkosten, 8 % Diskontsatz,
+  konstante Produktion) ohne Steuern, Royalties, Investitionen und Schulden – keine Bewertung.
 
 * Echtdaten für Minen entstehen nur durch eigene Einträge und Recherchen; es gibt keinen mitgelieferten
   realen Bestand.

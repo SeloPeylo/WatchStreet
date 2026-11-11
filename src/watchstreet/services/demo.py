@@ -346,15 +346,23 @@ def _report_text(item: DemoAsset) -> str:
         parts.append(
             f"All-in sustaining costs (AISC) averaged US${item.aisc:,.2f} per {unit} in 2025."
         )
-        parts.append(
-            f"In the prior year 2024 unit costs were US${item.aisc * PRIOR_COST_FACTOR:,.2f} per {unit} "
-            "on the same basis."
-        )
-    if item.reserves:
+    if item.reserves and item.status == PROD:
         parts.append(
             f"Proven and probable mineral reserves of {item.reserves:,.0f} {unit} at year end."
         )
+    elif item.reserves:
+        parts.append(f"Measured and indicated mineral resources of {item.reserves:,.0f} {unit}.")
     return "\n".join(parts)
+
+
+def _prior_report_text(item: DemoAsset) -> str:
+    """Last year's figure belongs to last year's report, published a year earlier."""
+    unit = BY_KEY[item.commodity].unit
+    cost = (item.aisc or 0.0) * PRIOR_COST_FACTOR
+    return (
+        f"Synthetischer Demo-Bericht 2024 für {item.name}. Alle Angaben sind erfunden.\n"
+        f"All-in sustaining costs (AISC) averaged US${cost:,.2f} per {unit} in 2024."
+    )
 
 
 def _company(session: Session, cache: dict[str, Company], name: str) -> Company:
@@ -394,7 +402,9 @@ def _history(session: Session, asset: Asset, item: DemoAsset) -> None:
         )
 
 
-def _facts(session: Session, asset: Asset, item: DemoAsset, document_id: int, text: str) -> None:
+def _facts(
+    session: Session, asset: Asset, item: DemoAsset, document_id: int, text: str, prior_id: int
+) -> None:
     unit = BY_KEY[item.commodity].unit
     lines = text.split("\n")
     producing = item.status == PROD
@@ -415,7 +425,7 @@ def _facts(session: Session, asset: Asset, item: DemoAsset, document_id: int, te
                 period_end=PRIOR_PERIOD_END if prior else PERIOD_END,
                 published_at=PRIOR_REPORT_DAY if prior else REPORT_DAY,
                 claim_kind=ClaimKind.ACTUAL if producing else ClaimKind.GUIDANCE,
-                document_id=document_id,
+                document_id=prior_id if prior else document_id,
                 quote=quote,
                 confidence="high",
                 origin=DataOrigin.API,
@@ -435,13 +445,13 @@ def _facts(session: Session, asset: Asset, item: DemoAsset, document_id: int, te
         add(
             key,
             round(item.aisc * PRIOR_COST_FACTOR, 2),
-            sentence("prior year"),
+            _prior_report_text(item).split("\n")[1],
             f"USD/{unit}",
             prior=True,
         )
         add(key, item.aisc, sentence("All-in sustaining"), f"USD/{unit}")
     if item.reserves:
-        add("reserves" if producing else "resources", item.reserves, sentence("reserves"), unit)
+        add("reserves" if producing else "resources", item.reserves, sentence("mineral res"), unit)
 
 
 def seed_demo(session: Session, market: MarketService) -> int:
@@ -498,7 +508,22 @@ def seed_demo(session: Session, market: MarketService) -> int:
                 document_id=document.id, subject_type=SubjectType.ASSET, subject_id=asset.id
             )
         )
-        _facts(session, asset, item, document.id, text)
+        prior, _ = store_document(
+            session,
+            url=f"https://demo.invalid/reports/{asset.slug}-2024",
+            text=_prior_report_text(item),
+            kind="filing",
+            publisher=item.company,
+            title=f"Demo-Jahresbericht 2024 – {item.name}",
+            published_at=datetime(
+                PRIOR_REPORT_DAY.year, PRIOR_REPORT_DAY.month, PRIOR_REPORT_DAY.day, tzinfo=UTC
+            ),
+            meta={"is_demo": True},
+        )
+        session.add(
+            DocumentLink(document_id=prior.id, subject_type=SubjectType.ASSET, subject_id=asset.id)
+        )
+        _facts(session, asset, item, document.id, text, prior.id)
         if item.commodity == "copper":
             copper_assets.append(asset)
     thesis = theses.create_thesis(

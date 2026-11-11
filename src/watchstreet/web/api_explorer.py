@@ -50,6 +50,21 @@ def price_history(key: str, session: SessionDep) -> list[dict[str, Any]]:
     return [{"day": p.day.isoformat(), "close": p.close} for p in prices.history(session, key)]
 
 
+def _stress_summary(features: list[dict[str, Any]]) -> dict[str, Any]:
+    """How many producing mines lose money at the view's prices, and how much is unknown."""
+    producing = [f["properties"] for f in features if f["properties"]["status"] == "production"]
+    known = [p for p in producing if p["margin"] is not None]
+    under = [p for p in known if p["margin"] < 0]
+    total = sum(p["production"] or 0.0 for p in known)
+    lost = sum(p["production"] or 0.0 for p in under)
+    return {
+        "producing": len(producing),
+        "unknown": len(producing) - len(known),
+        "under_water": len(under),
+        "production_share_under_water": lost / total if total else None,
+    }
+
+
 @router.get("/map")
 def world_map(
     session: SessionDep, ctx: ViewDep, commodity: str = "", color: str = "status"
@@ -71,6 +86,7 @@ def world_map(
     return {
         "type": "FeatureCollection",
         "features": features,
+        "summary": _stress_summary(features),
         "events": [payloads.event(e) for e in recent],
         "prices": dict(ctx.prices),
         "reference": ctx.reference.isoformat(),
@@ -100,14 +116,19 @@ def asset_detail(asset_id: int, session: SessionDep, ctx: ViewDep) -> dict[str, 
     proposals = session.scalars(
         select(Proposal).where(Proposal.subject_type == ASSET, Proposal.subject_id == asset_id)
     )
+
+    def then(rows: Any) -> list[Any]:
+        """Research recorded after the reference date did not exist back then."""
+        return [r for r in rows if ctx.as_of is None or r.created_at.date() <= ctx.as_of]
+
     return {
         "card": card(bundle.assets[0], bundle, ctx),
         "milestones": [payloads.milestone(m) for m in asset.milestones],
         "statuses": [
             {"status": p.status, "from": p.valid_from.isoformat()} for p in asset.statuses
         ],
-        "findings": [payloads.finding(f) for f in findings],
-        "tickets": [payloads.ticket(t) for t in tickets],
+        "findings": [payloads.finding(f) for f in then(findings)],
+        "tickets": [payloads.ticket(t) for t in then(tickets)],
         "proposals": [payloads.proposal(p) for p in proposals if p.state == "draft"],
         "documents": [payloads.document(d) for d in linked_documents(session, ASSET, asset_id)],
     }
@@ -193,8 +214,9 @@ def compare(
                 ],
             }
         )
+    by_id = {a.id: a for a in bundle.assets}
     return {
-        "cards": [card(a, bundle, ctx) for a in bundle.assets],
+        "cards": [card(by_id[i], bundle, ctx) for i in wanted if i in by_id],  # selection order
         "lanes": lanes,
         "anchor": anchor,
     }

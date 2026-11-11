@@ -1,15 +1,15 @@
 """Research API: proposals (backlog), tickets, theses, the situation report."""
 
-from datetime import datetime
-from typing import Any
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from watchstreet.domain import OPEN_STATUSES, Stance, SubjectType, TicketStatus
-from watchstreet.models import Asset, Company, Proposal, Thesis, ThesisAssumption, Ticket
+from watchstreet.models import Asset, Company, Finding, Proposal, Thesis, ThesisAssumption, Ticket
 from watchstreet.services import changes, proposals, theses, tickets
 from watchstreet.web import payloads
 from watchstreet.web.deps import SessionDep, get_or_404
@@ -176,7 +176,8 @@ class ThesisBody(BaseModel):
 
 @router.get("/theses")
 def list_theses(session: SessionDep) -> list[dict[str, Any]]:
-    return [payloads.thesis(t) for t in theses.list_theses(session)]
+    findings = {f.id: f for f in session.scalars(select(Finding))}
+    return [payloads.thesis(t, findings) for t in theses.list_theses(session)]
 
 
 @router.post("/theses")
@@ -222,12 +223,26 @@ def update_assumption(
     return {"id": assumption.id, "status": assumption.status}
 
 
+def _parse_since(raw: str) -> datetime | None:
+    """Accepts a date or a timestamp; a date means the start of that day (UTC)."""
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Ungültiges Datum") from exc
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
 # --- situation report --------------------------------------------------------------
 
 
 @router.get("/changes")
-def situation_report(session: SessionDep, since: datetime | None = None) -> dict[str, Any]:
+def situation_report(
+    session: SessionDep, since_raw: Annotated[str, Query(alias="since")] = ""
+) -> dict[str, Any]:
     """Changes since the last visit, or since a freely chosen date."""
+    since = _parse_since(since_raw)
     visit = changes.last_visit(session)
     names = _names(session)
     start = since or visit

@@ -162,8 +162,7 @@ def extract_metric(
                 basis=f"{METRICS[metric_key].label} laut Quelle"
                 if METRICS[metric_key].is_cost
                 else "",
-                period_end=published,
-                published_at=published,
+                published_at=published,  # the reporting period is not known from the date
                 document_id=doc.id,
                 quote=_sentence_around(doc.text, match.start(), match.end()),
                 confidence="medium",
@@ -308,7 +307,6 @@ def _apply_facts(
                     unit=draft.unit
                     or (_unit(asset, draft.metric) if draft.metric in METRICS else ""),
                     basis=draft.basis,
-                    period_end=published,
                     published_at=published,
                     provenance=Provenance.ESTIMATED if estimated else Provenance.REPORTED,
                     claim_kind=ClaimKind.AI_INFERENCE if estimated else ClaimKind.ACTUAL,
@@ -496,6 +494,13 @@ WORKFLOWS: dict[str, Callable[[ResearchContext], ResearchResult]] = {
 }
 
 
+def _epistemic(result: ResearchResult) -> Epistemic:
+    """Sourced facts make it evidenced; an agent's view a hypothesis; anything else is open."""
+    if result.sources and result.fact_ids:
+        return Epistemic.EVIDENCED
+    return Epistemic.HYPOTHESIS if result.agent_used or result.fact_ids else Epistemic.UNRESOLVED
+
+
 def _store(ctx: ResearchContext, result: ResearchResult) -> None:
     """Persist the outcome where it will be found again: finding, proposals, thesis link."""
     ticket = ctx.ticket
@@ -505,9 +510,7 @@ def _store(ctx: ResearchContext, result: ResearchResult) -> None:
         ticket_id=ticket.id,
         kind=FindingKind.ANSWER,
         text=result.answer,
-        epistemic=Epistemic.EVIDENCED
-        if result.sources and result.fact_ids
-        else Epistemic.HYPOTHESIS,
+        epistemic=_epistemic(result),
         uncertainty="\n".join(result.uncertainties),
         is_demo=ctx.is_demo,
     )

@@ -114,10 +114,12 @@ export const TICKET_LABEL: Record<string, string> = {
   cancelled: "Abgebrochen",
 };
 export const EPISTEMIC_LABEL: Record<string, string> = {
+  unresolved: "Nicht belegt",
   correlation: "Korrelation",
   hypothesis: "Begründete Hypothese",
   evidenced: "Belegt",
 };
+export const COMMODITY_LABEL: Record<string, string> = { gold: "Gold", silver: "Silber", copper: "Kupfer", uranium: "Uran" };
 export const METHOD_LABEL: Record<string, string> = {
   open_pit: "Tagebau",
   underground: "Untertage",

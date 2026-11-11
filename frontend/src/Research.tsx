@@ -54,7 +54,7 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
   const [checked, setChecked] = useState<number[]>([]);
   const [open, setOpen] = useState<number | null>(null);
   const [thesisId, setThesisId] = useState<number | null>(null);
-  const [draft, setDraft] = useState({ title: "", statement: "", assumption: "" });
+  const [draft, setDraft] = useState({ title: "", statement: "", horizon: "", commodity: "", assumption: "" });
   useEffect(() => {
     get("/proposals").then(setProposals);
     get("/tickets").then(setTickets);
@@ -100,7 +100,10 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
                 <select value={l.stance} onChange={(e) => act(() => post(`/theses/${thesis.id}/links`, { target_type: l.target_type, target_id: l.target_id, stance: e.target.value }), "Einordnung gespeichert")}>
                   <option value="supports">stützt</option><option value="contradicts">widerspricht</option><option value="context">Kontext</option>
                 </select>
-                <span>{l.target_type === "finding" ? "Erkenntnis" : "Dokument"} #{l.target_id}</span>
+                {l.finding ? (
+                  <span className="grow"><span className={`pill ${l.finding.epistemic}`}>{EPISTEMIC_LABEL[l.finding.epistemic]}</span> {l.finding.text.slice(0, 220)}{" "}
+                    {l.finding.subject_type === "asset" && <button className="link" onClick={() => update({ path: "/", a: String(l.finding.subject_id) })}>zum Objekt</button>}</span>
+                ) : <span>Dokument #{l.target_id}</span>}
               </div>
             ))}
           </div>
@@ -108,7 +111,13 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
         <h3 className="section">Neue These</h3>
         <input placeholder="Titel" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} style={{ width: "100%", marginBottom: 4 }} />
         <textarea placeholder="Aussage" value={draft.statement} onChange={(e) => setDraft({ ...draft, statement: e.target.value })} />
-        <button onClick={() => act(() => post("/theses", { title: draft.title, statement: draft.statement }), "These angelegt").then(() => setDraft({ title: "", statement: "", assumption: "" }))}>Anlegen</button>
+        <div className="row" style={{ marginBottom: 6 }}>
+          <input placeholder="Zeithorizont, z. B. 5 Jahre" value={draft.horizon} onChange={(e) => setDraft({ ...draft, horizon: e.target.value })} />
+          <select value={draft.commodity} onChange={(e) => setDraft({ ...draft, commodity: e.target.value })}>
+            <option value="">kein Rohstoff</option><option value="gold">Gold</option><option value="silver">Silber</option><option value="copper">Kupfer</option><option value="uranium">Uran</option>
+          </select>
+        </div>
+        <button onClick={() => act(async () => { const made = await post("/theses", draft); setThesisId(made.id); }, "These angelegt").then(() => setDraft({ title: "", statement: "", horizon: "", commodity: "", assumption: "" }))}>Anlegen</button>
       </div>
 
       <div>

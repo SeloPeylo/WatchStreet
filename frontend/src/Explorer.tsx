@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AssetPanel, MetricRow } from "./AssetPanel";
 import type { Card, Commodity, Json } from "./api";
-import { KNOWLEDGE_LABEL, STATUS_LABEL, day, get } from "./api";
+import { COMMODITY_LABEL, KNOWLEDGE_LABEL, STATUS_LABEL, day, get, num } from "./api";
 import { KNOWLEDGE_COLORS, MapView, SCALES, SHAPES } from "./MapView";
 import type { ViewState } from "./state";
 import { selection, viewParams } from "./state";
@@ -190,7 +190,10 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
     else update({ a: String(id) });
   };
   const name = (id: number) => world.features.find((f: Json) => f.id === id)?.properties.name ?? `#${id}`;
-  const banner = state.sc ? `Szenario: ${state.sc.replace(":", " = ")}${state.asof ? ` auf Datenstand ${day(state.asof)}` : ""}` : state.asof ? `Stichtag ${day(state.asof)} – ${state.view === "hindsight" ? "rückblickend bekannt" : "wie damals bekannt"}` : "";
+  const [scKey, scPrice] = state.sc.split(":");
+  const stress = world.summary;
+  const stressText = stress && stress.producing > 0 ? ` · ${stress.under_water} von ${stress.producing - stress.unknown} Minen mit negativer Marge${stress.production_share_under_water != null ? ` (${Math.round(stress.production_share_under_water * 100)} % der Produktion)` : ""}${stress.unknown ? `, ${stress.unknown} ohne Kostendaten` : ""}` : "";
+  const banner = state.sc ? `Szenario: ${COMMODITY_LABEL[scKey] ?? scKey} = ${Number(scPrice).toLocaleString("de-DE")}${stressText}${state.asof ? ` auf Datenstand ${day(state.asof)}` : ""}` : state.asof ? `Stichtag ${day(state.asof)} – ${state.view === "hindsight" ? "rückblickend bekannt" : "wie damals bekannt"}` : "";
   return (
     <div className="explorer">
       <div className="mapwrap">
@@ -226,7 +229,7 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
       <Timeline commodity={commodity} state={state} update={update} milestones={milestones} />
       <aside className="side">
         {active ? (
-          <AssetPanel id={active} state={state} update={update} tick={tick} templates={templates} onChanged={refresh} notify={notify} />
+          <AssetPanel id={active} state={state} update={update} tick={tick} templates={templates} thesisTitle={thesis?.title ?? ""} onChanged={refresh} notify={notify} />
         ) : (
           <div data-testid="overview">
             <h2>Weltkarte</h2>
@@ -236,12 +239,18 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
             <h3>Thesen</h3>
             {theses.map((t) => <div key={t.id}><button className="link" onClick={() => update({ th: String(t.id), c: t.commodity })}>{t.title}</button></div>)}
             <h3 className="section">Objekte</h3>
-            <table><tbody>
-              {features.map((f: Json) => (
+            <table data-testid="cost-table">
+              <thead><tr><th>Objekt</th><th>Status</th><th title="Stückkosten (berichtet oder geschätzt)">Kosten</th><th title="(Preis − Kosten) / Preis in dieser Ansicht">Marge</th><th>Wissen</th></tr></thead>
+              <tbody>
+              {[...features].sort((x: Json, y: Json) => (x.properties.unit_cost ?? Infinity) - (y.properties.unit_cost ?? Infinity)).map((f: Json) => (
                 <tr key={f.id}><td><button className="link" onClick={() => update({ a: String(f.id) })}>{f.properties.name}</button></td>
-                  <td className="small muted">{STATUS_LABEL[f.properties.status]}</td><td className="small muted">{KNOWLEDGE_LABEL[f.properties.knowledge]}</td></tr>
+                  <td className="small muted">{STATUS_LABEL[f.properties.status]}</td>
+                  <td className="n">{f.properties.unit_cost != null ? num(f.properties.unit_cost) : <span className="muted">?</span>}</td>
+                  <td className={`n ${f.properties.margin != null && f.properties.margin < 0 ? "down" : ""}`}>{f.properties.margin != null ? `${Math.round(f.properties.margin * 100)} %` : <span className="muted">?</span>}</td>
+                  <td className="small muted">{KNOWLEDGE_LABEL[f.properties.knowledge]}</td></tr>
               ))}
-            </tbody></table>
+              </tbody></table>
+            <p className="small muted">Sortiert nach Stückkosten (niedrigste zuerst); „?“ = nicht belegt. Kosten verschiedener Rohstoffe sind nicht vergleichbar – Rohstoff oben wählen.</p>
           </div>
         )}
       </aside>
