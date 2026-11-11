@@ -1,0 +1,252 @@
+// Context panel for one asset: the character card first, depth on demand.
+import { useEffect, useState } from "react";
+import type { Card, Json, Metric } from "./api";
+import { CLAIM_LABEL, EPISTEMIC_LABEL, KNOWLEDGE_LABEL, METHOD_LABEL, PROVENANCE, STATUS_LABEL, TICKET_LABEL, day, get, metricText, post } from "./api";
+import type { ViewState } from "./state";
+import { selection, viewParams } from "./state";
+
+export function Chip({ m }: { m: Metric }) {
+  const p = PROVENANCE[m.provenance];
+  const claim = m.claim_kind ? ` · ${CLAIM_LABEL[m.claim_kind] ?? m.claim_kind}` : "";
+  return (
+    <span className={`prov ${m.provenance}`} title={`${p.label}${claim}`}>
+      {p.chip}
+    </span>
+  );
+}
+
+export function MetricRow({ m, onOpen, action }: { m: Metric; onOpen?: () => void; action?: React.ReactNode }) {
+  const forecast = m.claim_kind === "guidance" || m.claim_kind === "hypothesis";
+  return (
+    <tr className={onOpen ? "metric" : ""} onClick={onOpen} data-metric={m.metric}>
+      <td>
+        <Chip m={m} />
+        {m.label}
+      </td>
+      <td className={`n ${forecast ? "forecast" : ""}`}>
+        {metricText(m)}
+        {m.stale && <span title="veraltet"> ⚠</span>}
+        {action}
+        {m.provenance !== "unknown" && (
+          <div className="muted small">
+            {m.period_end ? `Stand ${m.period_end.slice(0, 4)}` : m.formula ?? ""}
+            {forecast ? " · Prognose" : ""}
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function Derivation({ assetId, metric, onClose }: { assetId: number; metric: string; onClose: () => void }) {
+  const [data, setData] = useState<Json>(null);
+  useEffect(() => {
+    get(`/assets/${assetId}/facts/${metric}`).then(setData);
+  }, [assetId, metric]);
+  if (!data) return null;
+  const block = (f: Json, title: string) => (
+    <div key={f.id} className="box" style={{ marginBottom: 10 }}>
+      <div className="row">
+        <b>{title}</b>
+        <span className="pill">{PROVENANCE[f.provenance].label}</span>
+        <span className="pill">{CLAIM_LABEL[f.claim_kind]}</span>
+        <span className="pill">Vertrauen: {f.confidence}</span>
+        {f.is_demo && <span className="demo">synthetisch</span>}
+        {f.superseded && <span className="pill">ersetzt</span>}
+      </div>
+      <table>
+        <tbody>
+          <tr><th>Wert</th><td>{f.display}</td></tr>
+          {f.basis && <tr><th>Definition / Methode</th><td>{f.basis}</td></tr>}
+          <tr><th>Zeitraum</th><td>bis {day(f.period_end)} · veröffentlicht {day(f.published_at)} · erfasst {day(f.recorded_at)}</td></tr>
+          {f.formula_key && <tr><th>Formel</th><td>{f.formula_key}</td></tr>}
+          {f.document && (
+            <tr><th>Quelle</th><td>{f.document.title} ({f.document.publisher}) – <a href={f.document.url} target="_blank" rel="noreferrer">{f.document.url}</a></td></tr>
+          )}
+          <tr><th>Herkunft</th><td>{{ user: "Nutzereingabe", agent: "Agent", api: "automatische Auswertung", engine: "Analyse-Engine" }[f.origin as string]}</td></tr>
+        </tbody>
+      </table>
+      {f.quote && <div className="quote">„{f.quote}“</div>}
+    </div>
+  );
+  return (
+    <div className="modal" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} data-testid="derivation">
+        <div className="row"><h2>Herleitung: {data.label}</h2><button className="right" onClick={onClose}>Schliessen</button></div>
+        {data.history.length === 0 && <p className="muted">Zu dieser Kennzahl liegt noch nichts vor.</p>}
+        {data.history.map((f: Json, i: number) => block(f, i === 0 ? "Aktueller Wert" : "Früherer Wert"))}
+        {data.inputs.length > 0 && <h3>Eingangsgrössen</h3>}
+        {data.inputs.map((f: Json) => block(f, "Eingang"))}
+      </div>
+    </div>
+  );
+}
+
+interface Props {
+  id: number;
+  state: ViewState;
+  update: (change: Partial<ViewState>) => void;
+  tick: number;
+  templates: Json[];
+  onChanged: () => void;
+  notify: (text: string) => void;
+}
+
+export function AssetPanel({ id, state, update, tick, templates, onChanged, notify }: Props) {
+  const [data, setData] = useState<Json>(null);
+  const [open, setOpen] = useState("");
+  const [ask, setAsk] = useState({ template: "takeover", question: "" });
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    get(`/assets/${id}`, viewParams(state)).then(setData).catch(() => setData(null));
+  }, [id, state.asof, state.view, state.sc, tick]);
+  if (!data) return <p className="muted">Lädt …</p>;
+  const card: Card = data.card;
+  const selected = selection(state);
+  const act = async (run: () => Promise<Json>, text: string) => {
+    try {
+      await run();
+      notify(text);
+      onChanged();
+    } catch (error) {
+      notify(String((error as Error).message));
+    }
+  };
+  const propose = (body: Json, text: string) => act(() => post("/proposals", { subject_id: id, ...body }), text);
+  const modeText = { today: "", as_of: `Stand ${day(state.asof)} – ${state.view === "hindsight" ? "rückblickend bekannt" : "wie damals bekannt"}`, scenario: "Szenario – modellierte Werte" }[card.mode];
+  return (
+    <div data-testid="asset-panel">
+      <div className="row">
+        <h2>{card.name}</h2>
+        {card.is_demo && <span className="demo">synthetisch</span>}
+        <button className="right" onClick={() => update({ a: "" })} title="Schliessen (Esc)">✕</button>
+      </div>
+      <div className="row">
+        <span className="status">{STATUS_LABEL[card.status]}{card.status_since ? ` seit ${card.status_since.slice(0, 4)}` : ""}</span>
+        <span className="muted">{card.region}, {card.country} · {METHOD_LABEL[card.mining_method] ?? card.mining_method}</span>
+      </div>
+      <p className="small">
+        Betreiber:{" "}
+        {card.stakes.filter((s) => s.role === "operator").map((s) => (
+          <button key={s.company_id} className="link" onClick={() => update({ co: state.co === String(s.company_id) ? "" : String(s.company_id) })}>
+            {s.company}{state.co === String(s.company_id) ? " (hervorgehoben)" : ""}
+          </button>
+        ))}
+        {!card.operator && <span className="muted">unbekannt</span>}
+        {" · "}Rohstoffe: {card.commodities.map((c) => `${c.key}${c.role === "by_product" ? " (Nebenprodukt)" : ""}`).join(", ")}
+      </p>
+      {modeText && <div className="note"><b>{modeText}</b>{card.price != null && ` · Preis ${card.price.toLocaleString("de-DE")}`}</div>}
+      <div className="row">
+        <button onClick={() => update({ sel: (selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id].slice(0, 8)).join(",") })}>
+          {selected.includes(id) ? "Aus Auswahl entfernen" : "+ Zur Auswahl"}
+        </button>
+        <span className="pill" title="Wissensstatus (abgeleitet)">{KNOWLEDGE_LABEL[card.knowledge.status]}</span>
+      </div>
+
+      <div className="section">
+        <h3>{card.status === "production" ? "Kennzahlen" : "Studienwerte (Prognosen)"}</h3>
+        <table>
+          <tbody>
+            {card.metrics.map((m) => (
+              <MetricRow
+                key={m.metric}
+                m={m}
+                onOpen={() => setOpen(m.metric)}
+                action={
+                  m.provenance === "unknown" ? (
+                    <div>
+                      <button className="link small" onClick={(e) => { e.stopPropagation(); propose({ template: "fill_metric", metric: m.metric }, "Recherche vorgemerkt – im Backlog starten"); }}>
+                        Recherche vorschlagen
+                      </button>
+                    </div>
+                  ) : undefined
+                }
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="section">
+        <h3>Wirtschaftlichkeit {card.economics_is_forecast ? "(Prognose × Preis)" : ""}</h3>
+        {card.economics.length === 0 ? (
+          <p className="muted small">Nicht berechenbar: Preis oder Stückkosten sind unbekannt. Es wird nichts geschätzt, was nicht belegt ist.</p>
+        ) : (
+          <table><tbody>{card.economics.map((m) => <MetricRow key={m.metric} m={m} />)}</tbody></table>
+        )}
+        {card.by_product_note && <div className="note">Nebenproduktgutschrift nicht an den Szenariopreis angepasst (Mengen unbekannt).</div>}
+      </div>
+
+      <div className="section">
+        <h3>Frage vormerken</h3>
+        <div className="row">
+          <select value={ask.template} onChange={(e) => setAsk({ ...ask, template: e.target.value })}>
+            {templates.filter((t) => !["fill_metric", "read_document"].includes(t.key)).map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+          </select>
+          <input className="grow" placeholder="eigene Formulierung (optional)" value={ask.question} onChange={(e) => setAsk({ ...ask, question: e.target.value })} />
+          <button data-testid="add-question" onClick={() => propose({ ...ask, thesis_id: state.th ? Number(state.th) : null }, "Frage vorgemerkt – im Backlog prüfen und starten")}>+ Frage</button>
+        </div>
+        {data.proposals.length > 0 && (
+          <div className="cardlist" style={{ marginTop: 8 }}>
+            {data.proposals.map((p: Json) => (
+              <div key={p.id}>
+                <div className="small muted">{p.template_label} · Nutzen {p.value_score.toFixed(2)}</div>
+                {p.question}
+                <div className="row" style={{ marginTop: 4 }}>
+                  <button className="primary" onClick={() => act(() => post("/proposals/start", { ids: [p.id] }), "Recherche gestartet")}>Starten</button>
+                  <button onClick={() => act(() => post(`/proposals/${p.id}/dismiss`), "Vorschlag verworfen")}>Verwerfen</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {(data.tickets.length > 0 || data.findings.length > 0) && (
+        <div className="section">
+          <h3>Recherche und Erkenntnisse</h3>
+          <div className="cardlist">
+            {data.tickets.map((t: Json) => (
+              <div key={`t${t.id}`}>
+                <div className="row"><span className={`pill ${t.status}`}>{TICKET_LABEL[t.status]}</span><button className="link" onClick={() => update({ path: "/research" })}>{t.title}</button></div>
+                {t.error && <div className="small" style={{ color: "var(--bad)" }}>{t.error}</div>}
+              </div>
+            ))}
+            {data.findings.map((f: Json) => (
+              <div key={`f${f.id}`}>
+                <div className="row"><span className={`pill ${f.epistemic}`}>{EPISTEMIC_LABEL[f.epistemic]}</span><span className="muted small">{day(f.created_at)}</span></div>
+                <div style={{ whiteSpace: "pre-wrap" }}>{f.text}</div>
+                {f.uncertainty && <div className="small muted">Unsicherheit: {f.uncertainty}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="section">
+        <h3>Lebenslauf</h3>
+        {data.milestones.length === 0 && <p className="muted small">Noch keine Meilensteine erfasst.</p>}
+        <table><tbody>
+          {data.milestones.map((m: Json) => (
+            <tr key={m.id}>
+              <td>{m.day.slice(0, 7)}</td><td>{m.title}</td>
+              <td><button className="link small" title="Stand zu diesem Zeitpunkt ansehen" onClick={() => update({ asof: m.day })}>ansehen</button></td>
+            </tr>
+          ))}
+        </tbody></table>
+      </div>
+
+      <div className="section">
+        <h3>Quellen</h3>
+        {data.documents.map((d: Json) => (
+          <div key={d.id} className="small">{d.title} · {d.publisher} · {day(d.published_at)} {d.is_demo && <span className="demo">synthetisch</span>}</div>
+        ))}
+        <div className="row" style={{ marginTop: 6 }}>
+          <input className="grow" placeholder="https://… Bericht oder Studie" value={url} onChange={(e) => setUrl(e.target.value)} />
+          <button disabled={!url} onClick={() => act(() => post("/documents", { asset_id: id, url }), "Dokument wird abgerufen und gelesen").then(() => setUrl(""))}>Dokument lesen</button>
+        </div>
+      </div>
+      {open && <Derivation assetId={id} metric={open} onClose={() => setOpen("")} />}
+    </div>
+  );
+}

@@ -1,3 +1,13 @@
+# --- stage 1: build the single-page app -----------------------------------------
+FROM node:22-slim AS frontend
+WORKDIR /build/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend ./
+# vite writes to ../src/watchstreet/web/static/app
+RUN mkdir -p /build/src/watchstreet/web/static && npm run build
+
+# --- stage 2: the application ------------------------------------------------------
 FROM python:3.13-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -9,6 +19,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
+COPY --from=frontend /build/src/watchstreet/web/static/app ./src/watchstreet/web/static/app
 RUN pip install .
 COPY docs ./docs
 

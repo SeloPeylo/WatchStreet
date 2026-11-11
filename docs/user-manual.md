@@ -1,258 +1,223 @@
 # WatchStreet – Benutzerhandbuch
 
-WatchStreet überwacht deine Aktien. Du trägst ein, was du besitzt (**Holdings**) und was dich interessiert (**Watchlist**). Zu jeder Aktie legt das System **Tickets** an – Analyseaufträge, die automatisch von Agenten abgearbeitet werden. Die Erkenntnisse (Ziel, These, Scores, Hinweise) bleiben an der Aktie erhalten und wachsen mit der Zeit.
+WatchStreet ist ein kartenzentrierter Recherche-Arbeitsplatz für Rohstoffinvestments. Die Mine bzw. das
+Projekt ist die Analyseeinheit; jede Zahl zeigt, woher sie stammt. WatchStreet gibt **keine
+Anlageempfehlungen** und handelt nicht.
 
-> **Hinweis zu den Screenshots:** Sie wurden mit dem Demo-Modus erzeugt (synthetische Kurse, regelbasierter Offline-Agent). Kurse und Texte sind also Beispiele und keine echten Marktdaten. **WatchStreet liefert keine Anlageberatung.**
+Im Demo-Modus (`make demo`) sind alle Objekte, Werte und Ereignisse **synthetisch** und entsprechend
+markiert.
 
-## 1. Aufruf
+[TOC]
 
-Nach `docker compose up --build` ist die Anwendung unter **http://localhost:8000** erreichbar. Oben befindet sich die Navigation: *Übersicht*, *Portfolio* (Holdings, Watchlist), *Lage* (Intel, Karte, Netzwerk, Rohstoffe), *Tickets* und *Hilfe* (System, Handbuch). Auf dem Smartphone öffnet die Schaltfläche *Menü* die Navigation. Dieses Handbuch ist auch in der Anwendung unter **Handbuch** abrufbar.
+## 1. Aufbau
 
-## 2. Grundkonzepte
+![Explorer](screenshots/01_explorer.png)
 
-| Begriff | Bedeutung |
+| Bereich | Zweck |
 |---|---|
-| **Holding** | Eine Aktie, die du besitzt: Menge, Ø-Kaufpreis, optional Kaufdatum und Absicht. |
-| **Watchlist** | Eine Aktie, die du beobachtest, mit optionaler Notiz. |
-| **Ticket** | Ein Auftrag mit genau einem vordefinierten **Workflow**. Status: wartend → läuft → erledigt / fehlgeschlagen / abgebrochen. |
-| **Workflow** | Festes Ablaufschema eines Tickets (siehe Abschnitt 8). |
-| **Erkenntnis** | Dauerhafte Aussage aus einem Ticket (Kategorien: Ziel, Risiko, Katalysator, Bewertung, Technik, Handlung, Notiz). |
-| **Score** | Zahl 0–100 nach einem festen Schema. Jede Messung wird gespeichert, so entsteht ein Verlauf. |
-| **These** | Die Investmentthese. Jede Prüfung legt eine neue Version mit Status an. |
-| **Folgeticket** | Ein Ticket, das ein abgeschlossenes Ticket vorgeschlagen hat. |
+| Kopfzeile | Rohstoffleiste mit Preis, Navigation, Suche, Glocke für Ergebnisse |
+| Karte | Minen und Projekte; Form = Status, Farbe = gewählter Farbmodus |
+| Rechtes Panel | Übersicht oder Charakterkarte des gewählten Objekts |
+| Auswahlleiste | mehrfach ausgewählte Objekte für den Vergleich |
+| Zeitleiste | Preisverlauf, Stichtag, Replay, Szenariopreis |
 
-## 2a. Bedienung und Komfort
+Der gesamte Ansichtszustand steht in der Adresse; eine Ansicht lässt sich als Link weitergeben.
 
-![Schnellsprung](screenshots/21-palette.png)
+**Tastatur:** `Esc` schliesst das Panel, `c` öffnet den Vergleich, `Umschalt+Klick` auf einen Marker
+fügt ihn der Auswahl hinzu.
 
-* **Schnellsprung:** Die Taste **/** (oder **Strg+K**) öffnet eine Suche. Du tippst ein Symbol, einen Namen oder eine Seite, wählst mit **↑ ↓** und springst mit **Enter**.
-* **Tastaturkürzel:** **g** gefolgt von **u** (Übersicht), **h** (Holdings), **w** (Watchlist), **i** (Intel), **t** (Tickets), **k** (Karte), **n** (Netzwerk) oder **r** (Rohstoffe). **?** zeigt die Liste. Kürzel sind in Eingabefeldern ausgeschaltet.
+## 2. Rohstoff wählen und Karte lesen
 
-![Tastaturkürzel](screenshots/23-shortcuts.png)
+Ein Klick auf einen Rohstoff in der Kopfzeile filtert die Karte. Ein zweiter Klick hebt den Filter auf.
 
-* **Rückmeldung nach Aktionen:** Jede Aktion (Position eintragen, Ticket anlegen, Quelle löschen …) bestätigt sich mit einer kurzen Meldung unten rechts. Fehler erscheinen oben auf der Seite und erhalten den Fokus.
+* **Form** zeigt den Status: ● Produktion, ◆ Entwicklung, ▲ Exploration, ■ stillgelegt/ruhend.
+* **Farbe** zeigt den Farbmodus (Auswahl links oben): Rohstoff (neutral), Marge, Änderung im Szenario,
+  Wissensstatus, Datenqualität.
+* **Schraffiert-grau** bedeutet: für diesen Modus fehlen Daten. „Unbekannt“ wird nie wie ein mittlerer
+  Wert eingefärbt.
+* **Punkt am Marker:** blau = Recherche läuft, grün = neues Ergebnis, gelb = offene Frage.
+* Die Kästchen links blenden Statusgruppen und Ereignisse (rote Ringe, z. B. Erdbeben) ein und aus.
 
-![Bestätigung](screenshots/22-toast.png)
+## 3. Von der These zur Mine
 
-* **Live-Status von Tickets:** Wartende und laufende Tickets aktualisieren ihren Status von selbst (alle paar Sekunden, seltener im Hintergrund-Tab). Wird ein Ticket fertig, erscheint eine Meldung und die Seite lädt sich neu, damit Briefing, Scores und Zähler aktuell sind.
-* **Sortieren und Filtern:** In Holdings, Watchlist und Tickets sortiert ein Klick auf eine Spaltenüberschrift (nochmals: umgekehrt); das Feld *Filtern* blendet nicht passende Zeilen sofort aus.
+Ein Klick auf eine These (rechts in der Übersicht oder im Bereich Research → „Auf der Karte zeigen“)
+richtet die Karte auf die verknüpften Objekte aus.
 
-![Sortierte Holdings](screenshots/24-holdings-sorted.png)
+![These auf der Karte](screenshots/02_these_auf_karte.png)
 
-* **Panels merken sich ihren Zustand:** Auf der Aktienseite bleibt ein auf- oder zugeklapptes Panel beim nächsten Besuch so (pro Browser). Ein Link wie „zum Fokus-Bereich“ oder `#evidence` öffnet das Panel automatisch.
-* **Sicherheitsabfrage nur bei Löschaktionen:** Position, Watchlist-Eintrag, Datenpunkt, Quelle und das Abbrechen eines Tickets fragen nach. Schaltflächen sperren sich nach dem Absenden gegen doppeltes Klicken.
-* **Hell und Dunkel:** *Hell/Dunkel* in der Kopfzeile wechselt das Farbschema; ohne Wahl folgt die Seite dem Betriebssystem. Die Wahl wird im Browser gespeichert.
+## 4. Charakterkarte
 
-![Helles Farbschema](screenshots/25-light-theme.png)
+Ein Klick auf einen Marker oder einen Namen öffnet die Charakterkarte.
 
-* **Smartphone:** Tabellen scrollen seitlich, die Navigation klappt auf.
+![Charakterkarte](screenshots/03_charakterkarte.png)
 
-![Mobile Navigation](screenshots/26-mobile-menu.png) ![Mobile Aktie](screenshots/27-mobile-stock.png)
+Jede Kennzahl trägt ein Herkunftszeichen:
 
-* **Netzwerk:** *Knoten suchen* hebt Treffer hervor, ein Klick auf einen Eintrag der Legende blendet diese Knotenart aus oder ein, *Zurücksetzen* stellt alles wieder her. Knoten sind per Tab erreichbar und mit Enter auswählbar.
-* **Zugänglichkeit:** *Zum Inhalt springen* (erste Tab-Stelle), sichtbarer Fokusrahmen, Pfadangaben (Breadcrumbs) auf Detailseiten, Meldungen werden Screenreadern angesagt.
-
-## 3. Übersicht (Dashboard)
-
-![Übersicht](screenshots/01-dashboard.png)
-
-* **Depotwert** – Einstand, aktueller Wert und Gewinn/Verlust. Je Währung eine Karte; verschiedene Währungen werden nie zusammengerechnet.
-* **Positionen** – Anzahl der Holdings und Watchlist-Einträge.
-* **Tickets** – offene, erledigte und fehlgeschlagene Tickets.
-* **Harness** – ob der Worker läuft, welcher Agent und welche Datenquelle aktiv sind.
-* **Letzte Tickets** und **Neueste Erkenntnisse** – Klick führt zum Ticket bzw. zur Aktie.
-
-## 4. Holdings
-
-![Holdings](screenshots/02-holdings.png)
-
-**Position eintragen:** Symbol (z. B. `AAPL`, `SAP.DE`; beim Tippen erscheinen Vorschläge), Menge, Ø-Kaufpreis (Komma oder Punkt), optional Kaufdatum und **Absicht** (z. B. „langfristig halten“). Mit *Eintragen & Bestandsaufnahme starten* wird die Position gespeichert und automatisch ein **Bestandsaufnahme-Ticket** angelegt. Ohne Absicht leitet der Agent ein Ziel selbst ab.
-
-**Tabelle:** Kurs, Tagesänderung, Wert und Gewinn/Verlust je Position. Ein Klick auf das Symbol öffnet die Aktie. *Entfernen* löscht nur die Position; Tickets, Erkenntnisse und Thesen bleiben erhalten.
-
-**Fehlermeldungen:** Der Browser prüft Zahlenfelder schon beim Absenden (Text statt Zahl wird markiert). Weitere Fehler (z. B. unbekanntes Symbol, doppelte Position) zeigt die Seite oben an; deine Eingaben bleiben im Formular stehen.
-
-![Fehlermeldung](screenshots/03-holdings-error.png)
-
-## 5. Watchlist
-
-![Watchlist](screenshots/04-watchlist.png)
-
-Symbol und optional eine Notiz eintragen. Es wird eine **Kaufprüfung** gestartet: Lohnt sich ein Kauf? Das Ergebnis und Folgeanalysen erscheinen an der Aktie. Eine Aktie kann gleichzeitig Holding und Watchlist-Eintrag sein.
-
-## 6. Aktien-Detailseite (geschichtet)
-
-Die Seite ist in **Schichten** aufgebaut, damit viele Informationen nicht gleichzeitig erschlagen:
-
-1. **Kopf** – Kurs, Änderung zum Vortag, **Profil** (Aktientyp) als Badge.
-2. **Briefing „Worauf es jetzt ankommt“** – eine Schlagzeile und wenige Stichpunkte (Bewertung, Datenlücken, Risiken, Technik). Es wird nach jeder Änderung automatisch neu erzeugt (zuerst regelbasiert, mit LLM zusätzlich vom Agenten verfeinert), ist gespeichert und zeigt Autor und Zeit. *Aktualisieren* erzeugt es sofort neu; der Link „zum Fokus-Bereich“ springt zum wichtigsten Panel.
-3. **Position** – Menge, Ø-Preis, Wert, Gewinn/Verlust; *Position bearbeiten*.
-4. **Panels** – aufklappbare Bereiche. **Ihre Reihenfolge richtet sich nach dem Profil**: Bei Minen stehen *Bewertung* und *Belege* oben, bei Tech-Aktien zuerst der *Kursverlauf*. Die ersten beiden Panels sind offen, der Fokus-Bereich des Briefings ebenfalls.
-
-| Panel | Inhalt |
+| Zeichen | Bedeutung |
 |---|---|
-| **Bewertung** | Score nach dem Profil-Schema, Kriterientabelle mit Gewicht und Teil-Score, Datenlücken, ggf. NAV-Aufstellung, Technik-Score, *Profil ändern*. |
-| **Kursverlauf (Kerzen)** | Candlestick-Chart mit Volumen; Stunde/Tag/Woche; Mausover zeigt O/H/L/C. |
-| **Belege & Datenpunkte** | Alle Eingaben mit Quelle, Konfidenz, Herkunft; Formular zum Erfassen. |
-| **Ziel & Investmentthese** | Ziel, aktuelle These mit Status, Versionsverlauf. |
-| **Verlauf** | Score-Verlauf, Erkenntnisse, Tickets (auch neue anlegen), Zeitleiste. |
+| **B** | berichtet – aus einem gespeicherten Dokument mit wörtlichem Zitat |
+| **≈** | berechnet – aus anderen Kennzahlen, Formel wird genannt |
+| **~** | geschätzt – immer als Bandbreite, mit benannter Methode |
+| **?** | unbekannt – es wird nichts erfunden |
 
-![Tech-Aktie: Chart zuerst](screenshots/05-stock-tech.png)
+Kursive Werte sind Prognosen (z. B. Studienwerte eines Projekts). Produzierende Minen zeigen
+Produktion, Kosten, Reserven; Projekte zeigen Studienwerte.
 
-![Chart täglich](screenshots/06-stock-chart-daily.png)
+**Wirtschaftlichkeit** (Marge, Cashflow, Restlaufzeit, einfacher NAV) wird nur gerechnet, wenn Preis
+und Stückkosten bekannt sind. Ist eine Eingabe geschätzt, ist auch das Ergebnis geschätzt und eine
+Bandbreite.
 
-## 6a. Profile und Bewertungsschemata
+### Herleitung einer Zahl
 
-Jede Aktie hat ein **Profil**, das bestimmt, *wie* sie bewertet wird, welche Eingaben nötig sind und wie die Seite aufgebaut ist.
+Ein Klick auf eine Kennzahl zeigt Wert, Definition, Zeitraum, Quelle, Zitat und frühere Werte.
 
-| Profil | Schema (Kern) | Zusätzliche Eingaben |
-|---|---|---|
-| **Minen / Rohstoffförderer** | Kurs/NAV, AISC-Marge, Reservenlaufzeit | je Mine: Produktion, AISC, Reserven, Beteiligung; Rohstoffpreis, Nettoverschuldung, Aktienzahl |
-| **Öl & Gas** | Marge über Break-even, FCF-Rendite, Reservenlaufzeit | Break-even-Preis, Reserven, Produktion, Free Cash Flow |
-| **Technologie** | Rule of 40, erwartetes KGV, PEG, Wachstum | – |
-| **Versorger** | Dividende, Verschuldung, KGV, ROE | – |
-| **Banken & Finanz** | Kurs/Buchwert gegen ROE, CET1 | CET1-Quote |
-| **Immobilien / REIT** | Kurs/FFO, Kurs/NAV, Ausschüttung | FFO und NAV je Aktie |
-| **Gesundheit / Pharma** | KGV, Wachstum, Marge | – |
-| **Allgemein** | Standardschema aus Kennzahlen | – |
+![Herleitung](screenshots/04_herleitung.png)
 
-**Wie das Profil entsteht:** Beim Eintragen wird es automatisch aus Sektor und Branche des Datenanbieters abgeleitet. Unklare Fälle bleiben „Allgemein“. Ein Agent darf es per Ticket *Profil bestimmen* korrigieren; **dein manuelles Setzen** (Bewertung → *Profil ändern*) hat immer Vorrang und wird nie überschrieben. Nach einer Änderung wird sofort neu bewertet.
+### Unternehmensperspektive
 
-**Rechnen kann der Code, recherchieren der Agent:** Alles, was keine kostenlose API liefert (z. B. welche Minen ein Unternehmen hat und zu welchen Kosten sie fördern), sind **Datenpunkte** mit Quelle und Konfidenz (*high/medium/low*). Du erfasst sie im Panel *Belege*; ein Agent kann sie per Ticket *Datenpunkte recherchieren* eintragen, überschreibt aber nie deine Werte. Berechnungen wie der **NAV** (Barwert der Marge jeder Mine über ihre Reservenlaufzeit, minus Nettoverschuldung, durch Aktienzahl) sind deterministisch und nachvollziehbar in der Bewertung aufgeschlüsselt.
+Ein Klick auf den Betreiber hebt dessen Objekte hervor; alle anderen bleiben abgedunkelt sichtbar. Der
+Kartenausschnitt bleibt erhalten.
 
-**Datenlücken statt Raten:** Fehlen Eingaben, nennt das Panel *Bewertung* sie ausdrücklich und markiert den Score als **vorläufig**. Der Score wird erst „vollständig“, wenn die Kernkennzahlen (z. B. Kurs/NAV und AISC-Marge bei Minen) berechenbar sind. Weichen Berichtswährung und Aktienwährung ab, wird zusätzlich ein Wechselkurs verlangt.
+![Unternehmen hervorgehoben](screenshots/05_unternehmen_hervorgehoben.png)
 
-![Minen: Bewertung mit NAV](screenshots/11-mining-valuation.png)
+## 5. Auswahl und Vergleich
 
-![Minen: Belege und Formular](screenshots/12-mining-evidence.png)
+„+ Zur Auswahl“ oder `Umschalt+Klick` legt ein Objekt in die Auswahlleiste (höchstens 8). Ausgewählte
+Objekte tragen auf der Karte ihre Nummer.
 
-![Minen-Aktie gesamt](screenshots/10-stock-mining.png)
+![Auswahl und vorgemerkte Frage](screenshots/06_projekt_und_frage.png)
 
-![Öl-&-Gas-Aktie mit Datenlücken](screenshots/13-stock-oil.png)
+„Vergleichen“ stellt die Karten nebeneinander und zeigt die Lebensläufe ab einem gemeinsamen Anker
+(„Jahr 0 = Entdeckung“ usw.). Beruhen Kosten auf unterschiedlichen Definitionen, erscheint ein Hinweis.
 
-## 6b. Intel, Karte, Netzwerk und Rohstoff-Cockpit
+![Vergleich](screenshots/07_vergleich.png)
 
-Diese Bereiche bilden die „Lagezentrale“ für dein Portfolio. Leitprinzip: **Keine Quelle, kein Fakt.** Jede Meldung verweist auf die direkte Quelle, und was ein Agent behauptet, muss er wörtlich aus dem gespeicherten Dokument zitieren; das System prüft das Zitat selbst und lehnt Unbelegtes ab.
+## 6. Fragen vormerken und Recherchen starten
 
-### Intel – Nachrichtenzentrale
+Recherche läuft in zwei bewussten Schritten:
 
-![Intel](screenshots/14-intel.png)
+1. **Vormerken:** in der Charakterkarte unter „Frage vormerken“ (Vorlage wählen, optional eigene
+   Formulierung) oder bei einer unbekannten Kennzahl über „Recherche vorschlagen“. Auch die
+   Analyse-Engine legt Vorschläge an (fehlende Kennzahlen, Kostenausreisser, Nachbarschaft zu Minen
+   anderer Betreiber).
+2. **Starten:** im Bereich **Research → Backlog** oder direkt in der Charakterkarte. Erst jetzt läuft
+   etwas.
 
-Zugeschnittene Meldungen zu deinen Aktien, sortiert nach Zeit, mit **Schwere (1–5)**, Thema (*company, supply, geopolitics, macro, regulatory, commodity, hazard*) und **Auswirkung je Aktie** (▲ positiv, ▼ negativ, • unklar). Jede Karte zeigt:
+![Backlog](screenshots/08_backlog.png)
 
-* **Warum für dich relevant** und – bei Agenten-Einträgen – das **wörtliche Belegzitat** mit dem Vermerk „im Dokument gefunden“,
-* **Quelle öffnen ↗** (Originaladresse) und **gespeicherte Kopie** (unveränderte Kopie samt Prüfsumme, auch wenn die Seite später verschwindet),
-* das Badge **Primärquelle** für Behörden, Einreichungen und Unternehmensmitteilungen; *nur Primärquellen* filtert Medienberichte aus,
-* wer die Meldung erstellt hat: **Agent** oder **Regeln**.
+Im Backlog lässt sich der Auftragstext ändern, der Nutzenwert einsehen (Maus auf ⓘ), mehrere
+Vorschläge gesammelt starten oder ein Vorschlag verwerfen. Der Nutzenwert sortiert nur.
 
-![Nur Primärquellen](screenshots/15-intel-primary.png)
+Während eine Recherche läuft, kann weiter erkundet werden. Fertige Ergebnisse meldet die Glocke; von
+dort führt ein Klick zum Objekt.
 
-**So entsteht eine Meldung:** Der Worker holt stündlich neue Quellen (RSS-Feeds, GDELT-Suche je Firmenname/Mine/Zulieferer, SEC EDGAR, USGS-Erdbeben, Rohstoffpreise). Ein **deterministischer Filter** bewertet, welche Quellen zu deinen Aktien passen (Firmenname, Minen, Zulieferer, Ticker); nur Treffer gehen an einen Agenten, der sie einordnet. So werden die meisten Quellen gar nicht erst an ein Modell geschickt (Token-Ersparnis). Zusätzlich lösen **Tripwires** ohne LLM Meldungen aus: ein Erdbeben ab M 5,0 im Umkreis von 300 km um eines deiner Assets, ein Tagessprung ab 3 % bei einem Rohstoff, von dem deine Aktien abhängen, und neue SEC-Einreichungen.
+### Beispiel: fehlende Kosten
 
-*Jetzt aktualisieren* stößt einen Durchlauf an. Unter **Quellen verwalten** siehst du alle Feeds mit Status und letztem Fehler, kannst Feeds aktivieren/deaktivieren, löschen und eigene RSS/Atom-Quellen ergänzen. Fünf Fehlversuche in Folge deaktivieren einen Feed.
+![Kosten unbekannt](screenshots/09_kosten_unbekannt.png)
 
-![Quellen verwalten](screenshots/20-feeds.png)
+Nach dem Start durchsucht WatchStreet zuerst die gespeicherten Dokumente des Objekts. Wird die Zahl
+gefunden, erscheint sie als berichteter Wert mit Zitat; daraus wird die Wirtschaftlichkeit berechnet.
 
-### Karte
+![Ergebnis am Objekt](screenshots/10_ergebnis_am_objekt.png)
+![Ergebnis mit Zitat](screenshots/11_ergebnis_mit_zitat.png)
 
-![Lagekarte](screenshots/16-map.png)
+Mögliche Ergebnisse einer Recherche: berichteter Wert mit Zitat, geschätzte Bandbreite mit Methode,
+oder ausdrücklich „nicht gefunden“.
 
-Weltkarte (offline, ohne Kartendienst) mit drei Ebenen, die du ein- und ausblendest:
+### Vorlagen
 
-* **Länder-Exposure:** Länder werden umso kräftiger eingefärbt, je mehr Portfoliowert an sie gebunden ist. Gerechnet wird nach Marktwert deiner Positionen, bei Minen nach Produktionsanteil und Beteiligung der Assets, bei Zulieferern/Kunden nach dem erfassten Anteil (fehlt er, gilt ein Standardwert von 10 %). Ein Klick auf ein Land nennt die Gründe je Aktie.
-* **Assets:** Minen, Anlagen und Häfen mit Standort.
-* **Ereignisse:** Meldungen der letzten 14 Tage mit Ort; Größe nach Schwere, Farbe nach Thema. Ein Klick zeigt Warum-relevant und die Quelle.
+| Vorlage | Was geschieht |
+|---|---|
+| Fehlende Kennzahl beschaffen | Suche in gespeicherten Dokumenten, danach (falls konfiguriert) Agent |
+| Kosten schätzen | Bandbreite aus belegten Kosten vergleichbarer produzierender Minen (mindestens 3) |
+| Übernahmeziel? / Strategische Bedeutung / Kostenstruktur erklären / Freie Frage | Agent bewertet anhand der bekannten Daten und Dokumente. Ohne Agent entsteht nur eine Zusammenstellung, ausdrücklich ohne Bewertung |
+| Dokument lesen | siehe Abschnitt 9 |
 
-Mausrad zoomt, Ziehen verschiebt. Minen ohne Koordinaten erscheinen rechts unter **Assets ohne Standort**; dort trägst du Breite, Länge und Land ein. Agenten ergänzen Standorte beim Lesen von Einreichungen mit Zitat.
+## 7. Szenario und Stichtag
 
-### Netzwerk – Abhängigkeiten
+**Szenario:** Mit dem Regler „Szenariopreis“ in der Zeitleiste ändert sich der angenommene Preis des
+gewählten Rohstoffs. Karte und Charakterkarten rechnen neu; ein Banner zeigt den Szenariomodus.
 
-![Netzwerk](screenshots/17-graph.png)
+![Szenario](screenshots/12_szenario.png)
 
-Graph aus Aktien, Assets, **Zulieferern, Kunden**, Ländern und Rohstoffen. Auswahl *„XYZ – Umfeld“* zeigt zwei Beziehungsebenen um eine Aktie. **Durchgezogene Linien** sind belegt (geprüftes Zitat) oder von dir eingetragen, **gestrichelte** unbelegt; die Dicke steht für den Anteil (z. B. 40 % der Fahrzeugflotte). Klick auf einen Knoten oder eine Kante zeigt Art, Land, Anteil, Konfidenz, Herkunft, das **Zitat** und den Link zum Dokument. Rechts trägst du eigene Beziehungen ein (z. B. „Caterpillar → Carlin, supplies, 0,4“). Deine Einträge überschreibt kein Agent. Aus den Zulieferern und Minen entstehen automatisch Suchbegriffe für die Nachrichtenzentrale.
+**Stichtag:** Ein Datum im Feld „Stichtag“ oder ein Klick in den Preisverlauf zeigt den damaligen
+Stand. Die Auswahl daneben trennt zwei Sichten:
 
-### Rohstoff- und Makro-Cockpit
+* **wie damals bekannt** – nur, was bis dahin veröffentlicht war. Kennzahlen ohne
+  Veröffentlichungsdatum erscheinen hier nicht.
+* **rückblickend bekannt** – alles über den Zeitraum, auch später Veröffentlichtes.
 
-![Cockpit](screenshots/18-commodities.png)
+![Stichtag](screenshots/13_stichtag.png)
 
-* **Rohstoffe** (Gold, Silber, Platin, Palladium, Kupfer, Aluminium, Öl WTI/Brent, Erdgas) und **Makro** (US-Dollar-Index, 10-Jahres-Rendite, VIX, S&P 500) mit Tages- und Monatsänderung und 60-Tage-Verlauf.
-* **Verhältnisse:** Gold/Silber, Kupfer/Gold (Konjunkturbarometer), Öl/Gas.
-* **Dein Rohstoff-Exposure:** welche Aktien an welchem Rohstoff hängen und wie viel Portfoliowert (setzt den Datenpunkt *Rohstoff-Symbol*, z. B. GC=F, voraus).
-* **Szenario-Rechner:** Der NAV je Aktie jeder Mine wird mit −30 % bis +30 % Rohstoffpreis neu berechnet (Kosten, Reserven und Schulden unverändert). Das zeigt den **Hebel**: Eine Mine mit hohen Kosten verliert bei fallendem Preis überproportional, bei sehr niedrigem Preis kann der NAV negativ werden. Die Positionsänderung unterstellt ein gleichbleibendes Kurs/NAV-Verhältnis; das ist eine Modellannahme, keine Prognose.
+**Replay:** Ist ein Objekt geöffnet, springen ◀ ▶ von Meilenstein zu Meilenstein seines Lebenslaufs;
+„ansehen“ im Lebenslauf setzt den Stichtag direkt.
 
-### Dokumente und SEC-Einreichungen
+## 8. Wissensstatus
 
-![Dokument](screenshots/19-document.png)
+Der Farbmodus „Wissensstatus“ zeigt je Objekt: noch nicht geprüft, bekannt, vertieft untersucht, neue
+Entwicklung, veraltet. Der Status wird abgeleitet und nicht von Hand gepflegt. „Noch nicht geprüft“
+heisst, dass nichts vorliegt, nicht, dass nichts existiert.
 
-Jede Quelle liegt als **Dokument** vor (Adresse, Herausgeber, Art, Abrufzeit, Prüfsumme, Text; HTML und PDF werden gelesen). Die Dokumentseite zeigt auch, **was auf ihr beruht**: Datenpunkte, Beziehungen und Erkenntnisse jeweils mit Zitat. Bei Einreichungen startet *Von einem Agenten lesen lassen* das Ticket **Einreichung lesen**.
+![Wissensstatus](screenshots/14_wissensstatus.png)
 
-Für US-Notierungen holt das Ticket **SEC-Abgleich** (täglich, ohne LLM) neue Einreichungen (10-K, 10-Q, 20-F, 40-F, 8-K, 6-K) von SEC EDGAR und übernimmt **Aktienanzahl** und **Nettoverschuldung** (Schulden minus Kasse) aus den strukturierten XBRL-Daten, mit Quelle und Konfidenz *high*. Das Ticket **Einreichung lesen** (Agent mit Tool-Unterstützung) liest gezielt Gliederung, Suche und Abschnitte und trägt Minen/Standorte, Zulieferer/Kunden, Eingaben und Risiken ein, jede Aussage mit wörtlichem Zitat. Unbelegte Angaben eines Agenten gelten höchstens als Konfidenz *low*.
+## 9. Research-Bereich
 
-## 7. Tickets
+**Thesen:** Aussage, Zeithorizont, Annahmen mit Status (offen, gestützt, widerlegt, unklar) und
+zugeordnete Evidenz. Ergebnisse von Fragen, die bei aktiver These vorgemerkt wurden, werden der These
+zugeordnet und lassen sich als stützend, widersprechend oder Kontext einordnen.
 
-![Tickets](screenshots/07-tickets.png)
+**Recherchen:** Liste aller gestarteten Recherchen. Ein Klick öffnet das Ergebnis mit festen
+Abschnitten: Antwort, Unsicherheiten, geprüfte Alternativen, nicht gefunden, abgelehnte Angaben des
+Agenten, Folgefragen.
 
-Die Seite **Tickets** listet alle Tickets, filterbar nach Status.
+![Rechercheergebnis](screenshots/15_rechercheergebnis.png)
 
-**Eigenes Ticket anlegen** (Aktien-Seite): Workflow wählen, bei *Themenanalyse* ein Thema angeben (z. B. „Wettbewerb in China“).
+**Seit deinem letzten Besuch:** alle Änderungen (neue Kennzahlen mit altem und neuem Wert,
+abgeschlossene Recherchen, Auffälligkeiten, Ereignisse). „Als gelesen markieren“ setzt den
+Besuchszeitpunkt; mit „ab“ lässt sich ein anderes Vergleichsdatum wählen.
 
-![Ticket-Details](screenshots/08-ticket-detail.png)
+![Lagebericht](screenshots/16_lagebericht.png)
 
-**Ticket-Detail:** Workflow, Herkunft (*user, intake, followup, event, schedule*), Priorität, Agent, Zeiten, Parameter, Ergebnis, erzeugte Erkenntnisse und Scores sowie die **Folgetickets**. Dort steht auch, welche vorgeschlagenen Folgetickets die Leitplanken **verworfen** haben und warum. Aktionen: *Erneut ausführen* (fehlgeschlagen/abgebrochen), *Abbrechen* (wartend).
+## 10. Portfolio
 
-**Leitplanken für Folgetickets:** nur bekannte Workflows, maximal 2 Ebenen Tiefe, maximal 4 Folgetickets je Ticket, höchstens 8 offene Tickets je Aktie, keine Duplikate innerhalb von 24 Stunden.
+Bestände (Symbol, Stück, Durchschnittspreis, optional Kaufdatum und Absicht) und Watchlist.
 
-## 8. Workflows
+![Portfolio](screenshots/17_portfolio.png)
 
-| Workflow | Zweck | LLM |
-|---|---|---|
-| Bestandsaufnahme (Holding) | Ausgangslage, Ziel, These, Scores; schlägt Folgetickets vor. Wird beim Eintragen automatisch angelegt. | ja |
-| Kaufprüfung (Watchlist) | Lohnt sich ein Kauf? Wird beim Beobachten automatisch angelegt. | ja |
-| Themenanalyse | Vertiefung zu einem frei wählbaren Thema. | ja |
-| Ereignis-Prüfung | Bewertet neue Meldungen auf Relevanz für die These. Wird automatisch angelegt. | ja |
-| These prüfen | Testet die These gegen neue Daten und Score-Änderungen; setzt den Thesen-Status. | ja |
-| Bewertungs-Score | Deterministisches, **profilabhängiges** Schema (siehe 6a) inkl. NAV/Marge-Berechnung. Wird nach jedem neuen Datenpunkt automatisch neu gestartet. | nein |
-| Profil bestimmen | Ordnet die Aktie einem Typ zu. | ja |
-| Datenpunkte recherchieren | Trägt fehlende Eingaben mit Quelle und Konfidenz ein; rät nicht. | ja |
-| SEC-Abgleich | Neue Einreichungen und XBRL-Kennzahlen von SEC EDGAR (täglich, mit Quelle). | nein |
-| Einreichung lesen | Agent liest eine Einreichung und extrahiert Datenpunkte, Beziehungen und Assets, jeweils mit geprüftem Zitat. | ja (Tools nötig) |
-| Nachrichten-Zuschnitt | Ordnet neue, deterministisch vorgefilterte Quellen ein und veröffentlicht belegte Intel-Items. Läuft automatisch. | ja |
-| Briefing | Erzeugt „Worauf es jetzt ankommt“ (Regeln, optional vom Agenten verfeinert). Läuft automatisch nach jeder Änderung. | optional |
-| Technik-Snapshot | Deterministisch: Kurs vs. SMA50, SMA20 vs. SMA50, Momentum, RSI aus Stundenkerzen. | nein |
+## 11. Quellen
 
-Scores werden aus den verfügbaren Eingaben berechnet und nur gebildet, wenn mindestens drei Kriterien vorliegen; die *Abdeckung* (z. B. 7/10) ist angegeben.
+Alle gespeicherten Dokumente. Ein Bericht lässt sich in der Charakterkarte unter „Quellen“ per Adresse
+hinzufügen („Dokument lesen“): WatchStreet ruft ihn geschützt ab, speichert den Text und sucht
+Kennzahlen darin.
 
-## 9. Automatik (Worker)
+![Quellen](screenshots/18_quellen.png)
 
-Der Worker läuft als eigener Container. Er
+## 12. System
 
-* arbeitet wartende Tickets nach Priorität ab (manuell/Intake vor Folge- und Zeitplan-Tickets),
-* prüft **stündlich** (einstellbar) alle Aktien auf neue Meldungen und legt dafür eine Ereignis-Prüfung an,
-* frischt Analysen auf: Technik-Snapshot täglich, Bewertungs-Score und These wöchentlich – nur für Aktien mit abgeschlossener Bestandsaufnahme,
-* setzt nach einem Absturz hängende Tickets (> 30 min *läuft*) zurück in die Warteschlange.
+Datenmodus, Marktdatenquelle, konfigurierter Agent, Zustand des Workers. „Hintergrundlauf jetzt“
+aktualisiert Preise und Ereignisse und führt die Regelprüfung aus; er startet nie einen Agenten.
 
-## 10. System
+![System](screenshots/19_system.png)
 
-![System](screenshots/09-system.png)
+## 13. Betrieb
 
-Zeigt Datenquelle, Agent, Worker-Status, letzten Scan und alle Workflows.
+| Zweck | Befehl |
+|---|---|
+| Demo ohne Netz und Schlüssel | `make demo` → http://localhost:8000 |
+| Mit Docker und PostgreSQL | `docker compose up --build` |
+| Lokales Modell (llama.cpp) | `docker compose --profile llm-cpu up --build` bzw. `llm-gpu`, dazu `WATCHSTREET_AGENT_RUNNER=llama` |
 
-**Datenquellen:** `yahoo` (kostenlos, ohne Schlüssel, Kurse stundengenau) oder `demo` (synthetisch, offline).
-**Agenten (`WATCHSTREET_AGENT_RUNNER`):** `llama` (lokales llama.cpp im Docker-Verbund), `offline` (regelbasiert, kein LLM – kann Freitext-Themen nicht inhaltlich analysieren), `anthropic` (API-Schlüssel nötig), `openai` (OpenAI-kompatibel, z. B. lokales Ollama), `cli` (externer Agent per Kommandozeile, z. B. `claude -p`). Konfiguration in `.env`, siehe `.env.example`.
+Einstellungen stehen in `.env.example`. Ohne konfigurierten Agenten (`offline`) arbeitet WatchStreet
+nur mit deterministischen Schritten.
 
-## 11. Lokales LLM, Datenbank und Tool-Calling
+**Sicherung:** bei PostgreSQL `docker compose exec db pg_dump -U watchstreet watchstreet > backup.sql`;
+vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehrbar.
 
-* **Datenbank:** Postgres läuft als eigener Container, die Dateien liegen im Projektordner unter `data/postgres`.
-* **Lokales Modell:** GGUF-Datei in den Ordner `models/` legen (`scripts/download_model.sh <url>`), in `.env` `LLAMA_MODEL=<datei>` und `WATCHSTREET_AGENT_RUNNER=llama` setzen und mit `docker compose --profile llm-gpu up --build` (NVIDIA-GPU) bzw. `--profile llm-cpu` starten. Grenzen für GPU-Anzahl, GPU-Schichten, Threads, Kontext und RAM stehen in `.env` (`LLAMA_*`). Empfohlen sind Instruct-Modelle mit Tool-Unterstützung.
-* **Tool-Calling:** Der Harness berechnet Kurs, Kennzahlen, Scores und Gewinn/Verlust selbst und gibt dem Agenten nur ein kompaktes Faktenblatt. Details holt der Agent bei Bedarf über Tools und hält Ergebnisse (Erkenntnis, Ziel, These, Folgeticket, Datenpunkt mit Quelle, Profil) ebenfalls über Tools fest. Ablehnungen der Leitplanken (z. B. Duplikat) bekommt der Agent sofort zurückgemeldet. Im Ticket-Detail zeigt **Modus** die Schritte, Tool-Aufrufe und Tokens. Unterstützt das Modell keine Tools, wechselt der Harness automatisch auf JSON-Antworten (Modus `json`).
+## 14. Grenzen des aktuellen Stands
 
-## 12. Grenzen und Hinweise
-
-* Yahoo-Daten kommen aus einer inoffiziellen, kostenlosen Schnittstelle; sie kann sich ändern oder Anfragen begrenzen. Fehlende Kennzahlen führen zu weniger Kriterien, nicht zu erfundenen Werten.
-* Zahlen und Texte können falsch sein. Keine Anlageberatung.
-* Währungen werden nicht umgerechnet; bei Minen mit abweichender Berichtswährung ist ein Wechselkurs als Datenpunkt nötig.
-* **Abrufweg:** Quellen ruft der Harness ab, nicht der Agent. Er erlaubt nur öffentliche http(s)-Adressen (keine internen Netze), begrenzt Größe und Weiterleitungen und behandelt Inhalte ausschließlich als Daten, nie als Anweisungen. Agenten lesen die gespeicherten Kopien. Das macht Belege reproduzierbar und schützt vor eingeschleusten Anweisungen in Webseiten.
-* **Abdeckung:** SEC EDGAR deckt US-Notierungen ab. Kanadische (SEDAR+) und europäische Emittenten haben keine freie Schnittstelle; dort helfen RSS-Quellen der Unternehmen und manuelles Erfassen. GDELT, USGS und die Standard-Feeds sind kostenlos, aber unverbindlich; Feed-Adressen können sich ändern (unter *Quellen verwalten* anpassen). Die SEC verlangt eine Kontakt-Kennung: setze `WATCHSTREET_SEC_USER_AGENT` auf „Name e-mail“.
-* Ein lokales LLM hat keinen eigenen Internetzugriff: Recherchierte Datenpunkte stammen aus dem Modellwissen und sind entsprechend mit Konfidenz zu lesen. Prüfe sie, bevor du dich auf sie verlässt.
-* Beim Update von einer älteren Version fehlen neue Tabellenspalten (keine Migrationen): lokale Datenbank (`data/`) neu anlegen.
-* Es gibt noch keine Benutzerverwaltung: Die Anwendung gehört in ein vertrauenswürdiges Netz.
+* Echtdaten für Minen entstehen nur durch eigene Einträge und Recherchen; es gibt keinen mitgelieferten
+  realen Bestand.
+* Noch nicht vorhanden: Marker-Clustering, Standortbilder, Anmeldung, Inflations- und
+  Rohstoffäquivalent-Spalten im Vergleich.
+* Die Zitatprüfung stellt sicher, dass ein Zitat wörtlich im Dokument steht, nicht, dass es die Zahl
+  inhaltlich richtig belegt.

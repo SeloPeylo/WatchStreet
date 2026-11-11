@@ -41,7 +41,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-watchstreet = ["migrations/script.py.mako", "web/static/*", "web/static/vendor/*", "data/*.json"]
+watchstreet = ["migrations/script.py.mako", "web/static/vendor/*", "web/static/app/*", "web/static/app/assets/*", "data/*.json"]
 
 # ---------------------------------------------------------------- ruff
 [tool.ruff]

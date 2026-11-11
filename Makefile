@@ -1,4 +1,4 @@
-.PHONY: install fmt lint architecture typecheck security test check run worker demo sonar
+.PHONY: frontend install fmt lint architecture typecheck security test check run worker demo sonar
 
 PY ?= python
 
@@ -36,8 +36,12 @@ run:
 worker:
 	$(PY) -m watchstreet.worker
 
-# Local run with synthetic data and the rule-based agent (no network, no keys).
-demo:
+# Build the single-page app into src/watchstreet/web/static/app (needs Node 22).
+frontend:
+	cd frontend && npm ci && npm run build
+
+# Local run with synthetic data and without an agent (no network, no keys).
+demo: frontend
 	WATCHSTREET_MARKET_PROVIDER=demo WATCHSTREET_AGENT_RUNNER=offline \
 	WATCHSTREET_DATABASE_URL=sqlite:///./data/demo.db \
 	sh -c '$(PY) -m watchstreet.worker & uvicorn watchstreet.web.app:app_factory --factory --port 8000'

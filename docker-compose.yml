@@ -62,7 +62,7 @@ services:
   web:
     <<: *app
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"   # no login yet: reachable from this machine only
     depends_on:
       db:
         condition: service_healthy

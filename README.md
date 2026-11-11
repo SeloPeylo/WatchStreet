@@ -1,35 +1,25 @@
 # WatchStreet
 
-Ticket-driven stock portfolio tracker. You enter what you own (**Holdings**) and what interests you (**Watchlist**); a harness spawns agents that work through **tickets** (analysis jobs with predefined workflows) and accumulate findings, scores and an investment thesis per stock.
+Kartenzentrierter Recherche-Arbeitsplatz für Rohstoffinvestments: Minen und Projekte als eigenständige
+Objekte auf einer Weltkarte, jede Kennzahl mit Herkunft, Szenarien und Stichtage, Recherche nur nach
+bewusster Freigabe. Keine Anlageempfehlungen, kein Handel.
 
-* Free public data (Yahoo Finance, hourly candles), candlestick chart without external JS libs
-* Agents: rule-based `offline`, `anthropic`, OpenAI-compatible (e.g. Ollama), or any CLI agent
-* Deterministic scoring schemes + LLM workflows, guardrails for agent-proposed follow-ups
-
-**User manual (German, with screenshots):** [docs/user-manual.md](docs/user-manual.md) – also served at `/manual`.
-
-## Run
-
-```bash
-cp .env.example .env                              # choose agent / data provider
-docker compose up --build                         # web + worker + Postgres -> http://localhost:8000
-docker compose --profile llm-gpu up --build       # + local llama.cpp on the host GPU (NVIDIA)
-docker compose --profile llm-cpu up --build       # + local llama.cpp on CPU
+```
+make install     # Python-Abhängigkeiten (Python 3.12+)
+make demo        # baut die Oberfläche (Node 22) und startet mit synthetischen Daten: http://localhost:8000
+make check       # ruff, import-linter, mypy --strict, bandit, pytest (>= 80 % Abdeckung)
+docker compose up --build    # App + Worker + PostgreSQL
 ```
 
-* **Data layer:** Postgres in its own container, files in `./data/postgres` (inside the project). Tests also run on SQLite.
-* **Local LLM:** put a GGUF model into `./models` ([models/README.md](models/README.md)), set `LLAMA_MODEL` and `WATCHSTREET_AGENT_RUNNER=llama` in `.env`. GPU/CPU/RAM limits are configurable there.
-* **Tool calling:** the agent gets deterministic facts up front and calls tools to read details and to record insights, thesis and follow-up tickets (guardrails answer immediately). Falls back to JSON output if the model has no tool support.
+| Dokument | Inhalt |
+|---|---|
+| [`docs/user-manual.md`](docs/user-manual.md) | Benutzerhandbuch mit Screenshots (in der App unter „Handbuch“) |
+| [`docs/spec/world-explorer-spec.md`](docs/spec/world-explorer-spec.md) | Spezifikation und Designplan |
+| [`docs/architecture.md`](docs/architecture.md) | Was gebaut ist und wie die Schichten zusammenhängen |
+| [`docs/engineering-rules.md`](docs/engineering-rules.md) | Regeln für Änderungen |
 
-**Intel area:** news center with direct sources, world map with country exposure, dependency graph (suppliers/customers/assets), commodity & macro cockpit with NAV scenarios, SEC EDGAR filings read by agents with harness-verified quotes. Set `WATCHSTREET_SEC_USER_AGENT` (SEC requires a contact).
+Der frühere aktienzentrierte Stand liegt unter dem Tag `v0-dashboard`.
 
-Offline demo (synthetic data, rule-based agent, no network): `make demo` after `make install`.
-
-## Develop
-
-```bash
-make install   # editable install + dev tools + pre-commit
-make check     # ruff format/lint, import-linter (architecture), mypy --strict, bandit, pytest (coverage >= 80 %)
-```
-
-Static analysis with SonarQube: see [docs/engineering-rules.md](docs/engineering-rules.md). New here? Start with the [code tour](docs/CODE_TOUR.md) (German). Architecture: [docs/architecture.md](docs/architecture.md). Rules for coding agents: [CLAUDE.md](CLAUDE.md).
+**Stand:** Mit Demo-Daten Ende zu Ende geprüft (`scripts/capture_screenshots.mjs`). Echte Datenquellen
+(Yahoo, SEC, USGS), ein echter Agentenlauf und der Docker-Build sind in der Entwicklungsumgebung nicht
+geprüft worden.

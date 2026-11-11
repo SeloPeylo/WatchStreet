@@ -344,7 +344,10 @@ def card(asset: Asset, bundle: Bundle, ctx: ViewContext) -> dict[str, Any]:
         "economics": economics_payload(econ, commodity),
         "economics_is_forecast": bool(econ and econ.is_forecast),
         "by_product_note": bool(
-            len(asset.commodities) > 1 and econ and not econ.result.by_product_adjusted
+            ctx.scenario
+            and len(asset.commodities) > 1
+            and econ
+            and not econ.result.by_product_adjusted
         ),
         "price": ctx.prices.get(commodity),
         "mode": ctx.mode(commodity),
