@@ -99,8 +99,8 @@ Prüfungen je These.
 
 | Prio | Offen | Begründung |
 |---|---|---|
-| MUSS | Position direkt mit These und Ausstiegsbedingung verknüpfen; Entscheidungsprotokoll für Kauf und Verkauf | Lernen aus Fehlern |
-| MUSS | Wissensstatus, Quellen und Vorschläge am Stichtag filtern | kein späteres Wissen in der Vergangenheit |
+| erledigt | Position mit These und Ausstiegsbedingung; Entscheidungsprotokoll mit damaligem Wissensstand | |
+| erledigt | Wissensstatus, Quellen und Vorschläge am Stichtag gefiltert | |
 | SOLL | Thesenstatus aus Annahmen ableiten; fällige Prüfungen in Glocke und Lagebericht | |
 | SOLL | Preis und berechnete Grössen als Evidenz; Knopf „Objekt der These zuordnen“ | |
 | SOLL | Portfolio-Stresstest, Mehrrohstoff-Szenarien, Kosteninflation, Kostentrend | |

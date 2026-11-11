@@ -352,11 +352,40 @@ class HoldingBody(BaseModel):
     avg_price: float
     bought_at: date | None = None
     intent: str = ""
+    thesis_id: int | None = None
+    exit_condition: str = ""
+    reason: str = ""
+
+
+class AdjustBody(BaseModel):
+    reason: str
+    intent: str | None = None
+    exit_condition: str | None = None
+    thesis_id: int | None = None
+    clear_thesis: bool = False
+
+
+class SellBody(BaseModel):
+    reason: str
+    price: float | None = Field(default=None, gt=0)
 
 
 class WatchBody(BaseModel):
     symbol: str
     note: str = ""
+
+
+def _thesis_row(thesis: Thesis, today: date, *, direct: bool) -> dict[str, Any]:
+    return {
+        "id": thesis.id,
+        "title": thesis.title,
+        "direct": direct,
+        "contradicted": sum(a.status == "contradicted" for a in thesis.assumptions),
+        "due": sum(
+            a.status == "open" and a.review_by is not None and a.review_by <= today
+            for a in thesis.assumptions
+        ),
+    }
 
 
 def _exposure(session: Session, stock_id: int) -> dict[str, Any]:
@@ -383,18 +412,7 @@ def _exposure(session: Session, stock_id: int) -> dict[str, Any]:
     return {
         "company": {"id": company.id, "name": company.name},
         "assets": [{"id": a.id, "name": a.name} for a in assets],
-        "theses": [
-            {
-                "id": t.id,
-                "title": t.title,
-                "contradicted": sum(a.status == "contradicted" for a in t.assumptions),
-                "due": sum(
-                    a.status == "open" and a.review_by is not None and a.review_by <= today
-                    for a in t.assumptions
-                ),
-            }
-            for t in linked
-        ],
+        "theses": [_thesis_row(t, today, direct=False) for t in linked],
     }
 
 
@@ -413,6 +431,10 @@ def portfolio_view(session: SessionDep, container: ContainerDep) -> dict[str, An
                 "avg_price": r.holding.avg_price,
                 "bought_at": r.holding.bought_at.isoformat() if r.holding.bought_at else None,
                 "intent": r.holding.intent,
+                "exit_condition": r.holding.exit_condition,
+                "thesis": _thesis_row(thesis, utcnow().date(), direct=True)
+                if (thesis := session.get(Thesis, r.holding.thesis_id or 0))
+                else None,
                 "price": r.price,
                 "market_value": r.market_value,
                 "pnl_abs": r.pnl_abs,
@@ -445,10 +467,48 @@ def add_holding(body: HoldingBody, session: SessionDep, container: ContainerDep)
         session,
         container.market,
         portfolio.NewHolding(
-            body.symbol, body.quantity, body.avg_price, body.bought_at, body.intent
+            body.symbol, body.quantity, body.avg_price, body.bought_at, body.intent,
+            body.thesis_id, body.exit_condition, body.reason,
         ),
-    )
+    )  # fmt: skip
     return {"id": holding.id}
+
+
+@router.patch(f"{API}/portfolio/holdings/{{holding_id}}")
+def adjust_holding(
+    holding_id: int, body: AdjustBody, session: SessionDep, container: ContainerDep
+) -> dict[str, str]:
+    """Change intent, thesis or exit condition of a position; the reason goes into the journal."""
+    holding = get_or_404(session, Holding, holding_id)
+    portfolio.adjust_holding(
+        session, container.market, holding, body.reason, intent=body.intent,
+        exit_condition=body.exit_condition, thesis_id=body.thesis_id,
+        clear_thesis=body.clear_thesis,
+    )  # fmt: skip
+    return {"status": "adjusted"}
+
+
+@router.post(f"{API}/portfolio/holdings/{{holding_id}}/sell")
+def sell_holding(
+    holding_id: int, body: SellBody, session: SessionDep, container: ContainerDep
+) -> dict[str, str]:
+    """Close a position with a reason; it stays in the decision journal."""
+    holding = get_or_404(session, Holding, holding_id)
+    portfolio.sell_holding(session, container.market, holding, body.reason, body.price)
+    return {"status": "sold"}
+
+
+@router.get(f"{API}/portfolio/decisions")
+def decision_journal(session: SessionDep) -> list[dict[str, Any]]:
+    """Every buy, sell and change of intent with the reason and what was known at the time."""
+    return [
+        {
+            "id": d.id, "symbol": d.stock.symbol, "kind": d.kind, "day": d.day.isoformat(),
+            "quantity": d.quantity, "price": d.price, "reason": d.reason,
+            "snapshot": d.snapshot, "recorded_at": d.created_at.isoformat(),
+        }
+        for d in portfolio.decisions(session)
+    ]  # fmt: skip
 
 
 @router.delete(f"{API}/portfolio/holdings/{{holding_id}}")

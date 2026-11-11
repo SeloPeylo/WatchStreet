@@ -15,6 +15,7 @@ from watchstreet.metrics import METRICS
 from watchstreet.models import (
     Asset,
     Company,
+    Document,
     Event,
     Fact,
     Financing,
@@ -28,7 +29,7 @@ from watchstreet.services import imports, prices
 from watchstreet.services.changes import log_change
 from watchstreet.services.companies import company_view
 from watchstreet.services.facts import FactInput, fact_history, record_fact
-from watchstreet.services.world import card, existed_on, load_bundle, map_feature
+from watchstreet.services.world import ViewContext, card, existed_on, load_bundle, map_feature
 from watchstreet.timeutil import utcnow
 from watchstreet.web import payloads
 from watchstreet.web.deps import ContainerDep, SessionDep, ViewDep, get_or_404
@@ -124,6 +125,13 @@ def cards(session: SessionDep, ctx: ViewDep, ids: str) -> list[dict[str, Any]]:
     return [card(by_id[i], bundle, ctx) for i in wanted if i in by_id]
 
 
+def _known_then(document: Document, ctx: ViewContext) -> bool:
+    """A source published (or, if undated, stored) after the reference date was not known then."""
+    if ctx.as_of is None:
+        return True
+    return (document.published_at or document.fetched_at).date() <= ctx.as_of
+
+
 @router.get("/assets/{asset_id}")
 def asset_detail(asset_id: int, session: SessionDep, ctx: ViewDep) -> dict[str, Any]:
     asset = get_or_404(session, Asset, asset_id)
@@ -152,8 +160,12 @@ def asset_detail(asset_id: int, session: SessionDep, ctx: ViewDep) -> dict[str, 
         ],
         "findings": [payloads.finding(f) for f in then(findings)],
         "tickets": [payloads.ticket(t) for t in then(tickets)],
-        "proposals": [payloads.proposal(p) for p in proposals if p.state == "draft"],
-        "documents": [payloads.document(d) for d in linked_documents(session, ASSET, asset_id)],
+        "proposals": [payloads.proposal(p) for p in then(proposals) if p.state == "draft"],
+        "documents": [
+            payloads.document(d)
+            for d in linked_documents(session, ASSET, asset_id)
+            if _known_then(d, ctx)
+        ],
     }
 
 
@@ -275,11 +287,19 @@ def company_detail(
     proposals = session.scalars(
         select(Proposal).where(Proposal.subject_type == COMPANY, Proposal.subject_id == company_id)
     )
+
+    def then(rows: Any) -> list[Any]:
+        return [r for r in rows if ctx.as_of is None or r.created_at.date() <= ctx.as_of]
+
     return {
         **view,
-        "findings": [payloads.finding(f) for f in findings],
-        "proposals": [payloads.proposal(p) for p in proposals if p.state == "draft"],
-        "documents": [payloads.document(d) for d in linked_documents(session, COMPANY, company_id)],
+        "findings": [payloads.finding(f) for f in then(findings)],
+        "proposals": [payloads.proposal(p) for p in then(proposals) if p.state == "draft"],
+        "documents": [
+            payloads.document(d)
+            for d in linked_documents(session, COMPANY, company_id)
+            if _known_then(d, ctx)
+        ],
     }
 
 

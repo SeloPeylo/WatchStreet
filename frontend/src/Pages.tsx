@@ -1,16 +1,33 @@
 // Smaller pages: portfolio, sources, system, manual.
 import { useEffect, useState } from "react";
 import type { Json } from "./api";
-import { day, del, get, num, post, put } from "./api";
+import { day, del, get, num, patch, post, put } from "./api";
 
 type Notify = (text: string) => void;
+const STATE: Record<string, string> = { open: "offen", supported: "gestützt", contradicted: "widerlegt", unclear: "unklar" };
 
 export function Portfolio({ notify }: { notify: Notify }) {
   const [data, setData] = useState<Json>({ holdings: [], watchlist: [] });
-  const [holding, setHolding] = useState({ symbol: "", quantity: "", avg_price: "", bought_at: "", intent: "" });
+  const empty = { symbol: "", quantity: "", avg_price: "", bought_at: "", intent: "", thesis_id: "", exit_condition: "" };
+  const [holding, setHolding] = useState(empty);
+  const [theses, setTheses] = useState<Json[]>([]);
+  const [journal, setJournal] = useState<Json[]>([]);
   const [watch, setWatch] = useState({ symbol: "", note: "" });
-  const load = () => get("/portfolio").then(setData);
-  useEffect(() => { load(); }, []);
+  const load = () => { get("/portfolio/decisions").then(setJournal); return get("/portfolio").then(setData); };
+  useEffect(() => { load(); get("/theses").then(setTheses); }, []);
+  const adjust = (h: Json) => {
+    const exit_condition = window.prompt("Ausstiegsbedingung: Was müsste eintreten, damit du verkaufst?", h.exit_condition ?? "");
+    if (exit_condition === null) return;
+    const reason = window.prompt("Warum änderst du sie? (steht im Entscheidungsprotokoll)", "") ?? "";
+    if (!reason.trim()) return notify("Ohne Begründung wird nichts geändert");
+    act(patch(`/portfolio/holdings/${h.id}`, { exit_condition, reason }));
+  };
+  const sell = (h: Json) => {
+    const reason = window.prompt(`Warum schliesst du ${h.symbol}? (steht im Entscheidungsprotokoll)`, "") ?? "";
+    if (!reason.trim()) return notify("Ohne Begründung wird die Position nicht geschlossen");
+    const price = Number(window.prompt("Verkaufspreis je Stück (leer lassen, wenn unbekannt)", "") ?? "");
+    act(post(`/portfolio/holdings/${h.id}/sell`, { reason, ...(price > 0 ? { price } : {}) }));
+  };
   const act = (run: Promise<Json>) => run.then(load).catch((e) => notify(e.message));
   return (
     <div className="page">
@@ -23,8 +40,10 @@ export function Portfolio({ notify }: { notify: Notify }) {
               <tr key={h.id}><td><b>{h.symbol}</b></td><td>{h.name}</td><td className="n">{num(h.quantity)}</td><td className="n">{num(h.avg_price)}</td>
                 <td className="n">{num(h.price)}</td><td className="n">{num(h.market_value)} {h.currency}</td>
                 <td className={`n ${h.pnl_abs >= 0 ? "up" : "down"}`}>{num(h.pnl_abs)} ({num(h.pnl_pct)} %)</td><td>{h.intent}
+                  <div className="small">{h.thesis ? <>These: <b>{h.thesis.title}</b>{h.thesis.contradicted ? ` ⚠ ${h.thesis.contradicted} Annahme(n) widerlegt` : ""}{h.thesis.due ? ` · ${h.thesis.due} Prüfung(en) fällig` : ""}</> : <span className="muted">⚠ keiner These zugeordnet</span>}</div>
+                  <div className="small">{h.exit_condition ? <>Ausstieg: {h.exit_condition}</> : <span className="muted">⚠ keine Ausstiegsbedingung</span>}</div>
                   <div className="small muted">{h.company ? <>{h.company.name} · {h.assets.length} Objekte{h.theses.length > 0 && <> · Thesen: {h.theses.map((t: Json) => `${t.title}${t.contradicted ? ` (⚠ ${t.contradicted} Annahme(n) widerlegt)` : ""}${t.due ? ` (${t.due} Prüfung(en) fällig)` : ""}`).join(", ")}</>}</> : "kein Unternehmen mit Objekten zugeordnet"}</div></td>
-                <td><button onClick={() => act(del(`/portfolio/holdings/${h.id}`))}>Entfernen</button></td></tr>
+                <td><button onClick={() => adjust(h)}>Ausstieg ändern</button> <button onClick={() => sell(h)}>Schliessen</button></td></tr>
             ))}
             {data.holdings.length === 0 && <tr><td colSpan={9} className="muted">Noch keine Bestände.</td></tr>}
           </tbody>
@@ -34,9 +53,31 @@ export function Portfolio({ notify }: { notify: Notify }) {
           <input placeholder="Stück" type="number" value={holding.quantity} onChange={(e) => setHolding({ ...holding, quantity: e.target.value })} />
           <input placeholder="Ø Kaufpreis" type="number" value={holding.avg_price} onChange={(e) => setHolding({ ...holding, avg_price: e.target.value })} />
           <input type="date" title="Kaufdatum (optional)" value={holding.bought_at} onChange={(e) => setHolding({ ...holding, bought_at: e.target.value })} />
-          <input className="grow" placeholder="Absicht (optional)" value={holding.intent} onChange={(e) => setHolding({ ...holding, intent: e.target.value })} />
-          <button className="primary" onClick={() => act(post("/portfolio/holdings", { ...holding, quantity: Number(holding.quantity), avg_price: Number(holding.avg_price), bought_at: holding.bought_at || null }))}>Hinzufügen</button>
         </div>
+        <div className="row">
+          <select value={holding.thesis_id} onChange={(e) => setHolding({ ...holding, thesis_id: e.target.value })} data-testid="holding-thesis">
+            <option value="">These wählen …</option>
+            {theses.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+          </select>
+          <input className="grow" placeholder="Warum kaufst du? (Absicht)" value={holding.intent} onChange={(e) => setHolding({ ...holding, intent: e.target.value })} />
+          <input className="grow" placeholder="Ausstiegsbedingung: Was müsste eintreten, damit du verkaufst?" value={holding.exit_condition} onChange={(e) => setHolding({ ...holding, exit_condition: e.target.value })} />
+          <button className="primary" onClick={() => act(post("/portfolio/holdings", { ...holding, quantity: Number(holding.quantity), avg_price: Number(holding.avg_price), bought_at: holding.bought_at || null, thesis_id: holding.thesis_id ? Number(holding.thesis_id) : null })).then(() => setHolding(empty))}>Hinzufügen</button>
+        </div>
+      </div>
+      <div className="box section" data-testid="journal">
+        <h2>Entscheidungsprotokoll</h2>
+        <p className="muted small">Jeder Kauf, jede Änderung und jeder Verkauf mit Begründung und dem, was damals bekannt war. Einträge lassen sich nicht ändern.</p>
+        <table><tbody>
+          {journal.map((d) => (
+            <tr key={d.id}>
+              <td>{day(d.day)}</td><td><b>{d.symbol}</b></td><td>{{ buy: "Kauf", sell: "Verkauf", adjust: "Änderung" }[d.kind as string]}</td>
+              <td className="n">{d.quantity != null ? `${num(d.quantity)} Stück` : ""}{d.price != null ? ` zu ${num(d.price)}` : ""}</td>
+              <td>{d.reason || <span className="muted">ohne Begründung</span>}
+                <div className="small muted">Damals: Kurs {num(d.snapshot.price)}{d.snapshot.thesis ? ` · These „${d.snapshot.thesis.title}“ (${d.snapshot.thesis.assumptions.map((a: Json) => `${a.text}: ${STATE[a.status] ?? a.status}`).join("; ") || "ohne Annahmen"})` : " · ohne These"}{Object.keys(d.snapshot.figures ?? {}).length > 0 ? ` · ${Object.entries(d.snapshot.figures).map(([k, v]) => `${k} ${v}`).join(", ")}` : ""}</div></td>
+            </tr>
+          ))}
+          {journal.length === 0 && <tr><td className="muted">Noch keine Entscheidung protokolliert.</td></tr>}
+        </tbody></table>
       </div>
       <div className="box section" data-testid="watchlist">
         <h2>Watchlist</h2>

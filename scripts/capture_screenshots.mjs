@@ -108,11 +108,15 @@ await page.getByTestId("ticket-result").getByRole("button", { name: "Schliessen"
 await shot("lagebericht");
 
 await page.getByRole("button", { name: "Portfolio", exact: true }).click();
-await page.getByTestId("holdings").getByPlaceholder("Symbol").fill("NEM");
+await page.getByTestId("holdings").getByPlaceholder("Symbol").fill("DACC");
 await page.getByPlaceholder("Stück").fill("100");
 await page.getByPlaceholder("Ø Kaufpreis").fill("42");
+await page.getByTestId("holding-thesis").selectOption({ index: 1 });
+await page.getByPlaceholder("Warum kaufst du?").fill("Tiefkosten-Produzent mit Hebel auf Kupfer");
+await page.getByPlaceholder("Ausstiegsbedingung").fill("Verkauf, wenn AISC über 2,60 USD/lb steigt");
 await page.getByTestId("holdings").getByRole("button", { name: "Hinzufügen" }).click();
-await page.getByTestId("holdings").getByText("NEM", { exact: true }).waitFor();
+await page.getByTestId("holdings").getByText("DACC", { exact: true }).waitFor();
+await page.getByTestId("journal").getByRole("cell", { name: "Kauf", exact: true }).waitFor();
 await shot("portfolio");
 await page.getByRole("button", { name: "Quellen", exact: true }).click();
 await page.getByTestId("sources").getByText("Demo-Jahresbericht").first().waitFor();

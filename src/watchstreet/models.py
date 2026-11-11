@@ -67,9 +67,30 @@ class Holding(Base):
     avg_price: Mapped[float] = mapped_column(Float)
     bought_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     intent: Mapped[str] = mapped_column(Text, default="")
+    thesis_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # why it is held
+    exit_condition: Mapped[str] = mapped_column(Text, default="")  # what would make me sell
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
     stock: Mapped[Stock] = relationship(back_populates="holding")
+
+
+class Decision(Base):
+    """One entry of the decision journal: what was done, why, and what was known then."""
+
+    __tablename__ = "decisions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    stock_id: Mapped[int] = mapped_column(ForeignKey("stocks.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(8))  # buy | sell | adjust
+    day: Mapped[date] = mapped_column(Date)
+    quantity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    thesis_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+    stock: Mapped[Stock] = relationship()
 
 
 class WatchEntry(Base):

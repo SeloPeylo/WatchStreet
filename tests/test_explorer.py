@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from watchstreet.agents.tools import ToolRun
 from watchstreet.domain import DataOrigin, Provenance, SubjectType, TicketStatus
+from watchstreet.harness.executor import execute_ticket
 from watchstreet.harness.scan import run_scan, scan_due
 from watchstreet.intel.connectors.usgs import Quake
 from watchstreet.intel.fetch import Fetcher
@@ -919,3 +920,57 @@ def test_royalty_holder_has_a_value_and_checklist_needs_all_costs(client, sessio
     pacific = client.get(f"{API}/companies/{_company_id(session, 'Demo Pacific Metals')}").json()
     costs = next(q for q in pacific["checklist"] if q["key"] == "costs")
     assert costs["answered"] is False  # one mine has no cost on file
+
+
+def test_position_carries_thesis_exit_condition_and_a_decision_journal(client, session):
+    thesis = client.post(f"{API}/theses", json={"title": "Kupfer knapp", "statement": "S"}).json()
+    client.post(f"{API}/theses/{thesis['id']}/assumptions", json={"text": "Preis über 3"})
+    body = {
+        "symbol": "DJEX", "quantity": 1000, "avg_price": 0.3, "thesis_id": thesis["id"],
+        "exit_condition": "Verkauf, wenn Finanzierung unter 0,20", "reason": "Optionalität",
+    }  # fmt: skip
+    holding = client.post(f"{API}/portfolio/holdings", json=body).json()["id"]
+    row = client.get(f"{API}/portfolio").json()["holdings"][0]
+    assert row["thesis"]["title"] == "Kupfer knapp" and row["thesis"]["direct"]
+    assert row["exit_condition"].startswith("Verkauf")
+    path = f"{API}/portfolio/holdings/{holding}"
+    assert client.patch(path, json={"reason": "", "exit_condition": "nie"}).status_code == 400
+    moved = {"reason": "Finanzierung kam besser", "exit_condition": "Verkauf unter 0,15"}
+    assert client.patch(path, json=moved).status_code == 200
+    assert client.patch(path, json={"reason": "x", "thesis_id": 9999}).status_code == 400
+    assert client.post(f"{path}/sell", json={"reason": ""}).status_code == 400
+    sold = {"reason": "Annahme widerlegt", "price": 0.5}
+    assert client.post(f"{path}/sell", json=sold).status_code == 200
+    assert client.get(f"{API}/portfolio").json()["holdings"] == []
+    journal = client.get(f"{API}/portfolio/decisions").json()
+    assert [d["kind"] for d in journal] == ["sell", "adjust", "buy"]
+    assert "vorher:" in journal[1]["reason"] and "Finanzierung unter 0,20" in journal[1]["reason"]
+    bought = journal[2]["snapshot"]
+    assert bought["thesis"]["assumptions"][0]["status"] == "open" and bought["price"]
+    assert bought["figures"]["cash"].endswith("USD")
+
+
+def test_reference_date_hides_todays_research_sources_and_questions(client, container, session):
+    asset = session.scalars(select(Asset).where(Asset.name == "Demo Mina Laguna Clara")).one()
+    made = client.post(
+        f"{API}/proposals",
+        json={
+            "subject_type": "asset",
+            "subject_id": asset.id,
+            "template": "fill_metric",
+            "metric": "aisc",
+        },
+    ).json()
+    ticket = client.post(f"{API}/proposals/start", json={"ids": [made["id"]]}).json()[0]
+    execute_ticket(container, ticket["id"])
+    client.post(
+        f"{API}/proposals",
+        json={"subject_type": "asset", "subject_id": asset.id, "template": "takeover"},
+    )
+    now = client.get(f"{API}/assets/{asset.id}").json()
+    assert now["card"]["knowledge"]["status"] in ("deep", "new") and now["documents"]
+    then = client.get(f"{API}/assets/{asset.id}", params={"asof": "2025-06-30"}).json()
+    assert then["card"]["knowledge"]["status"] in ("unexamined", "known")
+    assert then["card"]["knowledge"]["open_questions"] == 0
+    assert then["proposals"] == [] and then["tickets"] == []
+    assert all(d["published_at"] <= "2025-06-30T23:59" for d in then["documents"])

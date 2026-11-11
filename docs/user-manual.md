@@ -200,6 +200,10 @@ Stand. Die Auswahl daneben trennt zwei Sichten:
 **Replay:** Ist ein Objekt geöffnet, springen ◀ ▶ von Meilenstein zu Meilenstein seines Lebenslaufs;
 „ansehen“ im Lebenslauf setzt den Stichtag direkt.
 
+Bei einem Stichtag in der Vergangenheit zeigt die Objektansicht nur, was damals vorlag: keine später
+entstandenen Recherchen, Vorschläge oder Quellen, und der Wissensstatus leitet sich allein aus den
+damals bekannten Kennzahlen ab.
+
 ## 8. Wissensstatus
 
 Der Farbmodus „Wissensstatus“ zeigt je Objekt: noch nicht geprüft, bekannt, vertieft untersucht, neue
@@ -235,7 +239,15 @@ Besuchszeitpunkt; mit „ab“ lässt sich ein anderes Vergleichsdatum wählen.
 
 ## 10. Portfolio
 
-Bestände (Symbol, Stück, Durchschnittspreis, optional Kaufdatum und Absicht) und Watchlist.
+Bestände und Watchlist. Zu jeder Position gehören drei Angaben, die eine Entscheidung später
+überprüfbar machen: die **These**, auf der sie beruht, die **Absicht** (warum du kaufst) und die
+**Ausstiegsbedingung** (was eintreten müsste, damit du verkaufst). Fehlt eine davon, steht ein
+Warnzeichen an der Position.
+
+Das **Entscheidungsprotokoll** hält jeden Kauf, jede Änderung der Ausstiegsbedingung und jeden Verkauf
+fest, mit Begründung und dem damaligen Wissensstand: Kurs, Status der Annahmen der These und die
+Unternehmenskennzahlen zu diesem Zeitpunkt. Änderungen und Verkäufe brauchen eine Begründung; die
+alte Ausstiegsbedingung bleibt im Eintrag lesbar. Einträge lassen sich nicht ändern.
 Unter „Absicht und Bezug“ steht zu jeder Position das erfasste Unternehmen, seine Objekte (mit Sprung
 auf die Karte) und die Thesen, die sich auf das Unternehmen oder seine Objekte stützen. Eine Position
 ohne These ist als solche ausgewiesen.

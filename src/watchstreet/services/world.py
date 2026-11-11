@@ -334,19 +334,20 @@ def knowledge_payload(
     newest = [f.period_end or f.published_at for k, f in facts.items() if k in key_metrics(status)]
     dated = [d for d in newest if d is not None]
     stale = bool(dated) and ctx.as_of is None and ctx.today - max(dated) > STALE_FACT_AFTER
+    now = ctx.as_of is None  # research, visits and open questions belong to today, not to the past
     state = knowledge_status(
         KnowledgeInputs(
             has_facts=bool(facts),
-            has_agent_research=asset.id in bundle.researched,
-            changed_since_visit=asset.id in bundle.changed,
+            has_agent_research=now and asset.id in bundle.researched,
+            changed_since_visit=now and asset.id in bundle.changed,
             is_stale=stale,
         )
     )
     return {
         "status": state,
-        "open_questions": bundle.open_proposals.get(asset.id, 0),
-        "running": asset.id in bundle.running,
-        "new_result": asset.id in bundle.unseen_results,
+        "open_questions": bundle.open_proposals.get(asset.id, 0) if now else 0,
+        "running": now and asset.id in bundle.running,
+        "new_result": now and asset.id in bundle.unseen_results,
         "missing": [k for k in key_metrics(status) if k not in facts],
     }
 
