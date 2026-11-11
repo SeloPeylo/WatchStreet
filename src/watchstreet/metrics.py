@@ -29,14 +29,15 @@ METRICS: dict[str, Metric] = {
         Metric("resources_mi", "Ressourcen gemessen + angezeigt (M&I)"),
         Metric("resources_inferred", "Ressourcen vermutet (Inferred)"),
         Metric("grade", "Gehalt"),
-        Metric("recovery", "Ausbringung"),
+        Metric("recovery", "Ausbringung", unit="%"),
         Metric("study_date", "Datum der Studie", is_text=True),
         Metric("study_stage", "Studienstand", is_text=True),
-        Metric("capex", "Capex"),
+        Metric("capex", "Capex", unit="USD"),
+        Metric("permit_status", "Genehmigungen und Jurisdiktion", is_text=True),
         Metric("expected_production", "Erwartete Produktion", annual=True),
         Metric("expected_aisc", "Erwartete AISC", is_cost=True, per_unit=True),
         Metric("study_price", "Preisannahme der Studie", per_unit=True),
-        Metric("study_npv", "NPV laut Studie"),
+        Metric("study_npv", "NPV laut Studie", unit="USD"),
         Metric("first_production", "Geplante Inbetriebnahme", is_text=True),
         Metric("cash", "Kasse", scope="company", unit="USD"),
         Metric("debt", "Finanzschulden", scope="company", unit="USD"),
@@ -49,9 +50,10 @@ METRICS: dict[str, Metric] = {
     )
 }
 
-PRODUCING_CARD = ("production", "aisc", "reserves", "grade")
+PRODUCING_CARD = ("production", "aisc", "reserves", "grade", "permit_status")
 PROJECT_CARD = (
     "study_stage",
+    "permit_status",
     "study_date",
     "resources",
     "resources_mi",

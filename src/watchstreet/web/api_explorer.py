@@ -24,7 +24,7 @@ from watchstreet.models import (
     Thesis,
     Ticket,
 )
-from watchstreet.services import prices
+from watchstreet.services import imports, prices
 from watchstreet.services.changes import log_change
 from watchstreet.services.companies import company_view
 from watchstreet.services.facts import FactInput, fact_history, record_fact
@@ -202,6 +202,23 @@ def add_fact(body: FactBody, session: SessionDep, container: ContainerDep) -> di
             is_demo=container.is_demo,
         ),
     )
+    return payloads.fact_detail(fact)
+
+
+@router.post("/facts/{fact_id}/confirm")
+def confirm_fact(fact_id: int, session: SessionDep) -> dict[str, Any]:
+    """The user vouches for an imported figure; it then counts as the user's own entry."""
+    fact = imports.confirm(session, get_or_404(session, Fact, fact_id))
+    session.commit()
+    return payloads.fact_detail(fact)
+
+
+@router.post("/facts/{fact_id}/retract")
+def retract_fact(fact_id: int, session: SessionDep) -> dict[str, Any]:
+    """Withdraw an own or imported figure. It stays in the history, marked as withdrawn."""
+    fact = get_or_404(session, Fact, fact_id)
+    imports.retract(session, fact)
+    session.commit()
     return payloads.fact_detail(fact)
 
 

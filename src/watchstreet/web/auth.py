@@ -21,6 +21,7 @@ OPEN_PATHS = ("/api/v1/login", "/api/v1/session", "/healthz")
 class Auth:
     password: str
     key: bytes
+    api_token: str = ""
     failures: int = 0
     locked_until: float = 0.0
     _clock: object = field(default=time.time, repr=False)
@@ -28,7 +29,7 @@ class Auth:
     @classmethod
     def from_settings(cls, settings: Settings) -> "Auth":
         key = settings.secret_key.encode() if settings.secret_key else secrets.token_bytes(32)
-        return cls(settings.password, key)
+        return cls(settings.password, key, settings.api_token)
 
     @property
     def required(self) -> bool:
@@ -61,6 +62,13 @@ class Auth:
         if not expires.isdigit() or int(expires) < self._now():
             return False
         return hmac.compare_digest(signature, self._sign(int(expires)))
+
+    def accepts_bearer(self, header: str | None) -> bool:
+        """``Authorization: Bearer <WATCHSTREET_API_TOKEN>`` for clients without a browser."""
+        scheme, _, token = (header or "").partition(" ")
+        if not self.api_token or scheme.lower() != "bearer":
+            return False
+        return hmac.compare_digest(token.strip().encode(), self.api_token.encode())
 
     def needs_session(self, path: str) -> bool:
         """Only the API is protected; the page itself has to load to show the login form."""

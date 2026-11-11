@@ -15,9 +15,15 @@ from sqlalchemy.orm import Session
 
 from watchstreet.agents.base import AgentError, AgentRequest, AgentRunner
 from watchstreet.agents.tools import Tool, ToolError
+from watchstreet.analysis.imports import FIELD_ALIASES, ImportRow, parse_table
 from watchstreet.analysis.rules import peer_range
-from watchstreet.commodities import BY_KEY
-from watchstreet.constants import MAX_AGENT_FACTS, MAX_CONTEXT_SNIPPETS, MAX_FOLLOWUPS_PER_TICKET
+from watchstreet.constants import (
+    MAX_AGENT_FACTS,
+    MAX_CONTEXT_SNIPPETS,
+    MAX_FOLLOWUPS_PER_TICKET,
+    MAX_IMPORT_PROMPT_CHARS,
+    MAX_IMPORT_ROWS,
+)
 from watchstreet.domain import (
     ClaimKind,
     DataOrigin,
@@ -40,12 +46,22 @@ from watchstreet.metrics import (
     parse_number,
     scale_factor,
 )
-from watchstreet.models import Asset, Company, Document, DocumentLink, Finding, Thesis, Ticket
+from watchstreet.models import (
+    Asset,
+    Company,
+    Document,
+    DocumentLink,
+    Fact,
+    Finding,
+    Thesis,
+    Ticket,
+)
 from watchstreet.services import theses as thesis_service
 from watchstreet.services.changes import log_change
 from watchstreet.services.companies import company_facts
 from watchstreet.services.engine import peer_costs
-from watchstreet.services.facts import FactError, FactInput, record_fact
+from watchstreet.services.facts import FactError, FactInput, display_value, record_fact
+from watchstreet.services.imports import ANALYSIS_KIND, agrees, apply_rows, current_any
 from watchstreet.services.proposals import create_proposal
 from watchstreet.services.registry import import_mines
 from watchstreet.services.world import (
@@ -53,7 +69,7 @@ from watchstreet.services.world import (
     card,
     fact_payload,
     load_bundle,
-    primary_commodity,
+    metric_unit,
 )
 
 OFFLINE_RUNNER = "offline"
@@ -156,15 +172,7 @@ def linked_documents(session: Session, subject_type: str, subject_id: int) -> li
 
 
 def _unit(asset: Subject, metric_key: str) -> str:
-    metric = METRICS[metric_key]
-    if isinstance(asset, Company) or metric.scope == SubjectType.COMPANY:
-        return metric.unit
-    commodity = BY_KEY.get(primary_commodity(asset))
-    if commodity is None:
-        return ""
-    if metric.per_unit:
-        return commodity.price_unit
-    return f"{commodity.unit}/Jahr" if metric.annual else commodity.unit
+    return metric_unit(asset, metric_key)
 
 
 def _sentence_around(text: str, start: int, end: int) -> str:
@@ -560,7 +568,103 @@ def explore_registry(ctx: ResearchContext) -> ResearchResult:
     return result
 
 
+IMPORT_PROMPT = (
+    "Zerlege die folgende Analyse in Minen und Projekte. Antworte ausschliesslich mit JSON: "
+    '{"rows": [{"quote": "wörtlicher Satz oder Zeile aus dem Text, die diese Zeile belegt", '
+    + ", ".join(f'"{key}": "..."' for key in FIELD_ALIASES)
+    + "}]}. commodity ist gold, silver, copper oder uranium. Lasse weg, was nicht im Text steht; "
+    "erfinde keine Koordinaten und keine Zahlen."
+)
+
+
+def _agent_rows(ctx: ResearchContext, doc: Document) -> list[ImportRow]:
+    """One cheap model call turns free text into rows; each row must quote the text verbatim."""
+    raw = ctx.runner.complete(
+        AgentRequest(ctx.ticket.workflow, IMPORT_PROMPT, doc.text[:MAX_IMPORT_PROMPT_CHARS])
+    )
+    start, end = raw.find("{"), raw.rfind("}")
+    try:
+        data = json.loads(raw[start : end + 1]) if start != -1 and end > start else {}
+    except json.JSONDecodeError:
+        data = {}
+    items = data.get("rows", []) if isinstance(data, dict) else []
+    rows = []
+    for item in items[:MAX_IMPORT_ROWS] if isinstance(items, list) else []:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        fields = {k: str(v) for k, v in item.items() if k in FIELD_ALIASES and v not in (None, "")}
+        rows.append(ImportRow(str(item.get("quote", "")), fields))
+    return rows
+
+
+def import_analysis(ctx: ResearchContext) -> ResearchResult:
+    """Break a stored analysis into assets and unverified figures (table parser, else one agent call)."""
+    doc = ctx.session.get(Document, int(ctx.ticket.params.get("document_id", 0)))
+    if doc is None:
+        msg = "Die importierte Analyse ist nicht gespeichert"
+        raise WorkflowError(msg)
+    rows = parse_table(doc.text)
+    result = ResearchResult(sources=[doc.id])
+    if not rows and ctx.runner.name != OFFLINE_RUNNER:
+        rows = _agent_rows(ctx, doc)
+        result.agent_used = True
+    outcome = apply_rows(ctx.session, doc, rows, ctx.ticket.id)
+    result.fact_ids = outcome.fact_ids
+    result.rejected = outcome.skipped + outcome.conflicts
+    result.answer = (
+        f"{outcome.created} neue und {outcome.matched} bekannte Objekte, {outcome.facts} "
+        f"ungeprüfte Angaben übernommen."
+    )
+    result.uncertainties.append(
+        "Importierte Angaben sind ungeprüft, bis eine Primärquelle oder du selbst sie bestätigst."
+    )
+    if not rows:
+        result.not_found.append(
+            "Keine Tabelle erkannt. Ohne konfigurierten Agenten lässt sich Fliesstext nicht zerlegen."
+        )
+    return result
+
+
+def verify_import(ctx: ResearchContext) -> ResearchResult:
+    """Check one imported figure against the stored primary documents of its subject."""
+    asset = _subject(ctx)
+    metric_key = str(ctx.ticket.params.get("metric", ""))
+    imported = current_any(ctx.session, ctx.ticket.subject_type, asset.id, metric_key)
+    if metric_key not in METRICS or imported is None or imported.origin != DataOrigin.IMPORT:
+        return ResearchResult(answer="Hier steht keine ungeprüfte importierte Angabe mehr.")
+    label = f"{METRICS[metric_key].label} für {asset.name}"
+    was = display_value(imported)
+    docs = [
+        d
+        for d in linked_documents(ctx.session, ctx.ticket.subject_type, asset.id)
+        if d.kind != ANALYSIS_KIND
+    ]
+    result = ResearchResult()
+    for doc in docs:
+        fact_id = extract_metric(ctx, asset, doc, metric_key)
+        if fact_id is not None:
+            result.fact_ids, result.sources = [fact_id], [doc.id]
+            break
+    if not result.fact_ids:
+        result = ask_agent(ctx, asset, ctx.ticket.title, _context_text(ctx, asset, docs, label))
+    found = ctx.session.get(Fact, result.fact_ids[0]) if result.fact_ids else None
+    if found is None:
+        result.not_found.append(f"{label}: in {len(docs)} Primärdokument(en) nicht belegt")
+        result.answer = f"{label} bleibt ungeprüft ({was})."
+        result.followups.append(f"Primärquelle mit {label} per URL hinzufügen")
+    elif agrees(imported, found.value, found.text):
+        result.answer = f"{label} bestätigt: {display_value(found)} laut Primärquelle."
+    else:
+        result.answer = (
+            f"{label} weicht ab: die Analyse nannte {was}, die Primärquelle nennt "
+            f"{display_value(found)}. Es gilt der belegte Wert."
+        )
+    return result
+
+
 WORKFLOWS: dict[str, Callable[[ResearchContext], ResearchResult]] = {
+    WorkflowKey.IMPORT_ANALYSIS: import_analysis,
+    WorkflowKey.VERIFY_IMPORT: verify_import,
     WorkflowKey.FILL_METRIC: fill_metric,
     WorkflowKey.ESTIMATE_COST: estimate_cost,
     WorkflowKey.STRATEGIC_QUESTION: strategic_question,

@@ -1,24 +1,38 @@
 """Portfolio, sources, system status and the manual."""
 
+import json
+from dataclasses import asdict
 from datetime import date
 from pathlib import Path
 from typing import Any
 
 import markdown
 from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from watchstreet.agents.base import AgentError, AgentRequest
+from watchstreet.analysis.imports import parse_table, table_from_records
 from watchstreet.constants import (
     HEARTBEAT_STALE_AFTER,
     LAST_SCAN_KEY,
+    MAX_DOCUMENT_CHARS,
+    MAX_IMPORT_ROWS,
+    MIN_IMPORT_CHARS,
     REGISTRY_MAX_SPAN_DEG,
     SCAN_REQUEST_KEY,
     SESSION_TTL,
     WORKER_HEARTBEAT_KEY,
 )
-from watchstreet.domain import SubjectType, TicketStatus, WorkflowKey
+from watchstreet.container import (
+    AGENT_CONFIG_KEY,
+    RUNTIME_RUNNERS,
+    Container,
+    agent_config,
+    runner_for,
+)
+from watchstreet.domain import DataOrigin, SubjectType, TicketStatus, WorkflowKey
 from watchstreet.models import (
     Asset,
     Company,
@@ -30,7 +44,7 @@ from watchstreet.models import (
     Ticket,
     WatchEntry,
 )
-from watchstreet.services import portfolio, proposals
+from watchstreet.services import imports, portfolio, proposals
 from watchstreet.services.state import touch, updated_at
 from watchstreet.services.tickets import create_ticket
 from watchstreet.timeutil import utcnow
@@ -41,6 +55,7 @@ from watchstreet.web.deps import ContainerDep, SessionDep, get_or_404
 router = APIRouter(tags=["system"])
 API = "/api/v1"
 MANUAL_FILE = "user-manual.md"
+AGENT_TEST_CHARS = 200
 REGISTRY_SOURCES = {"wikidata": "Wikidata", "mrds": "USGS MRDS"}
 
 
@@ -61,8 +76,9 @@ def system(session: SessionDep, container: ContainerDep) -> dict[str, Any]:
     return {
         "is_demo": container.is_demo,
         "market": container.market.name,
-        "runner": container.runner.name,
-        "agent_available": container.runner.name != "offline",
+        "runner": runner_for(container, session).name,
+        "agent_available": runner_for(container, session).name != "offline",
+        "unverified": len(imports.unverified_facts(session)),
         "worker_alive": heartbeat is not None and utcnow() - heartbeat < HEARTBEAT_STALE_AFTER,
         "worker_heartbeat": heartbeat.isoformat() if heartbeat else None,
         "last_scan": scan.isoformat() if scan else None,
@@ -200,6 +216,131 @@ def registry_import(
         session, SubjectType.REGION, 0, WorkflowKey.EXPLORE_REGISTRY, title, params=params
     )
     return payloads.ticket(ticket)
+
+
+# --- analysis import ------------------------------------------------------------------
+
+
+class ImportBody(BaseModel):
+    """An analysis as a table (CSV, TSV, ';' or Markdown) in ``text``, or as ``rows``."""
+
+    title: str = Field(default="", max_length=300)
+    source: str = Field(default="", max_length=120)
+    text: str = Field(default="", max_length=MAX_DOCUMENT_CHARS)
+    rows: list[dict[str, Any]] = Field(default_factory=list, max_length=MAX_IMPORT_ROWS)
+
+
+@router.post(f"{API}/imports", status_code=201)
+def import_analysis(
+    body: ImportBody, session: SessionDep, container: ContainerDep
+) -> dict[str, Any]:
+    """Import an analysis. Its assets and figures appear at once, marked as unverified.
+
+    Send either ``text`` (a table whose header names at least ``name``; further columns such as
+    company, commodity, country, lat, lon, status, share, production, aisc, reserves, resources,
+    capex) or ``rows`` (a list of objects with the same keys). A new asset needs ``lat``, ``lon``
+    and ``commodity``; a known asset is matched by name. Imported figures never replace sourced
+    or user figures. Text without a table is handed to the configured agent as a research job.
+    """
+    text = body.text.strip() or (table_from_records(body.rows) if body.rows else "")
+    if len(text) < MIN_IMPORT_CHARS:
+        raise HTTPException(status_code=422, detail="Die Analyse ist leer oder zu kurz")
+    document = imports.store_analysis(session, body.title, body.source, text)
+    rows = parse_table(text)[:MAX_IMPORT_ROWS]
+    outcome = imports.apply_rows(session, document, rows)
+    report: dict[str, Any] = {**asdict(outcome), "document_id": document.id, "ticket_id": None}
+    if not rows:
+        if runner_for(container, session).name == "offline":
+            report["skipped"].append(
+                "Keine Tabelle erkannt. Fliesstext braucht einen konfigurierten Agenten (System)."
+            )
+        else:
+            ticket = create_ticket(
+                session, SubjectType.REGION, 0, WorkflowKey.IMPORT_ANALYSIS,
+                f"Analyse zerlegen: {document.title}", params={"document_id": document.id},
+            )  # fmt: skip
+            report["ticket_id"] = ticket.id
+    session.commit()
+    return report
+
+
+@router.get(f"{API}/imports/unverified")
+def imports_unverified(session: SessionDep) -> list[dict[str, Any]]:
+    """Every imported figure that nothing has confirmed or replaced yet."""
+    return imports.unverified_facts(session)
+
+
+@router.post(f"{API}/imports/verify")
+def imports_verify(session: SessionDep) -> dict[str, int]:
+    """Queue one verification proposal per unverified figure; they start from the backlog."""
+    created = 0
+    for row in imports.unverified_facts(session):
+        params = {"metric": row["metric"]}
+        open_ones = proposals.open_proposals(session, row["subject_type"], row["subject_id"])
+        if any(p.template_key == "verify" and p.params == params for p in open_ones):
+            continue
+        proposals.create_proposal(
+            session, row["subject_type"], row["subject_id"], "verify",
+            params=params, origin=DataOrigin.USER,
+        )  # fmt: skip
+        created += 1
+    session.commit()
+    return {"created": created}
+
+
+# --- agent harness ---------------------------------------------------------------------
+
+
+class AgentBody(BaseModel):
+    runner: str
+    model: str = Field(default="", max_length=120)
+    base_url: str = Field(default="", max_length=300)
+    api_key: str = Field(default="", max_length=400)  # empty keeps the stored key
+
+
+def _agent_view(session: Session, container: Container) -> dict[str, Any]:
+    config = agent_config(session)
+    return {
+        "active": runner_for(container, session).name,
+        "source": "runtime" if config.get("runner") in RUNTIME_RUNNERS else "environment",
+        "runner": config.get("runner", container.settings.agent_runner),
+        "model": config.get("model", ""),
+        "base_url": config.get("base_url", ""),
+        "has_key": bool(config.get("api_key")),
+        "choices": list(RUNTIME_RUNNERS),
+    }
+
+
+@router.get(f"{API}/system/agent")
+def agent_settings(session: SessionDep, container: ContainerDep) -> dict[str, Any]:
+    """Which agent backend runs research; the key itself is never returned."""
+    return _agent_view(session, container)
+
+
+@router.put(f"{API}/system/agent")
+def set_agent(body: AgentBody, session: SessionDep, container: ContainerDep) -> dict[str, Any]:
+    """Choose the agent backend at runtime: none, Anthropic or an OpenAI-compatible server."""
+    if body.runner not in RUNTIME_RUNNERS:
+        raise HTTPException(status_code=422, detail="Unbekannter Agent")
+    key = body.api_key.strip() or agent_config(session).get("api_key", "")
+    config = {"runner": body.runner, "model": body.model.strip(), "api_key": key}
+    config["base_url"] = body.base_url.strip()
+    touch(session, AGENT_CONFIG_KEY, json.dumps(config))
+    session.commit()
+    return _agent_view(session, container)
+
+
+@router.post(f"{API}/system/agent/test")
+def test_agent(session: SessionDep, container: ContainerDep) -> dict[str, Any]:
+    """One tiny request to the configured backend, to see whether key and address work."""
+    runner = runner_for(container, session)
+    if runner.name == "offline":
+        return {"ok": False, "detail": "Kein Agent konfiguriert"}
+    try:
+        answer = runner.complete(AgentRequest("test", "Antworte nur mit dem Wort OK.", "Test"))
+    except AgentError as exc:
+        return {"ok": False, "detail": str(exc)[:AGENT_TEST_CHARS]}
+    return {"ok": True, "detail": answer.strip()[:AGENT_TEST_CHARS]}
 
 
 # --- portfolio -----------------------------------------------------------------------

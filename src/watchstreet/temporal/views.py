@@ -22,6 +22,8 @@ class DatedFact(Protocol):
 
 
 def is_visible(fact: DatedFact, as_of: date | None, view: View) -> bool:
+    if fact.superseded_by == fact.id:
+        return False  # withdrawn by the user: it never counts, in no view
     if as_of is None:
         return fact.superseded_by is None
     if view == View.AS_KNOWN:

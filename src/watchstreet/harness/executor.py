@@ -2,7 +2,7 @@
 
 import logging
 
-from watchstreet.container import Container
+from watchstreet.container import Container, runner_for
 from watchstreet.db import session_scope
 from watchstreet.domain import TicketStatus
 from watchstreet.models import Ticket
@@ -32,17 +32,18 @@ def execute_ticket(container: Container, ticket_id: int) -> TicketStatus:
             ticket = session.get(Ticket, ticket_id)
             if ticket is None:
                 return TicketStatus.FAILED
+            runner = runner_for(container, session)
             run_workflow(
                 ResearchContext(
                     session=session,
                     ticket=ticket,
-                    runner=container.runner,
+                    runner=runner,
                     fetcher=container.fetcher,
                     view=build_view(session, container.market),
                     is_demo=container.is_demo,
                 )
             )
-            ticket.runner = container.runner.name
+            ticket.runner = runner.name
             ticket.status = TicketStatus.DONE
             ticket.finished_at = utcnow()
     except Exception as exc:  # harness boundary: record, never crash the worker

@@ -37,7 +37,10 @@ async def security_middleware(
     if is_cross_site(request):
         return JSONResponse({"detail": "Anfrage von fremder Herkunft abgelehnt"}, status_code=403)
     auth: Auth = request.app.state.auth
-    if auth.needs_session(request.url.path) and not auth.is_valid(request.cookies.get(COOKIE)):
+    allowed = auth.is_valid(request.cookies.get(COOKIE)) or auth.accepts_bearer(
+        request.headers.get("authorization")
+    )
+    if auth.needs_session(request.url.path) and not allowed:
         return JSONResponse({"detail": "Anmeldung erforderlich"}, status_code=401)
     response = await call_next(request)
     for name, value in HEADERS.items():

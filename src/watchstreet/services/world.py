@@ -28,7 +28,16 @@ from watchstreet.domain import (
 )
 from watchstreet.economics.mine import Interval, MineEconomics, MineInputs, evaluate
 from watchstreet.metrics import METRICS, PRODUCING_STATUSES, card_metrics, key_metrics
-from watchstreet.models import Asset, ChangeEntry, Fact, Proposal, Stake, StatusPeriod, Ticket
+from watchstreet.models import (
+    Asset,
+    ChangeEntry,
+    Company,
+    Fact,
+    Proposal,
+    Stake,
+    StatusPeriod,
+    Ticket,
+)
 from watchstreet.services.changes import last_visit
 from watchstreet.temporal.views import latest_per_metric
 
@@ -147,6 +156,19 @@ def primary_commodity(asset: Asset) -> str:
     return primary[0] if primary else (asset.commodities[0].commodity if asset.commodities else "")
 
 
+def metric_unit(subject: Asset | Company, metric_key: str) -> str:
+    """The unit a figure of this subject carries, from the commodity or the metric catalog."""
+    metric = METRICS[metric_key]
+    if metric.unit or isinstance(subject, Company) or metric.is_text:
+        return metric.unit
+    commodity = BY_KEY.get(primary_commodity(subject))
+    if commodity is None:
+        return ""
+    if metric.per_unit:
+        return commodity.price_unit
+    return f"{commodity.unit}/Jahr" if metric.annual else commodity.unit
+
+
 # --- facts as payload -----------------------------------------------------------
 
 
@@ -174,6 +196,7 @@ def fact_payload(fact: Fact | None, metric_key: str, ctx: ViewContext) -> dict[s
         and ctx.today - reference > STALE_FACT_AFTER,
         "confidence": fact.confidence,
         "origin": fact.origin,
+        "unverified": fact.origin == DataOrigin.IMPORT,
         "fact_id": fact.id,
         "document_id": fact.document_id,
         "is_demo": fact.is_demo,

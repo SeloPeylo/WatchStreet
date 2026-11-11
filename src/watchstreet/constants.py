@@ -206,3 +206,10 @@ VALUE_WEIGHTS: dict[str, float] = {
     "data": 0.15,
     "investment": 0.10,
 }
+
+# analysis import
+IMPORT_TOLERANCE = 0.05  # relative difference up to which two figures count as the same
+MAX_LAT, MAX_LON = 90.0, 180.0
+MIN_IMPORT_CHARS = 20
+MAX_IMPORT_ROWS = 2000
+MAX_IMPORT_PROMPT_CHARS = 60_000

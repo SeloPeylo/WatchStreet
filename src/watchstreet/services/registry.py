@@ -31,8 +31,11 @@ class ImportReport:
     asset_ids: list[int] | None = None
 
 
-def _slug(text: str) -> str:
+def slug(text: str) -> str:
     return SLUG_CHARS.sub("-", text.lower()).strip("-")
+
+
+_slug = slug
 
 
 def _is_known(existing: list[Asset], mine: RegistryMine) -> bool:
@@ -46,7 +49,7 @@ def _is_known(existing: list[Asset], mine: RegistryMine) -> bool:
     return False
 
 
-def _company(session: Session, name: str) -> Company:
+def company_by_name(session: Session, name: str) -> Company:
     slug = _slug(name)
     company = session.scalars(select(Company).where(Company.slug == slug)).first()
     if company is None:
@@ -103,7 +106,7 @@ def _create(session: Session, mine: RegistryMine) -> Asset:
         for name in names:
             session.add(
                 Stake(
-                    asset_id=asset.id, company_id=_company(session, name).id, role=role,
+                    asset_id=asset.id, company_id=company_by_name(session, name).id, role=role,
                     document_id=document.id, quote=f"{word} according to the register: {name}.",
                 )
             )  # fmt: skip

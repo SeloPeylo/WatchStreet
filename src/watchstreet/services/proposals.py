@@ -90,6 +90,12 @@ TEMPLATES: dict[str, Template] = {
             WorkflowKey.STRATEGIC_QUESTION,
             "Status, Betreiber, Produktion und Kosten von {name} aus Primärquellen belegen.",
         ),
+        Template(
+            "verify",
+            "Importierte Angabe prüfen",
+            WorkflowKey.VERIFY_IMPORT,
+            "{metric} für {name} gegen Primärquellen prüfen.",
+        ),
         Template("free", "Freie Frage", WorkflowKey.STRATEGIC_QUESTION, "{question}"),
         Template(
             "read_document",

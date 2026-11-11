@@ -1,11 +1,12 @@
 """Wires settings, database, market data and agent runner together."""
 
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, field, replace
 
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from watchstreet.agents.base import AgentRunner
+from watchstreet.agents.base import AgentError, AgentRunner
 from watchstreet.agents.factory import build_runner
 from watchstreet.config import Settings
 from watchstreet.db import make_engine, make_session_factory, session_scope
@@ -14,8 +15,11 @@ from watchstreet.intel.demo import demo_client, demo_resolver
 from watchstreet.intel.fetch import Fetcher
 from watchstreet.market.service import MarketService, build_provider
 from watchstreet.migrate import startup_lock, upgrade_to_head
+from watchstreet.models import SystemState
 from watchstreet.services.demo import seed_demo
 
+AGENT_CONFIG_KEY = "agent_config"
+RUNTIME_RUNNERS = ("offline", "anthropic", "openai")  # never "cli": no commands from the UI
 SEC_MIN_INTERVAL_S = 0.15  # SEC allows 10 requests per second; stay well below
 
 
@@ -28,10 +32,48 @@ class Container:
     runner: AgentRunner
     fetcher: Fetcher
     edgar: EdgarClient
+    runtime_runners: dict[str, AgentRunner] = field(default_factory=dict)
 
     @property
     def is_demo(self) -> bool:
         return self.settings.market_provider == "demo"
+
+
+def agent_config(session: Session) -> dict[str, str]:
+    """The agent settings entered at runtime; empty if the environment decides."""
+    row = session.get(SystemState, AGENT_CONFIG_KEY)
+    try:
+        data = json.loads(row.value) if row and row.value else {}
+    except json.JSONDecodeError:
+        data = {}
+    return {k: str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+
+
+def runner_for(container: Container, session: Session) -> AgentRunner:
+    """The runner to use now: the runtime setting if there is one, else the one from the start."""
+    config = agent_config(session)
+    kind = config.get("runner", "")
+    if kind not in RUNTIME_RUNNERS:
+        return container.runner
+    cache_key = json.dumps(config, sort_keys=True)
+    if cache_key not in container.runtime_runners:
+        base = container.settings
+        settings = replace(
+            base,
+            agent_runner=kind,
+            anthropic_api_key=config.get("api_key") or base.anthropic_api_key,
+            anthropic_model=config.get("model") or base.anthropic_model,
+            openai_api_key=config.get("api_key") or base.openai_api_key,
+            openai_model=config.get("model") or base.openai_model,
+            openai_base_url=config.get("base_url") or base.openai_base_url,
+        )
+        try:
+            runner = build_runner(settings)
+        except AgentError:
+            return container.runner
+        container.runtime_runners.clear()
+        container.runtime_runners[cache_key] = runner
+    return container.runtime_runners[cache_key]
 
 
 def build_container(

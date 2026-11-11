@@ -20,6 +20,8 @@ class WorkflowKey(StrEnum):
     STRATEGIC_QUESTION = "strategic_question"
     READ_DOCUMENT = "read_document"
     EXPLORE_REGISTRY = "explore_registry"
+    IMPORT_ANALYSIS = "import_analysis"
+    VERIFY_IMPORT = "verify_import"
 
 
 class SubjectType(StrEnum):
@@ -79,6 +81,7 @@ class DataOrigin(StrEnum):
     AGENT = "agent"
     API = "api"
     ENGINE = "engine"
+    IMPORT = "import"  # taken from an imported analysis; unverified until confirmed
 
 
 class View(StrEnum):
