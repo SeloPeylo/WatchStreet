@@ -38,11 +38,13 @@ export function MetricRow({ m, onOpen, action }: { m: Metric; onOpen?: () => voi
   );
 }
 
-function Derivation({ assetId, metric, onClose }: { assetId: number; metric: string; onClose: () => void }) {
+export function Derivation({ path, thesisId, onClose, notify, onChanged }: { path: string; thesisId: string; onClose: () => void; notify: (text: string) => void; onChanged: () => void }) {
   const [data, setData] = useState<Json>(null);
   useEffect(() => {
-    get(`/assets/${assetId}/facts/${metric}`).then(setData);
-  }, [assetId, metric]);
+    get(path).then(setData);
+  }, [path]);
+  const link = (factId: number, stance: string) =>
+    post(`/theses/${thesisId}/links`, { target_type: "fact", target_id: factId, stance }).then(() => { notify("Kennzahl der aktiven These als Evidenz zugeordnet"); onChanged(); }).catch((e) => notify(e.message));
   if (!data) return null;
   const block = (f: Json, title: string) => (
     <div key={f.id} className="box" style={{ marginBottom: 10 }}>
@@ -67,6 +69,9 @@ function Derivation({ assetId, metric, onClose }: { assetId: number; metric: str
         </tbody>
       </table>
       {f.quote && <div className="quote">„{f.quote}“</div>}
+      {thesisId && !f.superseded && (
+        <div className="row small">Als Evidenz der aktiven These: <button onClick={() => link(f.id, "supports")}>stützt</button><button onClick={() => link(f.id, "contradicts")}>widerspricht</button></div>
+      )}
     </div>
   );
   return (
@@ -129,11 +134,12 @@ export function AssetPanel({ id, state, update, tick, templates, thesisTitle, on
       <p className="small">
         Betreiber:{" "}
         {card.stakes.filter((s) => s.role === "operator").map((s) => (
-          <button key={s.company_id} className="link" onClick={() => update({ co: state.co === String(s.company_id) ? "" : String(s.company_id) })}>
-            {s.company}{state.co === String(s.company_id) ? " (hervorgehoben)" : ""}
+          <button key={s.company_id} className="link" onClick={() => update({ co: String(s.company_id), a: "" })} title="Unternehmensansicht öffnen">
+            {s.company}
           </button>
         ))}
         {!card.operator && <span className="muted">unbekannt</span>}
+        {card.royalty_pct > 0 && <> · Royalty-Last {card.royalty_pct.toLocaleString("de-DE")} % vom Umsatz</>}
         {" · "}Rohstoffe: {card.commodities.map((c) => `${COMMODITY_LABEL[c.key] ?? c.key}${c.role === "by_product" ? " (Nebenprodukt)" : ""}`).join(", ")}
       </p>
       {modeText && <div className="note"><b>{modeText}</b>{card.price != null && ` · Preis ${card.price.toLocaleString("de-DE")}`}</div>}
@@ -248,7 +254,7 @@ export function AssetPanel({ id, state, update, tick, templates, thesisTitle, on
           <button disabled={!url} onClick={() => act(() => post("/documents", { asset_id: id, url }), "Dokument wird abgerufen und gelesen").then(() => setUrl(""))}>Dokument lesen</button>
         </div>
       </div>
-      {open && <Derivation assetId={id} metric={open} onClose={() => setOpen("")} />}
+      {open && <Derivation path={`/assets/${id}/facts/${open}`} thesisId={state.th} onClose={() => setOpen("")} notify={notify} onChanged={onChanged} />}
     </div>
   );
 }

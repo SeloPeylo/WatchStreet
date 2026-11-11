@@ -31,14 +31,28 @@ from watchstreet.domain import (
 from watchstreet.errors import WatchStreetError
 from watchstreet.intel import documents
 from watchstreet.intel.fetch import Fetcher
-from watchstreet.metrics import EXTRACT_PATTERNS, METRICS, PRODUCING_STATUSES, parse_number
-from watchstreet.models import Asset, Document, DocumentLink, Finding, Thesis, Ticket
+from watchstreet.metrics import (
+    COMPANY_CARD,
+    EXTRACT_PATTERNS,
+    METRICS,
+    PRODUCING_STATUSES,
+    parse_number,
+    scale_factor,
+)
+from watchstreet.models import Asset, Company, Document, DocumentLink, Finding, Thesis, Ticket
 from watchstreet.services import theses as thesis_service
 from watchstreet.services.changes import log_change
+from watchstreet.services.companies import company_facts
 from watchstreet.services.engine import peer_costs
 from watchstreet.services.facts import FactError, FactInput, record_fact
 from watchstreet.services.proposals import create_proposal
-from watchstreet.services.world import ViewContext, card, load_bundle, primary_commodity
+from watchstreet.services.world import (
+    ViewContext,
+    card,
+    fact_payload,
+    load_bundle,
+    primary_commodity,
+)
 
 OFFLINE_RUNNER = "offline"
 SUMMARY_CHARS = 300
@@ -112,6 +126,22 @@ def _asset(ctx: ResearchContext) -> Asset:
     return asset
 
 
+Subject = Asset | Company
+
+
+def _subject(ctx: ResearchContext) -> Subject:
+    """The asset or company a ticket is about."""
+    subject: Subject | None = None
+    if ctx.ticket.subject_type == SubjectType.ASSET:
+        subject = ctx.session.get(Asset, ctx.ticket.subject_id)
+    elif ctx.ticket.subject_type == SubjectType.COMPANY:
+        subject = ctx.session.get(Company, ctx.ticket.subject_id)
+    if subject is None:
+        msg = "Dieser Workflow braucht eine Mine, ein Projekt oder ein Unternehmen als Bezug"
+        raise WorkflowError(msg)
+    return subject
+
+
 def linked_documents(session: Session, subject_type: str, subject_id: int) -> list[Document]:
     return list(
         session.scalars(
@@ -123,9 +153,11 @@ def linked_documents(session: Session, subject_type: str, subject_id: int) -> li
     )
 
 
-def _unit(asset: Asset, metric_key: str) -> str:
-    commodity = BY_KEY.get(primary_commodity(asset))
+def _unit(asset: Subject, metric_key: str) -> str:
     metric = METRICS[metric_key]
+    if isinstance(asset, Company) or metric.scope == SubjectType.COMPANY:
+        return metric.unit
+    commodity = BY_KEY.get(primary_commodity(asset))
     if commodity is None:
         return ""
     if metric.per_unit:
@@ -142,22 +174,23 @@ def _sentence_around(text: str, start: int, end: int) -> str:
 
 
 def extract_metric(
-    ctx: ResearchContext, asset: Asset, doc: Document, metric_key: str
+    ctx: ResearchContext, asset: Subject, doc: Document, metric_key: str
 ) -> int | None:
     """Deterministic extraction: find the labelled number and store it with its sentence as quote."""
     pattern = EXTRACT_PATTERNS.get(metric_key)
     match = pattern.search(doc.text) if pattern else None
-    if match is None:
+    if match is None or METRICS[metric_key].scope != ctx.ticket.subject_type:
         return None
+    scale = scale_factor(match.groupdict().get("scale"))
     published = doc.published_at.date() if doc.published_at else None
     try:
         fact = record_fact(
             ctx.session,
             FactInput(
-                SubjectType.ASSET,
+                ctx.ticket.subject_type,
                 asset.id,
                 metric_key,
-                value=parse_number(match.group("value")),
+                value=parse_number(match.group("value")) * scale,
                 unit=_unit(asset, metric_key),
                 basis=f"{METRICS[metric_key].label} laut Quelle"
                 if METRICS[metric_key].is_cost
@@ -176,14 +209,26 @@ def extract_metric(
     return fact.id
 
 
-def _context_text(ctx: ResearchContext, asset: Asset, docs: list[Document], query: str) -> str:
-    bundle = load_bundle(ctx.session, [asset.id])
-    data = card(asset, bundle, ctx.view)
-    lines = [
-        f"Objekt: {asset.name} ({data['status']}, {data['commodity']}, {asset.country})",
+def _known_figures(
+    ctx: ResearchContext, subject: Subject
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Header lines and the figures already on file, for an asset or a company."""
+    if isinstance(subject, Company):
+        facts = company_facts(ctx.session, subject.id, ctx.view)
+        metrics = [fact_payload(facts.get(k), k, ctx.view) for k in COMPANY_CARD]
+        return [f"Unternehmen: {subject.name} ({subject.country or 'Land unbekannt'})"], metrics
+    data = card(subject, load_bundle(ctx.session, [subject.id]), ctx.view)
+    header = [
+        f"Objekt: {subject.name} ({data['status']}, {data['commodity']}, {subject.country})",
         f"Betreiber: {data['operator'] or 'unbekannt'}",
-        "Bekannte Kennzahlen:",
     ]
+    return header, data["metrics"]
+
+
+def _context_text(ctx: ResearchContext, asset: Subject, docs: list[Document], query: str) -> str:
+    header, figures = _known_figures(ctx, asset)
+    lines = [*header, "Bekannte Kennzahlen:"]
+    data = {"metrics": figures}
     lines += [
         f"- {m['label']}: {m.get('value') or m.get('text') or 'unbekannt'} {m.get('unit', '')} "
         f"[{m['provenance']}]"
@@ -199,7 +244,7 @@ def _context_text(ctx: ResearchContext, asset: Asset, docs: list[Document], quer
     return "\n".join(lines)
 
 
-def _tools(ctx: ResearchContext, asset: Asset, result: ResearchResult) -> list[Tool]:
+def _tools(ctx: ResearchContext, asset: Subject, result: ResearchResult) -> list[Tool]:
     """Tools for tool-capable runners; each handler validates and answers in plain text."""
 
     def document(args: dict[str, Any]) -> Document:
@@ -288,7 +333,7 @@ def _parse_answer(raw: str) -> AgentAnswer:
 
 
 def _apply_facts(
-    ctx: ResearchContext, asset: Asset, drafts: list[FactDraft], result: ResearchResult
+    ctx: ResearchContext, asset: Subject, drafts: list[FactDraft], result: ResearchResult
 ) -> None:
     for draft in drafts[:MAX_AGENT_FACTS]:
         doc = ctx.session.get(Document, draft.document_id) if draft.document_id else None
@@ -298,7 +343,7 @@ def _apply_facts(
             fact = record_fact(
                 ctx.session,
                 FactInput(
-                    SubjectType.ASSET,
+                    ctx.ticket.subject_type,
                     asset.id,
                     draft.metric,
                     value=draft.value,
@@ -325,7 +370,7 @@ def _apply_facts(
             result.sources.append(draft.document_id)
 
 
-def ask_agent(ctx: ResearchContext, asset: Asset, question: str, context: str) -> ResearchResult:
+def ask_agent(ctx: ResearchContext, asset: Subject, question: str, context: str) -> ResearchResult:
     """One agent session; without a configured agent the result says so instead of guessing."""
     result = ResearchResult()
     if ctx.runner.name == OFFLINE_RUNNER:
@@ -353,13 +398,13 @@ def ask_agent(ctx: ResearchContext, asset: Asset, question: str, context: str) -
 
 
 def fill_metric(ctx: ResearchContext) -> ResearchResult:
-    asset = _asset(ctx)
+    asset = _subject(ctx)
     metric_key = str(ctx.ticket.params.get("metric", ""))
     if metric_key not in METRICS:
         msg = "Keine gültige Kennzahl angegeben"
         raise WorkflowError(msg)
     label = METRICS[metric_key].label
-    docs = linked_documents(ctx.session, SubjectType.ASSET, asset.id)
+    docs = linked_documents(ctx.session, ctx.ticket.subject_type, asset.id)
     for doc in docs:
         fact_id = extract_metric(ctx, asset, doc, metric_key)
         if fact_id is not None:
@@ -425,8 +470,8 @@ def estimate_cost(ctx: ResearchContext) -> ResearchResult:
 
 
 def strategic_question(ctx: ResearchContext) -> ResearchResult:
-    asset = _asset(ctx)
-    docs = linked_documents(ctx.session, SubjectType.ASSET, asset.id)
+    asset = _subject(ctx)
+    docs = linked_documents(ctx.session, ctx.ticket.subject_type, asset.id)
     context = _context_text(ctx, asset, docs, asset.name)
     result = ask_agent(ctx, asset, ctx.ticket.title, context)
     if not result.agent_used:
@@ -437,7 +482,7 @@ def strategic_question(ctx: ResearchContext) -> ResearchResult:
 
 
 def read_document(ctx: ResearchContext) -> ResearchResult:
-    asset = _asset(ctx)
+    asset = _subject(ctx)
     url = str(ctx.ticket.params.get("url", ""))
     fetched = ctx.fetcher.fetch(url)
     doc, _created = documents.store_document(
@@ -450,7 +495,7 @@ def read_document(ctx: ResearchContext) -> ResearchResult:
         published_at=None,
         meta={"is_demo": ctx.is_demo},
     )
-    link_document(ctx.session, doc.id, SubjectType.ASSET, asset.id)
+    link_document(ctx.session, doc.id, ctx.ticket.subject_type, asset.id)
     result = ResearchResult(sources=[doc.id])
     for metric_key in EXTRACT_PATTERNS:
         fact_id = extract_metric(ctx, asset, doc, metric_key)

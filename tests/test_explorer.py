@@ -12,7 +12,7 @@ from watchstreet.domain import DataOrigin, Provenance, SubjectType, TicketStatus
 from watchstreet.harness.scan import run_scan, scan_due
 from watchstreet.intel.connectors.usgs import Quake
 from watchstreet.intel.fetch import Fetcher
-from watchstreet.models import Asset, Document, Event, Fact, Finding, Proposal, Ticket
+from watchstreet.models import Asset, Company, Document, Event, Fact, Finding, Proposal, Ticket
 from watchstreet.services import proposals
 from watchstreet.services.events import record_quakes
 from watchstreet.services.facts import FactError, FactInput, record_fact
@@ -412,7 +412,7 @@ def test_proposal_guards(client, session):
     made = client.post(f"{API}/proposals", json={**free, "question": "Warum?"}).json()
     assert client.post(f"{API}/proposals/{made['id']}/dismiss").json()["state"] == "dismissed"
     assert client.patch(f"{API}/proposals/{made['id']}", json={"question": "x"}).status_code == 400
-    assert len(client.get(f"{API}/templates").json()) == 7
+    assert len(client.get(f"{API}/templates").json()) == 9
 
 
 # --- engine, events, situation report ------------------------------------------------------
@@ -579,7 +579,7 @@ def test_prior_year_figure_comes_from_its_own_earlier_report(client, session):
     asset = _asset(session, "Demo Mina Altiplano")
     history = client.get(f"{API}/assets/{asset.id}/facts/aisc").json()["history"]
     assert history[1]["document"]["published_at"] == "2025-02-20"
-    assert client.get(f"{API}/system").json()["documents"] == 38
+    assert client.get(f"{API}/system").json()["documents"] == 44
     project = _asset(session, "Demo Projekt Cobre Alto")
     resources = client.get(f"{API}/assets/{project.id}/facts/resources").json()["history"][0]
     assert "resources" in resources["quote"] and "reserves" not in resources["quote"]
@@ -628,3 +628,112 @@ def test_compare_keeps_selection_order(client, session):
     a, b = _asset(session, "Demo Projekt Vecino"), _asset(session, "Demo Mina Altiplano")
     cards = client.get(f"{API}/compare", params={"ids": f"{a.id},{b.id}"}).json()["cards"]
     assert [c["id"] for c in cards] == [a.id, b.id]
+
+
+# --- company view: balance sheet, dilution, people, royalties, checklist ---------------------
+
+
+def _company_id(session, name: str) -> int:
+    return session.scalars(select(Company.id).where(Company.name == name)).one()
+
+
+def test_company_view_shows_runway_dilution_people_and_checklist(client, session):
+    junior = client.get(
+        f"{API}/companies/{_company_id(session, 'Demo Junior Explorers Ltd')}"
+    ).json()
+    derived = {m["metric"]: m for m in junior["derived"]}
+    assert round(derived["runway_months"]["value"], 1) == 7.7
+    assert (
+        derived["runway_months"]["provenance"] == "derived" and derived["runway_months"]["formula"]
+    )
+    assert round(derived["dilution_overhang"]["value"], 2) == 0.34
+    assert derived["net_cash"]["provenance"] == "unknown"  # debt is not on file yet
+    assert derived["market_cap"]["value"] > 0 and junior["symbol"] == "DJEX"
+    assert junior["people"][0]["sourced"] and len(junior["financings"]) == 2
+    checklist = {q["key"]: q for q in junior["checklist"]}
+    assert checklist["people"]["answered"] and checklist["financing"]["answered"]
+    assert not checklist["debt"]["answered"] and checklist["debt"]["missing"] == ["debt"]
+    assert not checklist["catalyst"]["answered"]
+    assert {a["name"] for a in junior["assets"]} >= {"Demo Projekt Vecino"}
+    major = client.get(f"{API}/companies/{_company_id(session, 'Demo Andes Copper Corp')}").json()
+    derived = {m["metric"]: m for m in major["derived"]}
+    assert derived["runway_months"]["provenance"] == "unknown"  # generates cash, burns none
+    assert derived["nav_sum"]["value"] > 0 and derived["p_nav"]["value"] > 0
+    flows = [row["cash_flow"] for row in major["sensitivity"]]
+    assert flows == sorted(flows) and flows[0] < flows[2] < flows[4]
+    assert major["burdens"][0]["holder"] == "Demo Royalty Partners"
+    assert {q["key"] for q in major["checklist"] if q["answered"]} >= {"costs", "royalties", "cash"}
+    history = client.get(f"{API}/companies/{major['id']}/facts/cash").json()["history"]
+    assert "Cash and cash equivalents" in history[0]["quote"]
+    assert client.get(f"{API}/companies/{major['id']}/facts/nope").status_code == 404
+
+
+def test_royalty_reduces_the_margin(client, session):
+    seco = _asset(session, "Demo Mina Río Seco")
+    card = client.get(
+        f"{API}/cards", params={"ids": str(seco.id), "scenario": "copper:4.0"}
+    ).json()[0]
+    assert card["royalty_pct"] == 2.0
+    assert _metric(card, "margin")["value"] == pytest.approx(4.0 * 0.98 - 1.85)
+
+
+def test_company_research_finds_debt_with_scale_and_engine_flags_short_runway(
+    client, container, session
+):
+    junior = _company_id(session, "Demo Junior Explorers Ltd")
+    report = run_scan(container)
+    assert report.findings >= 4
+    detail = client.get(f"{API}/companies/{junior}").json()
+    assert "rund 8 Monate" in detail["findings"][0]["text"]
+    assert [p["template"] for p in detail["proposals"]] == ["financing"]
+    body = {
+        "subject_type": "company",
+        "subject_id": junior,
+        "template": "fill_metric",
+        "metric": "debt",
+    }
+    client.post(f"{API}/proposals", json={**body, "start": True})
+    drain_queue(container)
+    after = client.get(f"{API}/companies/{junior}").json()
+    debt = next(m for m in after["metrics"] if m["metric"] == "debt")
+    assert debt["value"] == 500_000 and debt["provenance"] == "reported"  # 'US$0.5 million'
+    assert {m["metric"]: m for m in after["derived"]}["net_cash"]["value"] == 8_500_000
+    question = {
+        "subject_type": "company",
+        "subject_id": junior,
+        "template": "management",
+        "start": True,
+    }
+    client.post(f"{API}/proposals", json=question)
+    drain_queue(container)
+    ticket = client.get(f"{API}/tickets").json()[0]
+    result = client.get(f"{API}/tickets/{ticket['id']}").json()["result"]
+    assert "Unternehmen: Demo Junior Explorers Ltd" in result["answer"]
+
+
+def test_company_facts_by_user_and_scope_guard(client, session):
+    junior = _company_id(session, "Demo Junior Explorers Ltd")
+    body = {
+        "subject_type": "company",
+        "subject_id": junior,
+        "metric": "next_catalyst",
+        "text": "PEA im Q2",
+    }
+    assert client.post(f"{API}/facts", json=body).json()["origin"] == "user"
+    wrong = client.post(f"{API}/facts", json={**body, "metric": "grade", "value": 1.0})
+    assert wrong.status_code == 400 and "keine Kennzahl" in wrong.json()["detail"]
+    asset = _asset(session, "Demo Mina Altiplano")
+    cash_on_mine = {"subject_id": asset.id, "metric": "cash", "value": 1.0}
+    assert client.post(f"{API}/facts", json=cash_on_mine).status_code == 400
+
+
+def test_fact_as_thesis_evidence(client, session):
+    asset = _asset(session, "Demo Mina Altiplano")
+    fact_id = client.get(f"{API}/assets/{asset.id}/facts/aisc").json()["history"][0]["id"]
+    thesis = client.get(f"{API}/theses").json()[0]
+    link = {"target_type": "fact", "target_id": fact_id, "stance": "supports"}
+    client.post(f"{API}/theses/{thesis['id']}/links", json=link)
+    evidence = [
+        x for x in client.get(f"{API}/theses").json()[0]["links"] if x["target_type"] == "fact"
+    ]
+    assert evidence[0]["fact"]["display"].startswith("2.05") and evidence[0]["stance"] == "supports"

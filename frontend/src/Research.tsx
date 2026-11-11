@@ -103,6 +103,8 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
                 {l.finding ? (
                   <span className="grow"><span className={`pill ${l.finding.epistemic}`}>{EPISTEMIC_LABEL[l.finding.epistemic]}</span> {l.finding.text.slice(0, 220)}{" "}
                     {l.finding.subject_type === "asset" && <button className="link" onClick={() => update({ path: "/", a: String(l.finding.subject_id) })}>zum Objekt</button>}</span>
+                ) : l.fact ? (
+                  <span className="grow"><span className="pill">Kennzahl</span> {l.fact.display}{l.fact.document ? ` – ${l.fact.document.title}` : ""}</span>
                 ) : <span>Dokument #{l.target_id}</span>}
               </div>
             ))}

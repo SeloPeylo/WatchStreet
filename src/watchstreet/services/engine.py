@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from watchstreet.analysis.rules import robust_outliers
-from watchstreet.constants import MIN_PEER_GROUP, NEIGHBOUR_RADIUS_KM
+from watchstreet.constants import MIN_PEER_GROUP, NEIGHBOUR_RADIUS_KM, SHORT_RUNWAY_MONTHS
 from watchstreet.domain import (
     AssetStatus,
     DataOrigin,
@@ -19,10 +19,12 @@ from watchstreet.domain import (
     StakeRole,
     SubjectType,
 )
+from watchstreet.economics.company import runway_months
 from watchstreet.geo import haversine_km
 from watchstreet.metrics import PRODUCING_STATUSES, key_metrics
-from watchstreet.models import Asset, Fact, Finding
+from watchstreet.models import Asset, Company, Fact, Finding
 from watchstreet.services.changes import log_change
+from watchstreet.services.companies import company_facts
 from watchstreet.services.proposals import create_proposal
 from watchstreet.services.world import (
     Bundle,
@@ -152,10 +154,49 @@ def _neighbour_rule(
                 report.proposals += _propose(session, asset, "takeover")
 
 
+def _runway_rule(session: Session, ctx: ViewContext, report: EngineReport) -> None:
+    """A company that runs out of cash within a year will have to raise money: say so."""
+    for company in session.scalars(select(Company)):
+        facts = company_facts(session, company.id, ctx)
+        cash, burn = facts.get("cash"), facts.get("burn_rate")
+        months = runway_months(cash.value if cash else None, burn.value if burn else None)
+        if months is None or months >= SHORT_RUNWAY_MONTHS:
+            continue
+        exists = session.scalars(
+            select(Finding.id).where(
+                Finding.subject_type == SubjectType.COMPANY,
+                Finding.subject_id == company.id,
+                Finding.rule_key == "short_runway",
+            )
+        ).first()
+        if exists:
+            continue
+        text = f"Die Kasse von {company.name} reicht beim aktuellen Mittelabfluss rund {months:.0f} Monate."
+        session.add(
+            Finding(
+                subject_type=SubjectType.COMPANY,
+                subject_id=company.id,
+                kind=FindingKind.ANOMALY,
+                rule_key="short_runway",
+                epistemic=Epistemic.EVIDENCED,
+                text=text,
+                uncertainty="Rechnung aus Kasse und Mittelabfluss; künftige Einnahmen nicht berücksichtigt.",
+                is_demo=company.is_demo,
+            )
+        )
+        log_change(session, SubjectType.COMPANY, company.id, "finding", text)
+        report.findings += 1
+        proposal = create_proposal(
+            session, SubjectType.COMPANY, company.id, "financing", origin=DataOrigin.ENGINE
+        )
+        report.proposals += 1 if proposal else 0
+
+
 def run_engine(session: Session, bundle: Bundle, ctx: ViewContext) -> EngineReport:
     report = EngineReport()
     _gap_rule(session, bundle, ctx, report)
     _outlier_rule(session, bundle, ctx, report)
     _neighbour_rule(session, bundle, ctx, report)
+    _runway_rule(session, ctx, report)
     session.flush()
     return report

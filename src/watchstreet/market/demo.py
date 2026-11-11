@@ -33,7 +33,19 @@ DEMO_HEADLINES = (
 )
 HASH_BYTES = 8
 # plausible price levels so that mine economics look sensible in the demo
-DEMO_COMMODITY_PRICES: dict[str, float] = {"GC=F": 2600.0, "SI=F": 31.0, "HG=F": 4.3, "UX=F": 78.0}
+DEMO_COMMODITY_PRICES: dict[str, float] = {
+    "GC=F": 2600.0,
+    "SI=F": 31.0,
+    "HG=F": 4.3,
+    "UX=F": 78.0,
+    # shares of the synthetic demo companies
+    "DACC": 38.0,
+    "DPMT": 21.0,
+    "DJEX": 0.45,
+    "DAUM": 44.0,
+    "DPLR": 9.5,
+    "DURO": 27.0,
+}
 # Demo only: fixed sectors for well-known symbols so every profile can be shown offline.
 DEMO_COMPANIES: dict[str, CompanyInfo] = {
     "AAPL": CompanyInfo("Technology", "Consumer Electronics"),

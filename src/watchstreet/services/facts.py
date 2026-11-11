@@ -51,17 +51,23 @@ def _fail(message: str) -> None:
     raise FactError(message)
 
 
-def _check_shape(data: FactInput) -> None:
-    metric = METRICS.get(data.metric_key)
-    if metric is None:
-        _fail(f"Unbekannte Kennzahl: {data.metric_key}")
-        return
+def _check_vocabulary(data: FactInput) -> None:
     if data.provenance not in (Provenance.REPORTED, Provenance.DERIVED, Provenance.ESTIMATED):
         _fail("Herkunft muss berichtet, berechnet oder geschätzt sein")
     if data.claim_kind not in tuple(ClaimKind):
         _fail("Unbekannte Aussageart")
     if data.confidence not in CONFIDENCES:
         _fail("Vertrauen muss high, medium oder low sein")
+
+
+def _check_shape(data: FactInput) -> None:
+    metric = METRICS.get(data.metric_key)
+    if metric is None:
+        _fail(f"Unbekannte Kennzahl: {data.metric_key}")
+        return
+    if metric.scope != data.subject_type:
+        _fail(f"{metric.label} ist keine Kennzahl für dieses Objekt")
+    _check_vocabulary(data)
     has_range = data.low is not None and data.high is not None
     if metric.is_text:
         if not data.text.strip():

@@ -14,6 +14,8 @@ class Metric:
     per_unit: bool = False  # unit is "USD/<commodity unit>"
     annual: bool = False  # unit is "<commodity unit>/Jahr"
     is_text: bool = False
+    scope: str = "asset"  # asset | company
+    unit: str = ""  # fixed unit of company figures
 
 
 METRICS: dict[str, Metric] = {
@@ -32,6 +34,14 @@ METRICS: dict[str, Metric] = {
         Metric("study_price", "Preisannahme der Studie", per_unit=True),
         Metric("study_npv", "NPV laut Studie"),
         Metric("first_production", "Geplante Inbetriebnahme", is_text=True),
+        Metric("cash", "Kasse", scope="company", unit="USD"),
+        Metric("debt", "Finanzschulden", scope="company", unit="USD"),
+        Metric("burn_rate", "Mittelabfluss je Quartal", scope="company", unit="USD/Quartal"),
+        Metric("shares_outstanding", "Ausstehende Aktien", scope="company", unit="Aktien"),
+        Metric("shares_diluted", "Aktien voll verwässert", scope="company", unit="Aktien"),
+        Metric("insider_ownership", "Insiderbesitz", scope="company", unit="%"),
+        Metric("royalty_burden", "Royalties und Streams", is_text=True, scope="company"),
+        Metric("next_catalyst", "Nächster Katalysator", is_text=True, scope="company"),
     )
 }
 
@@ -45,6 +55,16 @@ PROJECT_CARD = (
     "study_price",
     "study_npv",
     "first_production",
+)
+COMPANY_CARD = (
+    "cash",
+    "debt",
+    "burn_rate",
+    "shares_outstanding",
+    "shares_diluted",
+    "insider_ownership",
+    "royalty_burden",
+    "next_catalyst",
 )
 # figures whose absence makes the engine suggest research
 KEY_METRICS_PRODUCING = ("production", "aisc", "reserves")
@@ -61,6 +81,18 @@ EXTRACT_PATTERNS: dict[str, re.Pattern[str]] = {
     "production": re.compile(
         rf"(?:annual production|produced|production of)[^.\n]{{0,40}}?{_NUMBER}", re.I
     ),
+    "cash": re.compile(
+        rf"cash and cash equivalents[^.\n]{{0,60}}?(?:US\$|USD|\$)\s?{_NUMBER}(?P<scale>\s?(?:million|billion))?",
+        re.I,
+    ),
+    "debt": re.compile(
+        rf"(?:total|long-term) debt[^.\n]{{0,60}}?(?:US\$|USD|\$)\s?{_NUMBER}(?P<scale>\s?(?:million|billion))?",
+        re.I,
+    ),
+    "shares_outstanding": re.compile(
+        rf"{_NUMBER}(?P<scale>\s?(?:million|billion))?\s+(?:common )?shares (?:issued and )?outstanding",
+        re.I,
+    ),
     "reserves": re.compile(
         rf"(?:proven and probable|mineral) reserves[^.\n]{{0,60}}?{_NUMBER}", re.I
     ),
@@ -73,6 +105,14 @@ def card_metrics(status: str) -> tuple[str, ...]:
 
 def key_metrics(status: str) -> tuple[str, ...]:
     return KEY_METRICS_PRODUCING if status in PRODUCING_STATUSES else KEY_METRICS_PROJECT
+
+
+SCALES = {"million": 1e6, "billion": 1e9}
+
+
+def scale_factor(raw: str | None) -> float:
+    """'million' -> 1e6; no word -> 1."""
+    return SCALES.get((raw or "").strip().lower(), 1.0)
 
 
 def parse_number(raw: str) -> float:

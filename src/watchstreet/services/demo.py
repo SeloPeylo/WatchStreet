@@ -13,14 +13,18 @@ from watchstreet.commodities import BY_KEY
 from watchstreet.domain import AssetKind, AssetStatus, ClaimKind, DataOrigin, StakeRole, SubjectType
 from watchstreet.intel.documents import store_document
 from watchstreet.market.service import MarketService
+from watchstreet.metrics import METRICS
 from watchstreet.models import (
     Asset,
     AssetCommodity,
     Company,
     DocumentLink,
+    Financing,
     Milestone,
+    Person,
     Stake,
     StatusPeriod,
+    Stock,
 )
 from watchstreet.services import theses
 from watchstreet.services.facts import FactInput, record_fact
@@ -331,6 +335,125 @@ DEMO_ASSETS: tuple[DemoAsset, ...] = (
 )
 
 
+@dataclass(frozen=True)
+class DemoCompany:
+    name: str
+    symbol: str
+    cash: float  # USD million
+    debt: float
+    burn: float  # USD million per quarter; 0 = generates cash
+    shares: float  # million
+    diluted: float
+    insiders: float  # percent
+    hide_debt: bool = False  # stays in the document only, so research can find it
+
+
+DEMO_COMPANIES: tuple[DemoCompany, ...] = (
+    DemoCompany(ANDES, "DACC", 1850.0, 2400.0, 0.0, 1450.0, 1466.0, 0.4),
+    DemoCompany(PACIFIC, "DPMT", 640.0, 1900.0, 0.0, 820.0, 835.0, 1.1),
+    DemoCompany(JUNIOR, "DJEX", 9.0, 0.5, 3.5, 180.0, 242.0, 14.0, hide_debt=True),
+    DemoCompany(AURUM, "DAUM", 910.0, 600.0, 0.0, 510.0, 518.0, 0.8),
+    DemoCompany(PLATA, "DPLR", 210.0, 320.0, 0.0, 290.0, 301.0, 3.2),
+    DemoCompany(URAN, "DURO", 480.0, 150.0, 0.0, 400.0, 409.0, 2.0),
+)
+ROYALTY_HOLDER = "Demo Royalty Partners"
+DEMO_ROYALTIES = {"Demo Mina Río Seco": 2.0, "Demo Projekt Vecino": 1.5}  # percent NSR
+MILLION = 1e6
+
+
+def _company_report(item: DemoCompany) -> list[str]:
+    """One sentence per figure, so each seeded company fact has a verbatim quote."""
+    return [
+        f"Synthetischer Demo-Geschäftsbericht 2025 der {item.name}. Alle Angaben sind erfunden.",
+        f"Cash and cash equivalents of US${item.cash:,.1f} million at year end.",
+        f"Total debt of US${item.debt:,.1f} million at year end.",
+        f"Net cash used in operations and exploration was US${item.burn:,.1f} million per quarter.",
+        f"{item.shares:,.0f} million common shares issued and outstanding.",
+        f"On a fully diluted basis there are {item.diluted:,.0f} million shares.",
+        f"Directors and officers own {item.insiders:.1f} percent of the shares.",
+        f"The chief executive of {item.name} has led the company since 2018 and previously built "
+        "and sold one mining company (Demo-Angabe).",
+    ]
+
+
+def _seed_company(session: Session, company: Company, item: DemoCompany) -> None:
+    lines = _company_report(item)
+    document, _ = store_document(
+        session,
+        url=f"https://demo.invalid/annual/{company.slug}",
+        text="\n".join(lines),
+        kind="filing",
+        publisher=item.name,
+        title=f"Demo-Geschäftsbericht 2025 – {item.name}",
+        published_at=datetime(REPORT_DAY.year, REPORT_DAY.month, REPORT_DAY.day, tzinfo=UTC),
+        meta={"is_demo": True},
+    )
+    session.add(
+        DocumentLink(
+            document_id=document.id, subject_type=SubjectType.COMPANY, subject_id=company.id
+        )
+    )
+    stock = Stock(symbol=item.symbol, name=item.name, currency="USD", exchange="DEMO")
+    session.add(stock)
+    session.flush()
+    company.stock_id = stock.id
+    figures = [
+        ("cash", item.cash * MILLION, lines[1]),
+        ("shares_outstanding", item.shares * MILLION, lines[4]),
+        ("shares_diluted", item.diluted * MILLION, lines[5]),
+        ("insider_ownership", item.insiders, lines[6]),
+    ]
+    if not item.hide_debt:
+        figures.append(("debt", item.debt * MILLION, lines[2]))
+    if item.burn:
+        figures.append(("burn_rate", item.burn * MILLION, lines[3]))
+    for metric, value, quote in figures:
+        record_fact(
+            session,
+            FactInput(
+                SubjectType.COMPANY,
+                company.id,
+                metric,
+                value=value,
+                unit=METRICS[metric].unit,
+                period_end=PERIOD_END,
+                published_at=REPORT_DAY,
+                document_id=document.id,
+                quote=quote,
+                confidence="high",
+                origin=DataOrigin.API,
+                is_demo=True,
+            ),
+        )
+    session.add(
+        Person(
+            company_id=company.id,
+            name=f"Demo-CEO {item.symbol}",
+            role="Chief Executive Officer",
+            since=date(2018, 1, 1),
+            track_record="Hat zuvor ein Bergbauunternehmen aufgebaut und verkauft.",
+            document_id=document.id,
+            quote=lines[7],
+            origin=DataOrigin.API,
+            is_demo=True,
+        )
+    )
+    if item.burn:
+        for day, amount, price in ((date(2025, 9, 15), 12.0, 0.42), (date(2024, 6, 3), 8.0, 0.65)):
+            session.add(
+                Financing(
+                    company_id=company.id,
+                    day=day,
+                    kind="equity",
+                    amount=amount * MILLION,
+                    price=price,
+                    shares=amount * MILLION / price,
+                    is_demo=True,
+                    note="Privatplatzierung mit Warrants (Demo)",
+                )
+            )
+
+
 def _slug(name: str) -> str:
     table = str.maketrans({"í": "i", "ó": "o", "á": "a", "é": "e", " ": "-"})
     return name.lower().translate(table)
@@ -526,6 +649,19 @@ def seed_demo(session: Session, market: MarketService) -> int:
         _facts(session, asset, item, document.id, text, prior.id)
         if item.commodity == "copper":
             copper_assets.append(asset)
+    holder = _company(session, companies, ROYALTY_HOLDER)
+    for asset in session.scalars(select(Asset).where(Asset.name.in_(DEMO_ROYALTIES))):
+        session.add(
+            Stake(
+                asset_id=asset.id,
+                company_id=holder.id,
+                role=StakeRole.ROYALTY,
+                share_pct=DEMO_ROYALTIES[asset.name],
+                valid_from=date(2020, 1, 1),
+            )
+        )
+    for firm in DEMO_COMPANIES:
+        _seed_company(session, companies[firm.name], firm)
     thesis = theses.create_thesis(
         session,
         "Kupfernachfrage wächst langfristig",

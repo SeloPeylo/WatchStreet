@@ -73,12 +73,36 @@ Ein Klick auf eine Kennzahl zeigt Wert, Definition, Zeitraum, Quelle, Zitat und 
 
 ![Herleitung](screenshots/04_herleitung.png)
 
-### Unternehmensperspektive
+### Unternehmensansicht
 
-Ein Klick auf den Betreiber hebt dessen Objekte hervor; alle anderen bleiben abgedunkelt sichtbar. Der
-Kartenausschnitt bleibt erhalten.
+Ein Klick auf den Betreiber öffnet die Unternehmensansicht. Die Objekte des Unternehmens bleiben auf
+der Karte hervorgehoben, alle anderen abgedunkelt sichtbar; der Kartenausschnitt bleibt erhalten.
 
-![Unternehmen hervorgehoben](screenshots/05_unternehmen_hervorgehoben.png)
+![Unternehmen](screenshots/05_unternehmen_hervorgehoben.png)
+
+Die Ansicht beantwortet, ob das Unternehmen lange genug durchhält, um von seinen Objekten zu
+profitieren:
+
+| Abschnitt | Inhalt |
+|---|---|
+| Bilanz und Kapitalstruktur | Kasse, Finanzschulden, Mittelabfluss je Quartal, ausstehende und voll verwässerte Aktien, Insiderbesitz – jeweils mit Herkunftszeichen und Herleitung |
+| Abgeleitet | Nettokasse, Reichweite in Monaten, Verwässerungsüberhang, Börsenwert, Summe der einfachen Asset-NAV (anteilig), Verhältnis Börsenwert zu Asset-NAV |
+| Prüfkatalog | zehn Kernfragen mit Status „belegt“ oder offen; offene Punkte lassen sich als Recherche vormerken |
+| Menschen | Führungspersonen mit Rolle und Erfolgsbilanz |
+| Finanzierungen | Datum, Betrag, Preis je Aktie |
+| Royalties und Streams | Belastungen auf den Objekten; sie mindern die Marge des Objekts |
+| Preishebel | anteiliger Cashflow der produzierenden Objekte bei −50 % bis +50 % Rohstoffpreis |
+| Eigene Angabe | eigene Werte eintragen; sie werden von Agenten nie überschrieben |
+
+![Junior mit kurzer Reichweite](screenshots/20_junior_unternehmen.png)
+
+Reicht die Kasse weniger als zwölf Monate, legt die Regelprüfung eine Auffälligkeit und einen
+Recherchevorschlag zur Finanzierung an. „Belegt“ im Prüfkatalog heisst, dass etwas vorliegt, nicht,
+dass die Antwort gut ist. Asset-NAV und das Verhältnis dazu sind einfache Modellrechnungen, keine
+Bewertung.
+
+Ist eine These aktiv, lässt sich im Herleitungsdialog jede Kennzahl der These als stützende oder
+widersprechende Evidenz zuordnen.
 
 ## 5. Auswahl und Vergleich
 

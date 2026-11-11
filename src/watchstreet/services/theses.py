@@ -8,7 +8,7 @@ from watchstreet.errors import WatchStreetError
 from watchstreet.models import Thesis, ThesisAssumption, ThesisLink
 from watchstreet.services.changes import log_change
 
-LINK_TARGETS = ("asset", "company", "finding", "document")
+LINK_TARGETS = ("asset", "company", "finding", "document", "fact")
 ASSUMPTION_STATES = ("open", "supported", "contradicted", "unclear")
 
 

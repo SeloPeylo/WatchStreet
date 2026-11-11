@@ -53,6 +53,7 @@ class MineInputs:
     production: Interval | None = None  # units per year (100 % basis)
     reserves: float | None = None  # units
     share: float = 1.0  # attributable share 0..1
+    royalty: float = 0.0  # share of revenue paid away (NSR royalties, streams) 0..1
     by_products: tuple[ByProduct, ...] = ()
 
 
@@ -103,7 +104,7 @@ def evaluate(
     life = mine_life(inputs)
     if cost is None or price <= 0:
         return MineEconomics(price, cost, None, None, None, None, None, life, None, adjusted)
-    margin = Interval.point(price).minus(cost)
+    margin = Interval.point(price * (1 - inputs.royalty)).minus(cost)
     margin_pct = margin.scaled(1 / price)
     leverage = price / margin.mid if margin.mid > 0 else None
     cash_flow = margin.times(inputs.production) if inputs.production else None

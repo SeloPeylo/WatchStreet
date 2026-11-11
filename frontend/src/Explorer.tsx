@@ -1,6 +1,7 @@
 // Explorer workspace: map, context panel, selection tray, scenario and timeline.
 import { useEffect, useMemo, useState } from "react";
 import { AssetPanel, MetricRow } from "./AssetPanel";
+import { CompanyPanel } from "./CompanyPanel";
 import type { Card, Commodity, Json } from "./api";
 import { COMMODITY_LABEL, KNOWLEDGE_LABEL, STATUS_LABEL, day, get, num } from "./api";
 import { KNOWLEDGE_COLORS, MapView, SCALES, SHAPES } from "./MapView";
@@ -230,6 +231,8 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
       <aside className="side">
         {active ? (
           <AssetPanel id={active} state={state} update={update} tick={tick} templates={templates} thesisTitle={thesis?.title ?? ""} onChanged={refresh} notify={notify} />
+        ) : state.co ? (
+          <CompanyPanel id={Number(state.co)} state={state} update={update} tick={tick} onChanged={refresh} notify={notify} />
         ) : (
           <div data-testid="overview">
             <h2>Weltkarte</h2>

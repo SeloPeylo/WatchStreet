@@ -72,6 +72,9 @@ max-statements = 40
 max-returns = 5
 
 [tool.ruff.lint.per-file-ignores]
+"src/watchstreet/metrics.py" = ["E501"]  # extraction patterns stay on one line each
+"src/watchstreet/services/companies.py" = ["E501"]  # checklist questions read as a table
+"src/watchstreet/services/engine.py" = ["E501"]  # German finding sentences
 "src/watchstreet/services/demo.py" = ["E501"]  # one demo asset per line reads as a table
 "src/watchstreet/workflows/research.py" = ["E501"]  # German prompt and result sentences
 "tests/**" = ["S101", "S603", "S608", "PLR2004", "PLR0133", "PLR0911", "ANN", "SLF001", "ARG", "FBT", "E501"]

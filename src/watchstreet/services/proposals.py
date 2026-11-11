@@ -72,6 +72,18 @@ TEMPLATES: dict[str, Template] = {
             WorkflowKey.STRATEGIC_QUESTION,
             "Warum weichen die Kosten von {name} von der Vergleichsgruppe ab?",
         ),
+        Template(
+            "financing",
+            "Finanzierung klären",
+            WorkflowKey.STRATEGIC_QUESTION,
+            "Wie finanziert {name} die nächsten zwölf Monate, und zu welchen Konditionen?",
+        ),
+        Template(
+            "management",
+            "Management beurteilen",
+            WorkflowKey.STRATEGIC_QUESTION,
+            "Wer führt {name}, mit welcher Erfolgsbilanz und wie viel eigenem Geld?",
+        ),
         Template("free", "Freie Frage", WorkflowKey.STRATEGIC_QUESTION, "{question}"),
         Template(
             "read_document",

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from watchstreet.analysis.rules import KnowledgeInputs, knowledge_status
 from watchstreet.commodities import BY_KEY
-from watchstreet.constants import STALE_FACT_AFTER
+from watchstreet.constants import PERCENT, STALE_FACT_AFTER
 from watchstreet.domain import (
     ClaimKind,
     DataOrigin,
@@ -135,6 +135,13 @@ def stakes_on(asset: Asset, day: date) -> list[Stake]:
     ]
 
 
+def royalty_rate(asset: Asset, day: date) -> float:
+    """Share of revenue paid to royalty and stream holders (0..1), capped at all of it."""
+    burdens = (StakeRole.ROYALTY, StakeRole.STREAM)
+    total = sum(s.share_pct or 0.0 for s in stakes_on(asset, day) if s.role in burdens)
+    return min(total / PERCENT, 1.0)
+
+
 def primary_commodity(asset: Asset) -> str:
     primary = [c.commodity for c in asset.commodities if c.role == "primary"]
     return primary[0] if primary else (asset.commodities[0].commodity if asset.commodities else "")
@@ -219,6 +226,7 @@ def asset_economics(
         cost=_interval(cost),
         production=_interval(production),
         reserves=reserves.value if reserves else None,
+        royalty=royalty_rate(asset, ctx.reference),
     )
     base_price = ctx.base_prices.get(commodity)
     used = tuple(f for f in (cost, production, reserves) if f is not None)
@@ -257,7 +265,14 @@ def economics_payload(econ: AssetEconomics | None, commodity: str) -> list[dict[
     result = econ.result
     life = Interval.point(result.mine_life) if result.mine_life is not None else None
     return [
-        _derived("margin", "Marge je Einheit", result.margin, unit, "Preis − Kosten", econ),
+        _derived(
+            "margin",
+            "Marge je Einheit",
+            result.margin,
+            unit,
+            "Preis × (1 − Royalties) − Kosten",
+            econ,
+        ),
         _derived(
             "margin_pct", "Marge", result.margin_pct, "Anteil", "(Preis − Kosten) / Preis", econ
         ),
@@ -351,6 +366,7 @@ def card(asset: Asset, bundle: Bundle, ctx: ViewContext) -> dict[str, Any]:
             and not econ.result.by_product_adjusted
         ),
         "price": ctx.prices.get(commodity),
+        "royalty_pct": royalty_rate(asset, ctx.reference) * PERCENT,
         "mode": ctx.mode(commodity),
         "knowledge": knowledge_payload(asset, facts, status, bundle, ctx),
     }

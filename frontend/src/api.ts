@@ -41,6 +41,7 @@ export interface Card {
   economics_is_forecast: boolean;
   by_product_note: boolean;
   price: number | null;
+  royalty_pct: number;
   mode: "today" | "as_of" | "scenario";
   knowledge: { status: string; open_questions: number; running: boolean; new_result: boolean; missing: string[] };
 }

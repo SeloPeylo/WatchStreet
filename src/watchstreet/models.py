@@ -104,6 +104,42 @@ class Company(Base):
     stock: Mapped[Stock | None] = relationship()
 
 
+class Person(Base):
+    """Management and directors: who runs the company and what they did before."""
+
+    __tablename__ = "people"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    name: Mapped[str] = mapped_column(String(160))
+    role: Mapped[str] = mapped_column(String(120), default="")
+    since: Mapped[date | None] = mapped_column(Date, nullable=True)
+    track_record: Mapped[str] = mapped_column(Text, default="")
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), nullable=True)
+    quote: Mapped[str] = mapped_column(Text, default="")
+    origin: Mapped[str] = mapped_column(String(8), default=DataOrigin.USER)
+    is_demo: Mapped[bool] = mapped_column(default=False)
+
+
+class Financing(Base):
+    """One capital raise: the history of dilution and of what money cost."""
+
+    __tablename__ = "financings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    day: Mapped[date] = mapped_column(Date)
+    kind: Mapped[str] = mapped_column(String(16), default="equity")  # equity|debt|royalty_sale
+    amount: Mapped[float | None] = mapped_column(Float, nullable=True)  # USD raised
+    price: Mapped[float | None] = mapped_column(Float, nullable=True)  # per share
+    shares: Mapped[float | None] = mapped_column(Float, nullable=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), nullable=True)
+    quote: Mapped[str] = mapped_column(Text, default="")
+    origin: Mapped[str] = mapped_column(String(8), default=DataOrigin.USER)
+    is_demo: Mapped[bool] = mapped_column(default=False)
+
+
 class Asset(Base):
     """A mine, project or deposit with its own location, status history and facts."""
 

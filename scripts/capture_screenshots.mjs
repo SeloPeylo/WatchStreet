@@ -47,7 +47,11 @@ await page.getByTestId("derivation").getByRole("button", { name: "Schliessen" })
 
 // 3 switch to the company perspective without leaving the map
 await panel.getByRole("button", { name: "Demo Andes Copper Corp" }).click();
+const company = page.getByTestId("company-panel");
+await company.getByTestId("checklist").waitFor();
 await shot("unternehmen_hervorgehoben");
+await company.getByRole("button", { name: "Demo Mina Altiplano" }).click();
+await panel.waitFor();
 await page.getByRole("button", { name: "Hervorhebung aufheben" }).click();
 await panel.getByRole("button", { name: "+ Zur Auswahl" }).click();
 
@@ -116,6 +120,13 @@ await shot("quellen");
 await page.getByRole("button", { name: "System", exact: true }).click();
 await page.getByTestId("system").waitFor();
 await shot("system");
+
+// the junior: short runway, dilution, open checklist items
+await page.getByRole("button", { name: "Explorer", exact: true }).click();
+await page.getByPlaceholder("Suche").fill("Junior");
+await page.locator(".search li button", { hasText: "Demo Junior Explorers" }).click();
+await company.getByText("Reichweite").waitFor();
+await shot("junior_unternehmen");
 
 await browser.close();
 if (problems.length) {

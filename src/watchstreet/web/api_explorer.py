@@ -12,8 +12,9 @@ from watchstreet.commodities import BY_KEY, COMMODITIES
 from watchstreet.constants import DAYS_PER_YEAR, MAP_RECENT_DAYS, MAX_SELECTION, RECENT_LIMIT
 from watchstreet.domain import DataOrigin, Provenance, SubjectType
 from watchstreet.metrics import METRICS
-from watchstreet.models import Asset, Company, Event, Fact, Finding, Proposal, Stake, Thesis, Ticket
+from watchstreet.models import Asset, Company, Event, Fact, Finding, Proposal, Thesis, Ticket
 from watchstreet.services import prices
+from watchstreet.services.companies import company_view
 from watchstreet.services.facts import FactInput, fact_history, record_fact
 from watchstreet.services.world import card, existed_on, load_bundle, map_feature
 from watchstreet.timeutil import utcnow
@@ -24,6 +25,7 @@ from watchstreet.workflows.research import linked_documents
 router = APIRouter(prefix="/api/v1", tags=["explorer"])
 COLOR_MODES = ("status", "margin", "delta", "knowledge", "quality")
 ASSET = SubjectType.ASSET
+COMPANY = SubjectType.COMPANY
 
 
 @router.get("/commodities")
@@ -151,6 +153,7 @@ def fact_derivation(asset_id: int, metric: str, session: SessionDep) -> dict[str
 
 
 class FactBody(BaseModel):
+    subject_type: str = SubjectType.ASSET
     subject_id: int
     metric: str
     value: float | None = None
@@ -167,18 +170,18 @@ class FactBody(BaseModel):
 @router.post("/facts")
 def add_fact(body: FactBody, session: SessionDep, container: ContainerDep) -> dict[str, Any]:
     """A figure entered by the user; it outranks agent and API values for the same period."""
-    get_or_404(session, Asset, body.subject_id)
+    get_or_404(session, Company if body.subject_type == COMPANY else Asset, body.subject_id)
     fact = record_fact(
         session,
         FactInput(
-            ASSET,
+            body.subject_type,
             body.subject_id,
             body.metric,
             value=body.value,
             low=body.low,
             high=body.high,
             text=body.text,
-            unit=body.unit,
+            unit=body.unit or METRICS[body.metric].unit if body.metric in METRICS else body.unit,
             basis=body.basis,
             period_end=body.period_end,
             published_at=body.published_at,
@@ -223,17 +226,35 @@ def compare(
 
 
 @router.get("/companies/{company_id}")
-def company_detail(company_id: int, session: SessionDep, ctx: ViewDep) -> dict[str, Any]:
+def company_detail(
+    company_id: int, session: SessionDep, ctx: ViewDep, container: ContainerDep
+) -> dict[str, Any]:
+    """Balance sheet, dilution, people, royalties, checklist and assets of one company."""
     company = get_or_404(session, Company, company_id)
-    asset_ids = set(session.scalars(select(Stake.asset_id).where(Stake.company_id == company_id)))
-    bundle = load_bundle(session, asset_ids)
+    view = company_view(session, company, ctx, container.market)
+    subject = (Finding.subject_type == COMPANY, Finding.subject_id == company_id)
+    findings = session.scalars(select(Finding).where(*subject).order_by(Finding.id.desc()))
+    proposals = session.scalars(
+        select(Proposal).where(Proposal.subject_type == COMPANY, Proposal.subject_id == company_id)
+    )
     return {
-        "id": company.id,
-        "name": company.name,
-        "country": company.country,
-        "is_demo": company.is_demo,
-        "symbol": company.stock.symbol if company.stock else None,
-        "assets": [card(a, bundle, ctx) for a in bundle.assets],
+        **view,
+        "findings": [payloads.finding(f) for f in findings],
+        "proposals": [payloads.proposal(p) for p in proposals if p.state == "draft"],
+        "documents": [payloads.document(d) for d in linked_documents(session, COMPANY, company_id)],
+    }
+
+
+@router.get("/companies/{company_id}/facts/{metric}")
+def company_fact_derivation(company_id: int, metric: str, session: SessionDep) -> dict[str, Any]:
+    if metric not in METRICS:
+        raise HTTPException(status_code=404, detail="Unbekannte Kennzahl")
+    history = fact_history(session, COMPANY, company_id, metric)
+    return {
+        "metric": metric,
+        "label": METRICS[metric].label,
+        "history": [payloads.fact_detail(f) for f in history],
+        "inputs": [],
     }
 
 

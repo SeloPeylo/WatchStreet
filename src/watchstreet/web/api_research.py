@@ -9,7 +9,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from watchstreet.domain import OPEN_STATUSES, Stance, SubjectType, TicketStatus
-from watchstreet.models import Asset, Company, Finding, Proposal, Thesis, ThesisAssumption, Ticket
+from watchstreet.models import (
+    Asset,
+    Company,
+    Fact,
+    Finding,
+    Proposal,
+    Thesis,
+    ThesisAssumption,
+    Ticket,
+)
 from watchstreet.services import changes, proposals, theses, tickets
 from watchstreet.web import payloads
 from watchstreet.web.deps import SessionDep, get_or_404
@@ -177,7 +186,10 @@ class ThesisBody(BaseModel):
 @router.get("/theses")
 def list_theses(session: SessionDep) -> list[dict[str, Any]]:
     findings = {f.id: f for f in session.scalars(select(Finding))}
-    return [payloads.thesis(t, findings) for t in theses.list_theses(session)]
+    rows = theses.list_theses(session)
+    fact_ids = {x.target_id for t in rows for x in t.links if x.target_type == "fact"}
+    facts = {f.id: f for f in session.scalars(select(Fact).where(Fact.id.in_(fact_ids)))}
+    return [payloads.thesis(t, findings, facts) for t in rows]
 
 
 @router.post("/theses")

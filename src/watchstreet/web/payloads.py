@@ -152,7 +152,11 @@ def change(row: ChangeEntry, subject_name: str = "") -> dict[str, Any]:
     }
 
 
-def thesis(row: Thesis, findings: dict[int, Finding] | None = None) -> dict[str, Any]:
+def thesis(
+    row: Thesis,
+    findings: dict[int, Finding] | None = None,
+    facts: dict[int, Fact] | None = None,
+) -> dict[str, Any]:
     known = findings or {}
     return {
         "id": row.id,
@@ -171,6 +175,9 @@ def thesis(row: Thesis, findings: dict[int, Finding] | None = None) -> dict[str,
                 "stance": link.stance,
                 "note": link.note,
                 # evidence must be readable where it is judged
+                "fact": fact_detail(facts[link.target_id])
+                if link.target_type == "fact" and facts and link.target_id in facts
+                else None,
                 "finding": finding(known[link.target_id])
                 if link.target_type == "finding" and link.target_id in known
                 else None,
