@@ -36,6 +36,9 @@ ihrem öffentlich bekannten Vorgehen.
 | Rule | Kennzahlen direkt als Evidenz einer These |
 | Rule | Börsenwert gegen Summe der Asset-NAV, Preishebel ±30/50 % |
 | Rule | Engine-Regel „Reichweite unter zwölf Monaten“ |
+| Rule | Unternehmenswert, Capex gegen Kasse (Finanzierungslücke), Erfassung von Personen und Finanzierungen |
+| Rule | Ressourcen nach Kategorie, Gehalt, Ausbringung, Datum der Studie als Kennzahlen |
+| Rule/Dalio | NAV rechnet Verlustbetrieb als Stilllegung |
 | Dalio | Kriterium und Prüfdatum je Annahme, Statuswechsel nur mit Begründung |
 | Dalio | Evidenz und Gegenevidenz je Annahme, mit Zählung |
 | Dalio | Positionen mit Unternehmen, Objekten und Thesen verknüpft |

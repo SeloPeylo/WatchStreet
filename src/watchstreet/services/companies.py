@@ -120,6 +120,25 @@ def _attributable(bundle: Bundle, company_id: int, ctx: ViewContext) -> tuple[fl
     return (nav_total if any_nav else None), cash_flow
 
 
+def _open_capex(
+    bundle: Bundle, company_id: int, ctx: ViewContext
+) -> tuple[float | None, list[Fact]]:
+    """Capex of the projects not yet producing, weighted by ownership; ``None`` if none is known."""
+    used: list[Fact] = []
+    total = 0.0
+    for asset in bundle.assets:
+        period = status_on(asset, ctx.reference)
+        if period is not None and period.status in PRODUCING_STATUSES:
+            continue
+        fact = latest_per_metric(bundle.facts.get(asset.id, []), ctx.as_of, ctx.view).get("capex")
+        share = owner_share(stakes_on(asset, ctx.reference), company_id)
+        if fact is None or fact.value is None or share <= 0:
+            continue
+        total += fact.value * share
+        used.append(fact)
+    return (total if used else None), used
+
+
 def _sensitivity(bundle: Bundle, company_id: int, ctx: ViewContext) -> list[dict[str, float]]:
     """Attributable cash flow of the producing assets if every price moves by the same factor."""
     rows = []
@@ -191,6 +210,7 @@ def company_view(
     net = ratios.net_cash(_value(cash), _value(debt))
     nav_sum, _cash_flow = _attributable(bundle, company.id, ctx)
     burdens = _burdens(bundle, ctx)
+    capex, capex_facts = _open_capex(bundle, company.id, ctx)
     derived = [
         _derived("net_cash", "Nettokasse", net, "USD", "Kasse − Finanzschulden", (cash, debt)),
         _derived(
@@ -204,6 +224,20 @@ def company_view(
         ),
         _derived(
             "market_cap", "Börsenwert", market_cap, "USD", "Kurs × ausstehende Aktien", (shares,)
+        ),
+        _derived(
+            "enterprise_value", "Unternehmenswert (EV)",
+            ratios.enterprise_value(market_cap, _value(cash), _value(debt)), "USD",
+            "Börsenwert + Finanzschulden − Kasse", (shares, cash, debt),
+        ),
+        _derived(
+            "open_capex", "Capex der Projekte (anteilig)", capex, "USD",
+            "Σ Capex laut Studie × Eigentumsanteil, nur Objekte ohne Produktion", tuple(capex_facts),
+        ),
+        _derived(
+            "funding_gap", "Finanzierungslücke", ratios.funding_gap(capex, _value(cash)), "USD",
+            "Capex der Projekte − Kasse (mindestens 0): muss über Aktien, Schulden oder Royalties beschafft werden",
+            (cash, *capex_facts),
         ),
         _derived(
             "nav_sum", "Summe einfacher Asset-NAV (anteilig)", nav_sum, "USD",

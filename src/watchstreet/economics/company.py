@@ -23,6 +23,22 @@ def dilution_overhang(outstanding: float | None, diluted: float | None) -> float
     return diluted / outstanding - 1
 
 
+def enterprise_value(
+    market_cap: float | None, cash: float | None, debt: float | None
+) -> float | None:
+    """What a buyer pays for the business: market value plus debt minus cash."""
+    if market_cap is None or cash is None or debt is None:
+        return None
+    return market_cap + debt - cash
+
+
+def funding_gap(capex: float | None, cash: float | None) -> float | None:
+    """Capital still to be raised to build the projects; 0 if the cash covers it."""
+    if capex is None or cash is None:
+        return None
+    return max(capex - cash, 0.0)
+
+
 def ratio(numerator: float | None, denominator: float | None) -> float | None:
     if numerator is None or not denominator or denominator <= 0:
         return None

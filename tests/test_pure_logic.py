@@ -115,3 +115,15 @@ def test_metric_catalog_and_extraction():
     assert parse_number("1,234.5") == 1234.5
     match = EXTRACT_PATTERNS["aisc"].search("AISC averaged US$1,180.00 per oz in 2025.")
     assert parse_number(match.group("value")) == 1180.0
+
+
+def test_losing_mine_has_no_negative_nav_and_company_ratios():
+    from watchstreet.economics import company
+
+    inputs = MineInputs(cost=Interval.point(5.0), production=Interval.point(10.0), reserves=100.0)
+    result = evaluate(inputs, 4.0)
+    assert result.cash_flow.mid == -10.0 and result.nav.mid == 0.0
+    assert company.enterprise_value(100.0, 30.0, 10.0) == 80.0
+    assert company.enterprise_value(None, 30.0, 10.0) is None
+    assert company.funding_gap(50.0, 20.0) == 30.0 and company.funding_gap(10.0, 20.0) == 0.0
+    assert company.funding_gap(None, 20.0) is None

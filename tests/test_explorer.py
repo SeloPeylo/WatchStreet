@@ -814,3 +814,26 @@ def test_position_shows_company_assets_and_theses(client):
     assert {a["name"] for a in known["assets"]} == {"Demo Mina Altiplano", "Demo Mina Río Seco"}
     assert known["theses"][0]["title"].startswith("Kupfernachfrage")
     assert unknown["company"] is None and unknown["theses"] == []
+
+
+def test_funding_gap_ev_and_user_entries_for_people_and_financings(client, session):
+    junior = _company_id(session, "Demo Junior Explorers Ltd")
+    derived = {m["metric"]: m for m in client.get(f"{API}/companies/{junior}").json()["derived"]}
+    assert derived["open_capex"]["value"] > 0
+    assert derived["funding_gap"]["value"] == derived["open_capex"]["value"] - _cash(client, junior)
+    assert "enterprise_value" in derived
+    before = client.get(f"{API}/companies/{junior}").json()
+    person = {"name": "Erika Muster", "role": "CFO", "track_record": "Zwei Minen finanziert"}
+    assert client.post(f"{API}/companies/{junior}/people", json=person).status_code == 201
+    raise_ = {"day": "2026-03-01", "amount": 5e6, "price": 0.4, "note": "mit Warrants"}
+    assert client.post(f"{API}/companies/{junior}/financings", json=raise_).status_code == 201
+    assert client.post(f"{API}/companies/{junior}/financings", json={"day": "x"}).status_code == 422
+    after = client.get(f"{API}/companies/{junior}").json()
+    assert len(after["people"]) == len(before["people"]) + 1
+    assert len(after["financings"]) == len(before["financings"]) + 1
+    assert after["financings"][0]["note"] == "mit Warrants"
+
+
+def _cash(client, company_id):
+    metrics = client.get(f"{API}/companies/{company_id}").json()["metrics"]
+    return next(m["value"] for m in metrics if m["metric"] == "cash")

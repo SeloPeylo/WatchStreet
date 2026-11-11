@@ -55,6 +55,7 @@ class DemoAsset:
     hide_cost: bool = False  # cost stays in the document only, so research can find it
     start_year: int = 2008
     by_product: str = ""
+    capex: float | None = None  # USD, initial capital of a project
 
 
 PROD, DEV, EXPL = AssetStatus.PRODUCTION, AssetStatus.DEVELOPMENT, AssetStatus.EXPLORATION
@@ -163,6 +164,7 @@ DEMO_ASSETS: tuple[DemoAsset, ...] = (
         2.20,
         4.0e9,
         start_year=2015,
+        capex=650000000.0,
     ),
     DemoAsset(
         "Demo Mine Silver Peak",
@@ -220,6 +222,7 @@ DEMO_ASSETS: tuple[DemoAsset, ...] = (
         1250.0,
         2.6e6,
         start_year=2016,
+        capex=420000000.0,
     ),
     DemoAsset(
         "Demo Mina Sierra Plata",
@@ -331,6 +334,7 @@ DEMO_ASSETS: tuple[DemoAsset, ...] = (
         39.0,
         22e6,
         start_year=2017,
+        capex=310000000.0,
     ),
 )
 
@@ -475,6 +479,10 @@ def _report_text(item: DemoAsset) -> str:
         )
     elif item.reserves:
         parts.append(f"Measured and indicated mineral resources of {item.reserves:,.0f} {unit}.")
+    if item.capex:
+        parts.append(
+            f"Initial capital expenditure is estimated at US${item.capex:,.0f} in the feasibility study."
+        )
     return "\n".join(parts)
 
 
@@ -575,6 +583,8 @@ def _facts(
         add(key, item.aisc, sentence("All-in sustaining"), f"USD/{unit}")
     if item.reserves:
         add("reserves" if producing else "resources", item.reserves, sentence("mineral res"), unit)
+    if item.capex:
+        add("capex", item.capex, sentence("Initial capital"), "USD")
 
 
 def seed_demo(session: Session, market: MarketService) -> int:

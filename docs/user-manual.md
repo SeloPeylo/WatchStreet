@@ -104,6 +104,12 @@ Bewertung.
 Ist eine These aktiv, lässt sich im Herleitungsdialog jede Kennzahl der These als stützende oder
 widersprechende Evidenz zuordnen.
 
+**Finanzierungslücke und Unternehmenswert:** Unter „Abgeleitet“ stehen zusätzlich der Unternehmenswert
+(Börsenwert + Finanzschulden − Kasse), der anteilige Capex der noch nicht produzierenden Projekte und
+die Finanzierungslücke (Capex − Kasse, mindestens 0). Die Lücke zeigt, wie viel Kapital noch beschafft
+werden muss – in aller Regel über neue Aktien. Personen und Finanzierungen lassen sich unter „Person
+erfassen“ und „Finanzierung erfassen“ selbst eintragen; sie gelten als eigene Angabe ohne Quelle.
+
 ## 5. Auswahl und Vergleich
 
 „+ Zur Auswahl“ oder `Umschalt+Klick` legt ein Objekt in die Auswahlleiste (höchstens 8). Ausgewählte
@@ -274,8 +280,9 @@ vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehr
 
 ## 14. Grenzen des aktuellen Stands
 
-* Marge, Cashflow und NAV sind einfache Modellrechnungen (Preis minus Stückkosten, 8 % Diskontsatz,
-  konstante Produktion) ohne Steuern, Royalties, Investitionen und Schulden – keine Bewertung.
+* Marge, Cashflow und NAV sind einfache Modellrechnungen (Preis nach Royalties minus Stückkosten,
+  8 % Diskontsatz, konstante Produktion) ohne Steuern, Investitionen und Schulden – keine Bewertung.
+  Liegt der Preis unter den Kosten, rechnet der NAV mit Stilllegung (0) statt mit Dauerverlust.
 
 * Register liefern nur Ort, Namen und teils Betreiber. Der USGS-Abruf ist mit echten Daten geprüft; der
   Wikidata-Abruf ist gegen aufgezeichnete echte Antworten geprüft, wurde in der Entwicklungsumgebung

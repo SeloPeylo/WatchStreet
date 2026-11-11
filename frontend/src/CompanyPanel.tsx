@@ -28,6 +28,8 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
   const [data, setData] = useState<Json>(null);
   const [open, setOpen] = useState("");
   const [entry, setEntry] = useState({ metric: "cash", value: "" });
+  const [person, setPerson] = useState({ name: "", role: "", track_record: "" });
+  const [fin, setFin] = useState({ day: "", amount: "", price: "", note: "" });
   useEffect(() => {
     get(`/companies/${id}`, viewParams(state)).then(setData).catch(() => setData(null));
   }, [id, state.asof, state.view, state.sc, tick]);
@@ -46,6 +48,9 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
   const isText = ENTRY.find(([key]) => key === entry.metric)![2];
   const save = () =>
     act(() => post("/facts", { subject_type: "company", subject_id: id, metric: entry.metric, ...(isText ? { text: entry.value } : { value: Number(entry.value) }) }), "Kennzahl gespeichert").then(() => setEntry({ ...entry, value: "" }));
+  const savePerson = () => act(() => post(`/companies/${id}/people`, person), "Person erfasst").then(() => setPerson({ name: "", role: "", track_record: "" }));
+  const saveFin = () =>
+    act(() => post(`/companies/${id}/financings`, { day: fin.day, note: fin.note, ...(fin.amount ? { amount: Number(fin.amount) } : {}), ...(fin.price ? { price: Number(fin.price) } : {}) }), "Finanzierung erfasst").then(() => setFin({ day: "", amount: "", price: "", note: "" }));
   const answered = data.checklist.filter((q: Json) => q.answered).length;
   return (
     <div data-testid="company-panel">
@@ -68,7 +73,7 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
       <div className="section">
         <h3>Abgeleitet</h3>
         <table><tbody>{data.derived.map((m: Metric) => <MetricRow key={m.metric} m={m} />)}</tbody></table>
-        <div className="note">Asset-NAV und das Verhältnis dazu sind einfache Modellrechnungen ohne Steuern, Investitionen, Schulden und Länderabschlag – keine Bewertung.</div>
+        <div className="note">Asset-NAV und das Verhältnis dazu sind einfache Modellrechnungen ohne Steuern, Investitionen, Schulden und Länderabschlag – keine Bewertung. Die Finanzierungslücke zeigt, wie viel Kapital für den Bau der Projekte noch fehlt; sie wird in aller Regel durch Verwässerung geschlossen.</div>
       </div>
 
       <div className="section">
@@ -94,6 +99,17 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
             <div className="muted">{p.track_record}</div>
           </div>
         ))}
+        <details>
+          <summary className="small">Person erfassen</summary>
+          <div className="row">
+            <input placeholder="Name" value={person.name} onChange={(e) => setPerson({ ...person, name: e.target.value })} data-testid="person-name" />
+            <input placeholder="Rolle" value={person.role} onChange={(e) => setPerson({ ...person, role: e.target.value })} />
+          </div>
+          <div className="row">
+            <input className="grow" placeholder="Erfolgsbilanz: was hat die Person früher gebaut oder verkauft?" value={person.track_record} onChange={(e) => setPerson({ ...person, track_record: e.target.value })} />
+            <button disabled={person.name.length < 2} onClick={savePerson}>Speichern</button>
+          </div>
+        </details>
       </div>
 
       <div className="section">
@@ -104,6 +120,18 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
             <tr key={f.id}><td>{day(f.day)}</td><td className="n">{num(f.amount)} USD</td><td className="n">{f.price != null ? `${num(f.price)} je Aktie` : ""}</td><td className="small muted">{f.note}</td></tr>
           ))}
         </tbody></table>
+        <details>
+          <summary className="small">Finanzierung erfassen</summary>
+          <div className="row">
+            <input type="date" value={fin.day} onChange={(e) => setFin({ ...fin, day: e.target.value })} data-testid="fin-day" />
+            <input type="number" placeholder="Betrag USD" value={fin.amount} onChange={(e) => setFin({ ...fin, amount: e.target.value })} />
+            <input type="number" placeholder="Preis je Aktie" value={fin.price} onChange={(e) => setFin({ ...fin, price: e.target.value })} />
+          </div>
+          <div className="row">
+            <input className="grow" placeholder="Notiz, z. B. mit Warrants, Zeichner" value={fin.note} onChange={(e) => setFin({ ...fin, note: e.target.value })} />
+            <button disabled={!fin.day} onClick={saveFin}>Speichern</button>
+          </div>
+        </details>
       </div>
 
       <div className="section">

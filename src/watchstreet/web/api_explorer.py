@@ -1,10 +1,10 @@
 """Explorer API: commodities, map, asset cards, derivations, comparison, companies, search."""
 
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -12,8 +12,20 @@ from watchstreet.commodities import BY_KEY, COMMODITIES
 from watchstreet.constants import DAYS_PER_YEAR, MAP_RECENT_DAYS, MAX_SELECTION, RECENT_LIMIT
 from watchstreet.domain import DataOrigin, Provenance, SubjectType
 from watchstreet.metrics import METRICS
-from watchstreet.models import Asset, Company, Event, Fact, Finding, Proposal, Thesis, Ticket
+from watchstreet.models import (
+    Asset,
+    Company,
+    Event,
+    Fact,
+    Financing,
+    Finding,
+    Person,
+    Proposal,
+    Thesis,
+    Ticket,
+)
 from watchstreet.services import prices
+from watchstreet.services.changes import log_change
 from watchstreet.services.companies import company_view
 from watchstreet.services.facts import FactInput, fact_history, record_fact
 from watchstreet.services.world import card, existed_on, load_bundle, map_feature
@@ -243,6 +255,46 @@ def company_detail(
         "proposals": [payloads.proposal(p) for p in proposals if p.state == "draft"],
         "documents": [payloads.document(d) for d in linked_documents(session, COMPANY, company_id)],
     }
+
+
+class PersonBody(BaseModel):
+    name: str = Field(min_length=2, max_length=160)
+    role: str = Field(default="", max_length=120)
+    since: date | None = None
+    track_record: str = ""
+
+
+class FinancingBody(BaseModel):
+    day: date
+    kind: Literal["equity", "debt", "royalty_sale"] = "equity"
+    amount: float | None = Field(default=None, gt=0)
+    price: float | None = Field(default=None, gt=0)
+    shares: float | None = Field(default=None, gt=0)
+    note: str = ""
+
+
+@router.post("/companies/{company_id}/people", status_code=201)
+def add_person(company_id: int, body: PersonBody, session: SessionDep) -> dict[str, int]:
+    """A user entry: who runs the company. Kept as the user's own statement, without a source."""
+    company = get_or_404(session, Company, company_id)
+    person = Person(company_id=company.id, origin=DataOrigin.USER, **body.model_dump())
+    session.add(person)
+    log_change(session, COMPANY, company.id, "person", f"Person erfasst: {body.name}")
+    session.commit()
+    return {"id": person.id}
+
+
+@router.post("/companies/{company_id}/financings", status_code=201)
+def add_financing(company_id: int, body: FinancingBody, session: SessionDep) -> dict[str, int]:
+    """A user entry: one capital raise."""
+    company = get_or_404(session, Company, company_id)
+    financing = Financing(company_id=company.id, origin=DataOrigin.USER, **body.model_dump())
+    session.add(financing)
+    log_change(
+        session, COMPANY, company.id, "financing", f"Finanzierung erfasst: {body.day.isoformat()}"
+    )
+    session.commit()
+    return {"id": financing.id}
 
 
 @router.get("/companies/{company_id}/facts/{metric}")

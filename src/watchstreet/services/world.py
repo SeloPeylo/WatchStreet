@@ -285,7 +285,15 @@ def economics_payload(econ: AssetEconomics | None, commodity: str) -> list[dict[
             econ,
         ),
         _derived("mine_life", "Restlaufzeit", life, "Jahre", "Reserven / Produktion", econ),
-        _derived("nav", "Einfacher Asset-NAV", result.nav, "USD", "Barwert des Cashflows", econ),
+        _derived(
+            "nav",
+            "Einfacher Asset-NAV",
+            result.nav,
+            "USD",
+            "Barwert des Cashflows über die Reservenlaufzeit, 8 % Diskontsatz; "
+            "bei Verlust Stilllegung (0)",
+            econ,
+        ),
     ]
 
 

@@ -111,9 +111,10 @@ def evaluate(
     attributable = cash_flow.scaled(inputs.share) if cash_flow else None
     nav = None
     if attributable is not None and life is not None:
+        # a mine that loses money is closed, not run at a loss for its whole life
         nav = Interval(
-            annuity(attributable.low, discount_rate, life),
-            annuity(attributable.high, discount_rate, life),
+            annuity(max(attributable.low, 0.0), discount_rate, life),
+            annuity(max(attributable.high, 0.0), discount_rate, life),
         )
     return MineEconomics(
         price, cost, margin, margin_pct, cash_flow, attributable, leverage, life, nav, adjusted
