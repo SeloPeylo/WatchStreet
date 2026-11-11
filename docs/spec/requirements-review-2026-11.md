@@ -25,36 +25,40 @@ ihrem öffentlich bekannten Vorgehen.
 | Vergleich nummerierte anders als die Auswahlleiste | Reihenfolge der Auswahl |
 | Englische Rohstoffnamen in Karte und Banner | deutsch |
 
+## Seit dem Review umgesetzt
+
+| Sicht | Anforderung |
+|---|---|
+| Rule | Unternehmensansicht: Kasse, Schulden, Mittelabfluss, Reichweite, Aktienzahl, Verwässerungsüberhang, Finanzierungen |
+| Rule | Menschen mit Erfolgsbilanz, Insiderbesitz |
+| Rule | Royalties und Streams sichtbar und in der Marge netto gerechnet |
+| Rule | Prüfkatalog je Unternehmen mit zehn Fragen und Recherche-Vorlagen |
+| Rule | Kennzahlen direkt als Evidenz einer These |
+| Rule | Börsenwert gegen Summe der Asset-NAV, Preishebel ±30/50 % |
+| Rule | Engine-Regel „Reichweite unter zwölf Monaten“ |
+| Dalio | Kriterium und Prüfdatum je Annahme, Statuswechsel nur mit Begründung |
+| Dalio | Evidenz und Gegenevidenz je Annahme, mit Zählung |
+| Dalio | Positionen mit Unternehmen, Objekten und Thesen verknüpft |
+
 ## Offen – Unternehmens- und Finanzierungssicht (Rule)
 
 | Prio | Anforderung | Datenmodell |
 |---|---|---|
-| MUSS | Unternehmenskarte mit Kasse, Schulden, Burn-Rate, Reichweite in Monaten | Fact auf Company; Ansicht fehlt |
-| MUSS | Aktienzahl, Optionen/Warrants, Finanzierungshistorie (Verwässerung) | Fact, Milestone auf Company |
-| MUSS | Management, Insiderbesitz, Erfolgsbilanz | Person fehlt |
-| MUSS | Royalties, Streams, JV-Bedingungen sichtbar und in der Marge netto gerechnet | Stake vorhanden; Rechnung und Anzeige fehlen |
-| MUSS | Fragenkatalog je Unternehmen mit Status und Belegverweis | Proposal-Vorlagen, Finding |
-| MUSS | Kennzahlen direkt als Evidenz einer These zuordnen | `thesis_links` um `fact` erweitern |
 | SOLL | Jurisdiktionsrisiko je Region, eigener Farbmodus | Fact auf Region |
-| SOLL | Ressourcen nach Kategorie, Gehalt, Ausbringung, Studienstand mit Datum | neue Kennzahlen |
-| SOLL | Börsenwert/EV gegen Summe der Asset-NAV, EV je Einheit Ressource | Company↔Stock |
-| SOLL | Sensitivitätstabelle ±30/50 %, Capex gegen Kasse, Zyklusposition gegen Grenzkosten | berechnet |
+| SOLL | Zyklusposition gegen Grenzkosten | berechnet |
 | KANN | Prospect-Generator-Sicht; freier Cashflow statt Marge × Produktion | Stake, Fact |
 
 ## Offen – Thesen, Szenarien, Portfolio (Dalio)
 
 | Prio | Anforderung | Datenmodell |
 |---|---|---|
-| MUSS | Je Annahme ein messbares Falsifikationskriterium mit Prüfdatum; Statuswechsel mit Begründung | Annahme erweitern |
-| MUSS | Evidenz und Gegenevidenz je Annahme; „0 Gegenargumente geprüft“ ausweisen | Link braucht Annahme-Bezug |
-| MUSS | Positionen mit Unternehmen, Minen und Thesen verknüpfen | Holding→Company/Thesis |
 | SOLL | Mehrrohstoff-Szenarien mit Kosten und Diskontsatz speichern und benennen | Scenario |
 | SOLL | Makrogrössen (Realzins, Dollar, Inflation) als Objekte mit Herkunft | Indikator oder neues Fact-Subjekt |
 | SOLL | Wachstums-/Inflationsregime als Szenariovorlagen | baut auf Szenarien auf |
-| SOLL | Portfolio-Stresstest und Konzentration je Rohstoff, Land, These | nach Verknüpfung |
-| SOLL | These am Stichtag ansehen | nach Protokollierung möglich |
+| SOLL | Portfolio-Stresstest und Konzentration je Rohstoff, Land, These | Verknüpfung vorhanden |
+| SOLL | These am Stichtag ansehen | Protokoll vorhanden |
 | SOLL | Nebenproduktpreise im Szenario berücksichtigen | Mengen als Fact |
-| KANN | Quellen nach Trefferhistorie gewichten; Stilllegungslogik im NAV | Bewertung am Dokument |
+| KANN | Quellen nach Trefferhistorie gewichten | Bewertung am Dokument |
 
 ## Wo die Anwendung weiterhin zu falscher Sicherheit verleiten kann
 

@@ -299,6 +299,9 @@ class ThesisAssumption(Base):
     thesis_id: Mapped[int] = mapped_column(ForeignKey("research_theses.id"), index=True)
     text: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(16), default="open")  # open|supported|contradicted
+    criterion: Mapped[str] = mapped_column(Text, default="")  # what observation would refute it
+    review_by: Mapped[date | None] = mapped_column(Date, nullable=True)  # when to check again
+    status_reason: Mapped[str] = mapped_column(Text, default="")  # why the status was set
 
 
 class ThesisLink(Base):
@@ -312,6 +315,8 @@ class ThesisLink(Base):
     target_id: Mapped[int] = mapped_column(Integer)
     stance: Mapped[str] = mapped_column(String(12), default=Stance.CONTEXT)
     note: Mapped[str] = mapped_column(Text, default="")
+    # the assumption this evidence speaks to, if any
+    assumption_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
 

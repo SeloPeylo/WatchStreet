@@ -8,6 +8,7 @@ import markdown
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import func, select, text
+from sqlalchemy.orm import Session
 
 from watchstreet.constants import (
     HEARTBEAT_STALE_AFTER,
@@ -18,7 +19,17 @@ from watchstreet.constants import (
     WORKER_HEARTBEAT_KEY,
 )
 from watchstreet.domain import SubjectType, TicketStatus, WorkflowKey
-from watchstreet.models import Asset, Document, Holding, Ticket, WatchEntry
+from watchstreet.models import (
+    Asset,
+    Company,
+    Document,
+    Holding,
+    Stake,
+    Thesis,
+    ThesisLink,
+    Ticket,
+    WatchEntry,
+)
 from watchstreet.services import portfolio, proposals
 from watchstreet.services.state import touch, updated_at
 from watchstreet.services.tickets import create_ticket
@@ -207,6 +218,33 @@ class WatchBody(BaseModel):
     note: str = ""
 
 
+def _exposure(session: Session, stock_id: int) -> dict[str, Any]:
+    """The company behind a position, its assets and the theses that touch them."""
+    company = session.scalars(select(Company).where(Company.stock_id == stock_id)).first()
+    if company is None:
+        return {"company": None, "assets": [], "theses": []}
+    assets = list(
+        session.scalars(
+            select(Asset)
+            .join(Stake, Stake.asset_id == Asset.id)
+            .where(Stake.company_id == company.id)
+        ).unique()
+    )
+    linked = session.scalars(
+        select(Thesis)
+        .join(ThesisLink, ThesisLink.thesis_id == Thesis.id)
+        .where(
+            ThesisLink.target_type == SubjectType.ASSET,
+            ThesisLink.target_id.in_([a.id for a in assets]),
+        )
+    ).unique()
+    return {
+        "company": {"id": company.id, "name": company.name},
+        "assets": [{"id": a.id, "name": a.name} for a in assets],
+        "theses": [{"id": t.id, "title": t.title} for t in linked],
+    }
+
+
 @router.get(f"{API}/portfolio")
 def portfolio_view(session: SessionDep, container: ContainerDep) -> dict[str, Any]:
     rows = portfolio.holding_rows(session, container.market)
@@ -227,6 +265,7 @@ def portfolio_view(session: SessionDep, container: ContainerDep) -> dict[str, An
                 "pnl_abs": r.pnl_abs,
                 "pnl_pct": r.pnl_pct,
                 "day_change_pct": r.day_change_pct,
+                **_exposure(session, r.holding.stock_id),
             }
             for r in rows
         ],

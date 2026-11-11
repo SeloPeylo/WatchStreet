@@ -17,12 +17,13 @@ export function Portfolio({ notify }: { notify: Notify }) {
       <div className="box" data-testid="holdings">
         <h2>Bestände</h2>
         <table>
-          <thead><tr><th>Symbol</th><th>Name</th><th>Stück</th><th>Ø Kaufpreis</th><th>Kurs</th><th>Wert</th><th>G/V</th><th>Absicht</th><th></th></tr></thead>
+          <thead><tr><th>Symbol</th><th>Name</th><th>Stück</th><th>Ø Kaufpreis</th><th>Kurs</th><th>Wert</th><th>G/V</th><th>Absicht und Bezug</th><th></th></tr></thead>
           <tbody>
             {data.holdings.map((h: Json) => (
               <tr key={h.id}><td><b>{h.symbol}</b></td><td>{h.name}</td><td className="n">{num(h.quantity)}</td><td className="n">{num(h.avg_price)}</td>
                 <td className="n">{num(h.price)}</td><td className="n">{num(h.market_value)} {h.currency}</td>
-                <td className={`n ${h.pnl_abs >= 0 ? "up" : "down"}`}>{num(h.pnl_abs)} ({num(h.pnl_pct)} %)</td><td>{h.intent}</td>
+                <td className={`n ${h.pnl_abs >= 0 ? "up" : "down"}`}>{num(h.pnl_abs)} ({num(h.pnl_pct)} %)</td><td>{h.intent}
+                  <div className="small muted">{h.company ? <>{h.company.name} · {h.assets.length} Objekte{h.theses.length > 0 && <> · Thesen: {h.theses.map((t: Json) => t.title).join(", ")}</>}</> : "kein Unternehmen mit Objekten zugeordnet"}</div></td>
                 <td><button onClick={() => act(del(`/portfolio/holdings/${h.id}`))}>Entfernen</button></td></tr>
             ))}
             {data.holdings.length === 0 && <tr><td colSpan={9} className="muted">Noch keine Bestände.</td></tr>}

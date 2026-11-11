@@ -54,7 +54,7 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
   const [checked, setChecked] = useState<number[]>([]);
   const [open, setOpen] = useState<number | null>(null);
   const [thesisId, setThesisId] = useState<number | null>(null);
-  const [draft, setDraft] = useState({ title: "", statement: "", horizon: "", commodity: "", assumption: "" });
+  const [draft, setDraft] = useState({ title: "", statement: "", horizon: "", commodity: "", assumption: "", criterion: "", review_by: "" });
   useEffect(() => {
     get("/proposals").then(setProposals);
     get("/tickets").then(setTickets);
@@ -70,6 +70,18 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
     }
   };
   const thesis = theses.find((t) => t.id === thesisId) ?? theses[0];
+  // A judgement needs a reason, so it can be checked against reality later.
+  const judge = (a: Json, status: string) => {
+    const reason = status === "open" ? "" : window.prompt(`Begründung für „${ASSUMPTION[status]}“:`, "") ?? "";
+    if (status !== "open" && !reason.trim()) return notify("Ohne Begründung wird der Status nicht geändert");
+    return act(() => patch(`/assumptions/${a.id}`, { status, reason }), "Annahme eingeordnet");
+  };
+  const retest = (a: Json) => {
+    const criterion = window.prompt("Welche Beobachtung würde die Annahme widerlegen?", a.criterion);
+    if (criterion === null) return;
+    const review = window.prompt("Prüfen bis (JJJJ-MM-TT, leer = kein Datum):", a.review_by ?? "");
+    return act(() => patch(`/assumptions/${a.id}`, { criterion, review_by: review || null }), "Kriterium gespeichert");
+  };
   const start = (ids: number[]) => act(() => post("/proposals/start", { ids }), `${ids.length} Recherche(n) gestartet`).then(() => setChecked([]));
   return (
     <div className="page"><div className="cols">
@@ -84,21 +96,38 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
             <button onClick={() => update({ path: "/", th: String(thesis.id), c: thesis.commodity, a: "" })}>Auf der Karte zeigen</button>
             <h3 className="section">Annahmen</h3>
             {thesis.assumptions.map((a: Json) => (
-              <div key={a.id} className="row" style={{ marginBottom: 4 }}>
-                <select value={a.status} onChange={(e) => act(() => patch(`/assumptions/${a.id}`, { status: e.target.value }), "Annahme aktualisiert")}>
-                  {Object.entries(ASSUMPTION).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                </select>
-                <span className="grow">{a.text}</span>
+              <div key={a.id} style={{ marginBottom: 8 }} data-assumption={a.id}>
+                <div className="row">
+                  <select value={a.status} onChange={(e) => judge(a, e.target.value)}>
+                    {Object.entries(ASSUMPTION).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                  </select>
+                  <span className="grow">{a.text}</span>
+                </div>
+                <div className="small muted">
+                  Widerlegt, wenn: {a.criterion || <i>kein Kriterium – so ist die Annahme nicht prüfbar</i>}
+                  {a.review_by && <> · prüfen bis {day(a.review_by)}{a.review_due && <b style={{ color: "var(--warn)" }}> (fällig)</b>}</>}
+                  {" · "}Evidenz: {a.supports} stützend, {a.contradicts} widersprechend{a.contradicts === 0 && a.status === "supported" ? " – kein Gegenargument geprüft" : ""}
+                  {a.status_reason && <> · Begründung: {a.status_reason}</>}
+                  {" "}<button className="link" onClick={() => retest(a)}>Kriterium ändern</button>
+                </div>
               </div>
             ))}
-            <div className="row"><input className="grow" placeholder="neue Annahme" value={draft.assumption} onChange={(e) => setDraft({ ...draft, assumption: e.target.value })} />
-              <button onClick={() => act(() => post(`/theses/${thesis.id}/assumptions`, { text: draft.assumption }), "Annahme ergänzt").then(() => setDraft({ ...draft, assumption: "" }))}>+</button></div>
+            <div className="row">
+              <input className="grow" placeholder="neue Annahme" value={draft.assumption} onChange={(e) => setDraft({ ...draft, assumption: e.target.value })} />
+              <input className="grow" placeholder="widerlegt, wenn …" value={draft.criterion} onChange={(e) => setDraft({ ...draft, criterion: e.target.value })} />
+              <input type="date" title="prüfen bis" value={draft.review_by} onChange={(e) => setDraft({ ...draft, review_by: e.target.value })} />
+              <button onClick={() => act(() => post(`/theses/${thesis.id}/assumptions`, { text: draft.assumption, criterion: draft.criterion, review_by: draft.review_by || null }), "Annahme ergänzt").then(() => setDraft({ ...draft, assumption: "", criterion: "", review_by: "" }))}>+</button>
+            </div>
             <h3 className="section">Evidenz</h3>
             {thesis.links.filter((l: Json) => l.target_type !== "asset").length === 0 && <p className="muted small">Noch keine Erkenntnis zugeordnet. Ergebnisse von Recherchen, die aus dieser These heraus vorgemerkt wurden, erscheinen hier.</p>}
             {thesis.links.filter((l: Json) => l.target_type !== "asset").map((l: Json) => (
               <div key={l.id} className="row small">
                 <select value={l.stance} onChange={(e) => act(() => post(`/theses/${thesis.id}/links`, { target_type: l.target_type, target_id: l.target_id, stance: e.target.value }), "Einordnung gespeichert")}>
                   <option value="supports">stützt</option><option value="contradicts">widerspricht</option><option value="context">Kontext</option>
+                </select>
+                <select value={l.assumption_id ?? ""} title="Auf welche Annahme bezieht sich das?" onChange={(e) => act(() => post(`/theses/${thesis.id}/links`, { target_type: l.target_type, target_id: l.target_id, stance: l.stance, assumption_id: e.target.value ? Number(e.target.value) : null }), "Annahme zugeordnet")}>
+                  <option value="">zur These allgemein</option>
+                  {thesis.assumptions.map((a: Json) => <option key={a.id} value={a.id}>{a.text.slice(0, 40)}</option>)}
                 </select>
                 {l.finding ? (
                   <span className="grow"><span className={`pill ${l.finding.epistemic}`}>{EPISTEMIC_LABEL[l.finding.epistemic]}</span> {l.finding.text.slice(0, 220)}{" "}
@@ -119,7 +148,7 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
             <option value="">kein Rohstoff</option><option value="gold">Gold</option><option value="silver">Silber</option><option value="copper">Kupfer</option><option value="uranium">Uran</option>
           </select>
         </div>
-        <button onClick={() => act(async () => { const made = await post("/theses", draft); setThesisId(made.id); }, "These angelegt").then(() => setDraft({ title: "", statement: "", horizon: "", commodity: "", assumption: "" }))}>Anlegen</button>
+        <button onClick={() => act(async () => { const made = await post("/theses", draft); setThesisId(made.id); }, "These angelegt").then(() => setDraft({ title: "", statement: "", horizon: "", commodity: "", assumption: "", criterion: "", review_by: "" }))}>Anlegen</button>
       </div>
 
       <div>

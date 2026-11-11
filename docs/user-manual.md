@@ -193,6 +193,13 @@ heisst, dass nichts vorliegt, nicht, dass nichts existiert.
 zugeordnete Evidenz. Ergebnisse von Fragen, die bei aktiver These vorgemerkt wurden, werden der These
 zugeordnet und lassen sich als stützend, widersprechend oder Kontext einordnen.
 
+Eine Annahme ist erst prüfbar, wenn feststeht, woran sie scheitern würde. Darum trägt jede Annahme
+ein **Kriterium** („widerlegt, wenn …“) und ein **Prüfdatum**; ist das Datum überschritten, wird sie
+als fällig markiert. Wer den Status auf gestützt, widerlegt oder unklar setzt, muss eine
+**Begründung** angeben; sie steht bei der Annahme und im Lagebericht. Evidenz lässt sich einer
+einzelnen Annahme zuordnen; an jeder Annahme steht, wie viele Belege sie stützen und wie viele ihr
+widersprechen. „0 Gegenargumente“ heisst: es wurde noch keines gesucht.
+
 **Recherchen:** Liste aller gestarteten Recherchen. Ein Klick öffnet das Ergebnis mit festen
 Abschnitten: Antwort, Unsicherheiten, geprüfte Alternativen, nicht gefunden, abgelehnte Angaben des
 Agenten, Folgefragen.
@@ -208,6 +215,9 @@ Besuchszeitpunkt; mit „ab“ lässt sich ein anderes Vergleichsdatum wählen.
 ## 10. Portfolio
 
 Bestände (Symbol, Stück, Durchschnittspreis, optional Kaufdatum und Absicht) und Watchlist.
+Unter „Absicht und Bezug“ steht zu jeder Position das erfasste Unternehmen, seine Objekte (mit Sprung
+auf die Karte) und die Thesen, die sich auf das Unternehmen oder seine Objekte stützen. Eine Position
+ohne These ist als solche ausgewiesen.
 
 ![Portfolio](screenshots/17_portfolio.png)
 

@@ -511,9 +511,10 @@ def test_thesis_board(client, session):
     ).json()
     assumption = added["assumptions"][0]["id"]
     assert (
-        client.patch(f"{API}/assumptions/{assumption}", json={"status": "supported"}).json()[
-            "status"
-        ]
+        client.patch(
+            f"{API}/assumptions/{assumption}",
+            json={"status": "supported", "reason": "Bericht 2025"},
+        ).json()["status"]
         == "supported"
     )
     assert client.patch(f"{API}/assumptions/{assumption}", json={"status": "x"}).status_code == 400
@@ -617,9 +618,13 @@ def test_thesis_changes_are_logged_and_evidence_is_readable(client, session):
     added = client.post(
         f"{API}/theses/{made['id']}/assumptions", json={"text": "Realzins fällt"}
     ).json()
-    client.patch(f"{API}/assumptions/{added['assumptions'][0]['id']}", json={"status": "supported"})
+    client.patch(
+        f"{API}/assumptions/{added['assumptions'][0]['id']}",
+        json={"status": "supported", "reason": "Bericht 2025"},
+    )
     report = client.get(f"{API}/changes").json()["changes"]
-    assert [c["kind"] for c in report] == ["thesis", "thesis"] and report[0]["new"] == "supported"
+    assert [c["kind"] for c in report] == ["thesis", "thesis", "thesis"]
+    assert report[0]["new"] == "supported" and "Bericht 2025" in report[0]["summary"]
     assert len(client.get(f"{API}/changes", params={"since": "2000-01-01"}).json()["changes"]) > 10
     assert client.get(f"{API}/changes", params={"since": "gestern"}).status_code == 422
 
@@ -767,3 +772,45 @@ def test_password_protects_the_api_but_not_the_page(container, tmp_path):
         for _ in range(5):
             brute.post(f"{API}/login", json={"password": "x"})
         assert brute.post(f"{API}/login", json={"password": "geheim"}).status_code == 401  # locked
+
+
+# --- testable assumptions and portfolio exposure ------------------------------------------------
+
+
+def test_assumptions_need_a_reason_and_carry_criterion_and_evidence(client, session):
+    thesis = client.get(f"{API}/theses").json()[0]
+    body = {"text": "Realzins fällt", "criterion": "10J-TIPS über 2,5 %", "review_by": "2020-01-01"}
+    made = client.post(f"{API}/theses/{thesis['id']}/assumptions", json=body).json()["assumptions"][
+        -1
+    ]
+    assert made["criterion"] == "10J-TIPS über 2,5 %" and made["review_due"]
+    no_reason = client.patch(f"{API}/assumptions/{made['id']}", json={"status": "contradicted"})
+    assert no_reason.status_code == 400 and "begründen" in no_reason.json()["detail"]
+    edit = {"criterion": "10J-TIPS über 3 %", "review_by": "2099-01-01"}
+    client.patch(f"{API}/assumptions/{made['id']}", json=edit)
+    asset = _asset(session, "Demo Mina Altiplano")
+    fact_id = client.get(f"{API}/assets/{asset.id}/facts/aisc").json()["history"][0]["id"]
+    link = {
+        "target_type": "fact",
+        "target_id": fact_id,
+        "stance": "contradicts",
+        "assumption_id": made["id"],
+    }
+    client.post(f"{API}/theses/{thesis['id']}/links", json=link)
+    judged = {"status": "contradicted", "reason": "Kosten steigen"}
+    client.patch(f"{API}/assumptions/{made['id']}", json=judged)
+    after = client.get(f"{API}/theses").json()[0]["assumptions"][-1]
+    assert after["contradicts"] == 1 and after["supports"] == 0 and not after["review_due"]
+    assert after["status_reason"] == "Kosten steigen" and after["criterion"] == "10J-TIPS über 3 %"
+
+
+def test_position_shows_company_assets_and_theses(client):
+    client.post(
+        f"{API}/portfolio/holdings", json={"symbol": "DACC", "quantity": 10, "avg_price": 30}
+    )
+    client.post(f"{API}/portfolio/holdings", json={"symbol": "NEM", "quantity": 1, "avg_price": 30})
+    known, unknown = client.get(f"{API}/portfolio").json()["holdings"]
+    assert known["company"]["name"] == "Demo Andes Copper Corp"
+    assert {a["name"] for a in known["assets"]} == {"Demo Mina Altiplano", "Demo Mina Río Seco"}
+    assert known["theses"][0]["title"].startswith("Kupfernachfrage")
+    assert unknown["company"] is None and unknown["theses"] == []

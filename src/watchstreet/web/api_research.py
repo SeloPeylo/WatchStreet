@@ -1,6 +1,6 @@
 """Research API: proposals (backlog), tickets, theses, the situation report."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -203,12 +203,21 @@ class LinkBody(BaseModel):
     target_id: int
     stance: str = Stance.CONTEXT
     note: str = ""
+    assumption_id: int | None = None
 
 
 @router.post("/theses/{thesis_id}/links")
 def link_thesis(thesis_id: int, body: LinkBody, session: SessionDep) -> dict[str, Any]:
     thesis = get_or_404(session, Thesis, thesis_id)
-    theses.link(session, thesis, body.target_type, body.target_id, body.stance, body.note)
+    theses.link(
+        session,
+        thesis,
+        body.target_type,
+        body.target_id,
+        body.stance,
+        body.note,
+        assumption_id=body.assumption_id,
+    )
     session.refresh(thesis)
     return payloads.thesis(thesis)
 
@@ -216,12 +225,15 @@ def link_thesis(thesis_id: int, body: LinkBody, session: SessionDep) -> dict[str
 class AssumptionBody(BaseModel):
     text: str = ""
     status: str = ""
+    reason: str = ""
+    criterion: str | None = None
+    review_by: date | None = None
 
 
 @router.post("/theses/{thesis_id}/assumptions")
 def add_assumption(thesis_id: int, body: AssumptionBody, session: SessionDep) -> dict[str, Any]:
     thesis = get_or_404(session, Thesis, thesis_id)
-    theses.add_assumption(session, thesis, body.text)
+    theses.add_assumption(session, thesis, body.text, body.criterion or "", body.review_by)
     session.refresh(thesis)
     return payloads.thesis(thesis)
 
@@ -231,7 +243,10 @@ def update_assumption(
     assumption_id: int, body: AssumptionBody, session: SessionDep
 ) -> dict[str, Any]:
     assumption = get_or_404(session, ThesisAssumption, assumption_id)
-    theses.set_assumption_status(session, assumption, body.status)
+    if body.criterion is not None:
+        theses.update_assumption_test(session, assumption, body.criterion, body.review_by)
+    if body.status:
+        theses.set_assumption_status(session, assumption, body.status, body.reason)
     return {"id": assumption.id, "status": assumption.status}
 
 

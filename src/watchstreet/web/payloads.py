@@ -15,6 +15,7 @@ from watchstreet.models import (
 )
 from watchstreet.services.facts import display_value
 from watchstreet.services.proposals import TEMPLATES
+from watchstreet.timeutil import utcnow
 
 EXCERPT_CHARS = 400
 
@@ -152,6 +153,11 @@ def change(row: ChangeEntry, subject_name: str = "") -> dict[str, Any]:
     }
 
 
+def _count(row: Thesis, assumption_id: int, stance: str) -> int:
+    """Pieces of evidence attached to one assumption with the given stance."""
+    return sum(1 for x in row.links if x.assumption_id == assumption_id and x.stance == stance)
+
+
 def thesis(
     row: Thesis,
     findings: dict[int, Finding] | None = None,
@@ -166,7 +172,20 @@ def thesis(
         "commodity": row.commodity,
         "status": row.status,
         "is_demo": row.is_demo,
-        "assumptions": [{"id": a.id, "text": a.text, "status": a.status} for a in row.assumptions],
+        "assumptions": [
+            {
+                "id": a.id,
+                "text": a.text,
+                "status": a.status,
+                "criterion": a.criterion,
+                "review_by": a.review_by.isoformat() if a.review_by else None,
+                "review_due": a.review_by is not None and a.review_by <= utcnow().date(),
+                "status_reason": a.status_reason,
+                "supports": _count(row, a.id, "supports"),
+                "contradicts": _count(row, a.id, "contradicts"),
+            }
+            for a in row.assumptions
+        ],
         "links": [
             {
                 "id": link.id,
@@ -174,6 +193,7 @@ def thesis(
                 "target_id": link.target_id,
                 "stance": link.stance,
                 "note": link.note,
+                "assumption_id": link.assumption_id,
                 # evidence must be readable where it is judged
                 "fact": fact_detail(facts[link.target_id])
                 if link.target_type == "fact" and facts and link.target_id in facts
