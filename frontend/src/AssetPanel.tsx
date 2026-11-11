@@ -142,6 +142,12 @@ export function AssetPanel({ id, state, update, tick, templates, thesisTitle, on
         {card.royalty_pct > 0 && <> · Royalty-Last {card.royalty_pct.toLocaleString("de-DE")} % vom Umsatz</>}
         {" · "}Rohstoffe: {card.commodities.map((c) => `${COMMODITY_LABEL[c.key] ?? c.key}${c.role === "by_product" ? " (Nebenprodukt)" : ""}`).join(", ")}
       </p>
+      {card.registry_source && card.status === "unknown" && (
+        <div className="note" data-testid="registry-note">
+          Aus einem öffentlichen Register übernommen ({card.registry_source === "mrds" ? "USGS MRDS" : "Wikidata"}). Belegt sind nur Ort und Name{card.operator ? " sowie der dort genannte Betreiber" : ""}.{" "}
+          <button className="link" onClick={() => propose({ template: "profile" }, "Profil-Recherche vorgemerkt – im Backlog starten")}>Profil recherchieren</button>
+        </div>
+      )}
       {modeText && <div className="note"><b>{modeText}</b>{card.price != null && ` · Preis ${card.price.toLocaleString("de-DE")}`}</div>}
       <div className="row">
         <button onClick={() => update({ sel: (selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id].slice(0, 8)).join(",") })}>

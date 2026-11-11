@@ -30,6 +30,7 @@ export interface Card {
   mining_method: string;
   summary: string;
   is_demo: boolean;
+  registry_source: string;
   commodity: string;
   commodities: { key: string; role: string }[];
   status: string;

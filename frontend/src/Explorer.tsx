@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AssetPanel, MetricRow } from "./AssetPanel";
 import { CompanyPanel } from "./CompanyPanel";
 import type { Card, Commodity, Json } from "./api";
-import { COMMODITY_LABEL, KNOWLEDGE_LABEL, STATUS_LABEL, day, get, num } from "./api";
+import { COMMODITY_LABEL, KNOWLEDGE_LABEL, STATUS_LABEL, day, get, num, post } from "./api";
 import { KNOWLEDGE_COLORS, MapView, SCALES, SHAPES } from "./MapView";
 import type { ViewState } from "./state";
 import { selection, viewParams } from "./state";
@@ -160,6 +160,11 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
   const [showEvents, setShowEvents] = useState(true);
   const [comparing, setComparing] = useState(false);
   const [milestones, setMilestones] = useState<Json[]>([]);
+  const [bounds, setBounds] = useState<Json>(null);
+  const [source, setSource] = useState("wikidata");
+  const [company, setCompany] = useState("");
+  const load = (body: Json) =>
+    post("/registry/import", body).then(() => { notify("Register wird geladen – die Glocke meldet das Ergebnis"); refresh(); }).catch((e) => notify(e.message));
   const mode = state.color || "status";
   const selected = selection(state);
   const active = state.a ? Number(state.a) : null;
@@ -199,7 +204,7 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
     <div className="explorer">
       <div className="mapwrap">
         <MapView features={features} events={showEvents ? world.events : []} mode={mode} commodities={commodities} selected={selected} active={active}
-          company={state.co} focus={thesis ? thesis.asset_ids : []} onPick={pick} />
+          company={state.co} focus={thesis ? thesis.asset_ids : []} onPick={pick} onBounds={setBounds} />
         <div className="maptools">
           <label className="small">Farbe{" "}
             <select data-testid="color-mode" value={mode} onChange={(e) => update({ color: e.target.value })}>
@@ -213,6 +218,12 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
           {state.co && <button onClick={() => update({ co: "" })}>Hervorhebung aufheben</button>}
           {thesis && <div className="small">These: <b>{thesis.title}</b> <button className="link" onClick={() => update({ th: "" })}>lösen</button></div>}
           <div className="muted small">{features.length} Objekte · Umschalt+Klick wählt mehrere</div>
+          <div className="row small" data-testid="registry">
+            <select value={source} onChange={(e) => setSource(e.target.value)} title="Öffentliches Minenregister">
+              <option value="wikidata">Wikidata (weltweit)</option><option value="mrds">USGS MRDS</option>
+            </select>
+            <button disabled={!bounds} onClick={() => load({ source, ...bounds })} title="Minen im sichtbaren Kartenausschnitt aus dem Register übernehmen">Ausschnitt laden</button>
+          </div>
         </div>
         {banner && <div className="banner" data-testid="banner">{banner}</div>}
         <Legend mode={mode} commodities={commodities} />
@@ -239,7 +250,13 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
             <p className="muted">Rohstoff oben wählen, Marker anklicken. Jede Zahl zeigt ihre Herkunft: <b>B</b> berichtet, <b>≈</b> berechnet, <b>~</b> geschätzt, <b>?</b> unbekannt.</p>
             {world.features.length === 0 && <div className="note">Über diesen Ausschnitt liegt noch nichts vor. „Unbekannt“ heisst nicht „existiert nicht“ – Objekte entstehen durch belegte Recherche.</div>}
             {world.features.some((f: Json) => f.properties.is_demo) && <div className="note">Alle gezeigten Objekte, Werte und Ereignisse sind <b>synthetische Demo-Daten</b>.</div>}
-            <h3>Thesen</h3>
+            <h3>Minen eines Unternehmens laden</h3>
+            <div className="row">
+              <input className="grow" placeholder="Unternehmensname wie in Wikidata, z. B. Freeport-McMoRan" value={company} onChange={(e) => setCompany(e.target.value)} />
+              <button disabled={!company.trim()} onClick={() => load({ company }).then(() => setCompany(""))}>Laden</button>
+            </div>
+            <p className="small muted">Register liefern Ort, Namen und teils den Betreiber. Status, Produktion und Kosten bleiben unbekannt, bis sie recherchiert sind.</p>
+            <h3 className="section">Thesen</h3>
             {theses.map((t) => <div key={t.id}><button className="link" onClick={() => update({ th: String(t.id), c: t.commodity })}>{t.title}</button></div>)}
             <h3 className="section">Objekte</h3>
             <table data-testid="cost-table">

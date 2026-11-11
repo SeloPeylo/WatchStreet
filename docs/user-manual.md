@@ -219,6 +219,27 @@ Kennzahlen darin.
 
 ![Quellen](screenshots/18_quellen.png)
 
+## 11a. Minen aus öffentlichen Registern laden
+
+Ohne Demo-Modus startet die Karte leer. Standorte kommen aus öffentlichen Registern; alles Weitere
+wird danach gezielt recherchiert („Lazy Research“).
+
+| Weg | Bedienung | Quelle |
+|---|---|---|
+| Kartenausschnitt | Karte auf die Region zoomen, links Register wählen, „Ausschnitt laden“ (höchstens 25° Kantenlänge, 300 Einträge je Abruf) | Wikidata (weltweit, nennt teils Betreiber und Eigentümer) oder USGS MRDS (Lagerstättenverzeichnis des US Geological Survey) |
+| Unternehmen | in der Übersicht den Unternehmensnamen eingeben, wie er in Wikidata heisst, „Laden“ | Wikidata: Minen, bei denen das Unternehmen als Betreiber oder Eigentümer eingetragen ist |
+
+Der Abruf läuft im Hintergrund; die Glocke meldet das Ergebnis. Übernommen werden nur Einträge zu
+Gold, Silber, Kupfer und Uran; bereits vorhandene Objekte werden nicht doppelt angelegt.
+
+Ein Registerobjekt hat Ort, Namen und – falls genannt – Betreiber, jeweils mit dem Registereintrag als
+Quelle. **Status, Produktion und Kosten bleiben unbekannt.** In der Charakterkarte führt „Profil
+recherchieren“ zu einem Recherchevorschlag; Berichte lassen sich per Adresse hinzufügen. Registerobjekte
+erscheinen nicht in Ansichten der Vergangenheit, weil sie keinen datierten Status haben.
+
+Im Demo-Modus ist der Import gesperrt, damit synthetische und echte Daten nie in derselben Datenbank
+liegen.
+
 ## 12. System
 
 Datenmodus, Marktdatenquelle, konfigurierter Agent, Zustand des Workers. „Hintergrundlauf jetzt“
@@ -245,8 +266,9 @@ vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehr
 * Marge, Cashflow und NAV sind einfache Modellrechnungen (Preis minus Stückkosten, 8 % Diskontsatz,
   konstante Produktion) ohne Steuern, Royalties, Investitionen und Schulden – keine Bewertung.
 
-* Echtdaten für Minen entstehen nur durch eigene Einträge und Recherchen; es gibt keinen mitgelieferten
-  realen Bestand.
+* Register liefern nur Ort, Namen und teils Betreiber. Der USGS-Abruf ist mit echten Daten geprüft; der
+  Wikidata-Abruf ist gegen aufgezeichnete echte Antworten geprüft, wurde in der Entwicklungsumgebung
+  aber von Wikidata abgewiesen (Bot-Richtlinie) und ist im Betrieb noch zu bestätigen.
 * Noch nicht vorhanden: Marker-Clustering, Standortbilder, Anmeldung, Inflations- und
   Rohstoffäquivalent-Spalten im Vergleich.
 * Die Zitatprüfung stellt sicher, dass ein Zitat wörtlich im Dokument steht, nicht, dass es die Zahl

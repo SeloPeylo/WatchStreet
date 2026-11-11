@@ -12,13 +12,15 @@ from sqlalchemy import func, select, text
 from watchstreet.constants import (
     HEARTBEAT_STALE_AFTER,
     LAST_SCAN_KEY,
+    REGISTRY_MAX_SPAN_DEG,
     SCAN_REQUEST_KEY,
     WORKER_HEARTBEAT_KEY,
 )
-from watchstreet.domain import SubjectType, TicketStatus
+from watchstreet.domain import SubjectType, TicketStatus, WorkflowKey
 from watchstreet.models import Asset, Document, Holding, Ticket, WatchEntry
 from watchstreet.services import portfolio, proposals
 from watchstreet.services.state import touch, updated_at
+from watchstreet.services.tickets import create_ticket
 from watchstreet.timeutil import utcnow
 from watchstreet.web import payloads
 from watchstreet.web.deps import ContainerDep, SessionDep, get_or_404
@@ -26,6 +28,7 @@ from watchstreet.web.deps import ContainerDep, SessionDep, get_or_404
 router = APIRouter(tags=["system"])
 API = "/api/v1"
 MANUAL_FILE = "user-manual.md"
+REGISTRY_SOURCES = {"wikidata": "Wikidata", "mrds": "USGS MRDS"}
 
 
 @router.get("/healthz")
@@ -107,6 +110,47 @@ def add_document(body: DocumentBody, session: SessionDep) -> dict[str, Any]:
     if proposal is None:
         raise HTTPException(status_code=400, detail="Vorschlag konnte nicht angelegt werden")
     return payloads.ticket(proposals.start(session, proposal))
+
+
+# --- registry --------------------------------------------------------------------------
+
+
+class RegistryBody(BaseModel):
+    source: str = "wikidata"
+    company: str = ""
+    south: float = 0.0
+    west: float = 0.0
+    north: float = 0.0
+    east: float = 0.0
+
+
+@router.post(f"{API}/registry/import")
+def registry_import(
+    body: RegistryBody, session: SessionDep, container: ContainerDep
+) -> dict[str, Any]:
+    """Queue loading mine locations from a public register for a map area or a company."""
+    if container.is_demo:
+        raise HTTPException(
+            status_code=400, detail="Im Demo-Modus werden keine echten Registerdaten geladen"
+        )
+    company = body.company.strip()
+    if body.source not in REGISTRY_SOURCES or (company and body.source != "wikidata"):
+        raise HTTPException(status_code=422, detail="Unbekanntes Register")
+    span = max(body.north - body.south, body.east - body.west)
+    if not company and not 0 < span <= REGISTRY_MAX_SPAN_DEG:
+        raise HTTPException(
+            status_code=422, detail="Kartenausschnitt zu gross – bitte näher heranzoomen"
+        )
+    title = (
+        f"Register: Minen von {company}"
+        if company
+        else f"Register {REGISTRY_SOURCES[body.source]}: Kartenausschnitt laden"
+    )
+    params = body.model_dump() if not company else {"company": company}
+    ticket = create_ticket(
+        session, SubjectType.REGION, 0, WorkflowKey.EXPLORE_REGISTRY, title, params=params
+    )
+    return payloads.ticket(ticket)
 
 
 # --- portfolio -----------------------------------------------------------------------

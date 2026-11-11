@@ -100,6 +100,8 @@ def _propose(session: Session, asset: Asset, template: str, **params: str) -> in
 def _gap_rule(session: Session, bundle: Bundle, ctx: ViewContext, report: EngineReport) -> None:
     for asset in bundle.assets:
         status = _status(asset, ctx)
+        if status == "unknown":  # registry entries wait for the user to ask for a profile
+            continue
         facts = latest_per_metric(bundle.facts.get(asset.id, []), ctx.as_of, ctx.view)
         for metric in key_metrics(status):
             if metric in facts:

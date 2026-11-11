@@ -19,6 +19,7 @@ class WorkflowKey(StrEnum):
     ESTIMATE_COST = "estimate_cost"
     STRATEGIC_QUESTION = "strategic_question"
     READ_DOCUMENT = "read_document"
+    EXPLORE_REGISTRY = "explore_registry"
 
 
 class SubjectType(StrEnum):
@@ -28,6 +29,7 @@ class SubjectType(StrEnum):
     COMPANY = "company"
     COMMODITY = "commodity"
     THESIS = "thesis"
+    REGION = "region"  # a map area; used by registry imports, which have no single object
 
 
 class AssetKind(StrEnum):

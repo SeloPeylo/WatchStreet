@@ -30,7 +30,14 @@ from watchstreet.constants import (
 )
 from watchstreet.errors import WatchStreetError
 
-TEXT_TYPES = ("text/", "application/json", "application/xml", "application/rss", "application/atom")
+TEXT_TYPES = (
+    "text/",
+    "application/json",
+    "application/xml",
+    "application/rss",
+    "application/atom",
+    "application/sparql-results",
+)
 HTML_TYPES = ("text/html", "application/xhtml")
 PDF_TYPE = "application/pdf"
 BLOCK_TAGS = {"p", "div", "br", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6", "table", "section"}

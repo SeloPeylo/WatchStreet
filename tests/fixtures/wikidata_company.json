@@ -1,0 +1,613 @@
+{
+  "head" : {
+    "vars" : [ "m", "mLabel", "coord", "countryLabel", "opLabel", "ownLabel", "prodLabel" ]
+  },
+  "results" : {
+    "bindings" : [ {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q119297"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(137.115833333 -4.052777777)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Grasberg Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Indonesia"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "ownLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "copper ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q119297"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(137.115833333 -4.052777777)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Grasberg Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Indonesia"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "ownLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "copper ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q119297"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(137.115833333 -4.052777777)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Grasberg Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Indonesia"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "ownLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "copper ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q119297"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(137.115833333 -4.052777777)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Grasberg Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Indonesia"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "ownLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "copper ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q119297"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(137.115833333 -4.052777777)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Grasberg Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Indonesia"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "ownLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Government of Indonesia"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "copper ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q119297"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(137.115833333 -4.052777777)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Grasberg Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Indonesia"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "ownLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Government of Indonesia"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "copper ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q119297"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(137.115833333 -4.052777777)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Grasberg Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Indonesia"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "ownLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Government of Indonesia"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "copper ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q119297"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(137.115833333 -4.052777777)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Grasberg Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Indonesia"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "ownLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Government of Indonesia"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "copper ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q15195977"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(-113.21194444 34.58472222)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Bagdad mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "United States"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "chalcopyrite"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q15256199"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(-109.341 33.0625)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Morenci Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "United States"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "chalcopyrite"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q15256199"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(-109.36666667 33.09055556)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Morenci Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "United States"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "chalcopyrite"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q16509152"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(-68.833333333 -21.933333333)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "El Abra mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Chile"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Codelco"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "silver ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q16509152"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(-68.833333333 -21.933333333)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "El Abra mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Chile"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "silver ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q16509152"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(-68.833333333 -21.933333333)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "El Abra mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Chile"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Codelco"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "copper ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q16509152"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(-68.833333333 -21.933333333)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "El Abra mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Chile"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "copper ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q16509178"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(-113.214 34.5903)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Bagdad Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "United States"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "copper ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q16509178"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(-113.214 34.5903)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Bagdad Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "United States"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "copper ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q16965917"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(-75.1085 -15.2039)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Marcona mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Peru"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      },
+      "prodLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "iron ore"
+      }
+    }, {
+      "m" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q137858541"
+      },
+      "coord" : {
+        "datatype" : "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type" : "literal",
+        "value" : "Point(-80.043 39.976)"
+      },
+      "mLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport Mine"
+      },
+      "countryLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "United States"
+      },
+      "opLabel" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Freeport-McMoRan"
+      }
+    } ]
+  }
+}

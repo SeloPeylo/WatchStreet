@@ -156,6 +156,9 @@ class Asset(Base):
     mining_method: Mapped[str] = mapped_column(String(16), default="unknown")
     summary: Mapped[str] = mapped_column(Text, default="")
     is_demo: Mapped[bool] = mapped_column(default=False)
+    # where a registry import found it (wikidata, mrds); empty for hand-made and demo assets
+    registry_source: Mapped[str] = mapped_column(String(16), default="")
+    registry_id: Mapped[str] = mapped_column(String(64), default="", index=True)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
     commodities: Mapped[list["AssetCommodity"]] = relationship(

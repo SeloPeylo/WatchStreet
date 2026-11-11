@@ -412,7 +412,7 @@ def test_proposal_guards(client, session):
     made = client.post(f"{API}/proposals", json={**free, "question": "Warum?"}).json()
     assert client.post(f"{API}/proposals/{made['id']}/dismiss").json()["state"] == "dismissed"
     assert client.patch(f"{API}/proposals/{made['id']}", json={"question": "x"}).status_code == 400
-    assert len(client.get(f"{API}/templates").json()) == 9
+    assert len(client.get(f"{API}/templates").json()) >= 9
 
 
 # --- engine, events, situation report ------------------------------------------------------

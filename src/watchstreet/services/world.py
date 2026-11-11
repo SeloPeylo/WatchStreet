@@ -350,6 +350,7 @@ def card(asset: Asset, bundle: Bundle, ctx: ViewContext) -> dict[str, Any]:
         "mining_method": asset.mining_method,
         "summary": asset.summary,
         "is_demo": asset.is_demo,
+        "registry_source": asset.registry_source,
         "commodity": commodity,
         "commodities": [{"key": c.commodity, "role": c.role} for c in asset.commodities],
         "status": status,
@@ -426,5 +427,11 @@ def _mid(value: Interval | None) -> float | None:
 
 
 def existed_on(asset: Asset, day: date) -> bool:
-    """An asset appears on the map from its first known status or milestone onwards."""
+    """An asset appears on the map from its first known status onwards.
+
+    Registry entries have a location but no dated status yet; they are shown for today only,
+    as "status unknown", never in a view of the past.
+    """
+    if not asset.statuses:
+        return day >= asset.created_at.date()
     return any(p.valid_from <= day for p in asset.statuses)

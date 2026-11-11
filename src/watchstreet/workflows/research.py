@@ -30,6 +30,7 @@ from watchstreet.domain import (
 )
 from watchstreet.errors import WatchStreetError
 from watchstreet.intel import documents
+from watchstreet.intel.connectors import registry
 from watchstreet.intel.fetch import Fetcher
 from watchstreet.metrics import (
     COMPANY_CARD,
@@ -46,6 +47,7 @@ from watchstreet.services.companies import company_facts
 from watchstreet.services.engine import peer_costs
 from watchstreet.services.facts import FactError, FactInput, record_fact
 from watchstreet.services.proposals import create_proposal
+from watchstreet.services.registry import import_mines
 from watchstreet.services.world import (
     ViewContext,
     card,
@@ -531,11 +533,39 @@ def link_document(session: Session, document_id: int, subject_type: str, subject
         session.flush()
 
 
+def explore_registry(ctx: ResearchContext) -> ResearchResult:
+    """Load mine locations from a public register for a map area or a company (no LLM)."""
+    params = ctx.ticket.params
+    if params.get("company"):
+        mines = registry.wikidata_by_company(ctx.fetcher, str(params["company"]))
+    else:
+        box = registry.Box(*(float(params[k]) for k in ("south", "west", "north", "east")))
+        search = (
+            registry.mrds_in_box if params.get("source") == "mrds" else registry.wikidata_in_box
+        )
+        mines = search(ctx.fetcher, box)
+    report = import_mines(ctx.session, mines)
+    result = ResearchResult(
+        answer=(
+            f"{report.created} neue Objekte aus dem Register übernommen; {report.known} waren schon "
+            f"vorhanden, {report.other_commodity} betreffen andere Rohstoffe oder nennen keinen."
+        ),
+        uncertainties=[
+            "Register liefern Ort, Namen und teils den Betreiber – keinen aktuellen Status, keine "
+            "Produktion und keine Kosten. Diese bleiben unbekannt, bis sie recherchiert sind.",
+        ],
+    )
+    if not mines:
+        result.not_found.append("Das Register enthält für diese Anfrage keine Einträge.")
+    return result
+
+
 WORKFLOWS: dict[str, Callable[[ResearchContext], ResearchResult]] = {
     WorkflowKey.FILL_METRIC: fill_metric,
     WorkflowKey.ESTIMATE_COST: estimate_cost,
     WorkflowKey.STRATEGIC_QUESTION: strategic_question,
     WorkflowKey.READ_DOCUMENT: read_document,
+    WorkflowKey.EXPLORE_REGISTRY: explore_registry,
 }
 
 

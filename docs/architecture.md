@@ -40,6 +40,19 @@ worker ▶ harness (scan, executor) ▶ workflows.research ▶ agents (offline, 
 → `workflows.research.run_workflow` → facts, `Finding`, follow-up proposals, change log → `done`.
 The UI polls `/api/v1/notifications` and refreshes when something finished.
 
+## Registry seeding and lazy research
+
+`intel/connectors/registry` reads Wikidata (SPARQL) and USGS MRDS (WFS) through the guarded fetcher.
+`services/registry.import_mines` creates assets with location, name and – if named – operator, each
+backed by a stored registry document; it never sets status, production or cost. The import runs as
+ticket `explore_registry` (no LLM). Profiles are then researched on request per asset.
+
+## Company level
+
+`services/companies.company_view` adds what decides whether a company lives to benefit from its
+assets: facts on the company (cash, debt, burn, shares), derived runway and dilution, people,
+financings, royalty burdens, a price sensitivity and a ten-question checklist.
+
 ## Schema
 
 Alembic migrations in `src/watchstreet/migrations/versions`. `0003` replaces the former dashboard

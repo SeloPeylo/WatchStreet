@@ -123,6 +123,7 @@ interface Props {
   company: string;
   focus: number[]; // asset ids to frame (e.g. those of a thesis)
   onPick: (id: number, add: boolean) => void;
+  onBounds: (box: { south: number; west: number; north: number; east: number }) => void;
 }
 
 export function MapView(props: Props) {
@@ -221,6 +222,12 @@ export function MapView(props: Props) {
           popup.remove();
         });
       }
+      const report = () => {
+        const b = m.getBounds();
+        latest.current.onBounds({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() });
+      };
+      m.on("moveend", report);
+      report();
       ready.current = true;
       draw();
     });

@@ -72,6 +72,8 @@ max-statements = 40
 max-returns = 5
 
 [tool.ruff.lint.per-file-ignores]
+"src/watchstreet/intel/connectors/registry.py" = ["E501"]  # SPARQL fragments
+"src/watchstreet/services/registry.py" = ["E501"]
 "src/watchstreet/metrics.py" = ["E501"]  # extraction patterns stay on one line each
 "src/watchstreet/services/companies.py" = ["E501"]  # checklist questions read as a table
 "src/watchstreet/services/engine.py" = ["E501"]  # German finding sentences

@@ -1,0 +1,936 @@
+<?xml version='1.0' encoding="UTF-8" ?>
+<wfs:FeatureCollection
+   xmlns:ms="http://mapserver.gis.umn.edu/mapserver"
+   xmlns:gml="http://www.opengis.net/gml"
+   xmlns:wfs="http://www.opengis.net/wfs"
+   xmlns:ogc="http://www.opengis.net/ogc"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://mapserver.gis.umn.edu/mapserver https://mrdata.usgs.gov/services/wfs/mrds?SERVICE=WFS&amp;VERSION=1.1.0&amp;REQUEST=DescribeFeatureType&amp;TYPENAME=mrds&amp;OUTPUTFORMAT=text/xml;%20subtype=gml/3.1.1  http://www.opengis.net/wfs http://schemas.opengis.net/wfs/1.1.0/wfs.xsd">
+      <gml:boundedBy>
+      	<gml:Envelope srsName="EPSG:4326">
+      		<gml:lowerCorner>40.516580 -116.580930</gml:lowerCorner>
+      		<gml:upperCorner>40.942120 -116.011100</gml:upperCorner>
+      	</gml:Envelope>
+      </gml:boundedBy>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.120880">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.520210 -116.017010</gml:lowerCorner>
+        		<gml:upperCorner>40.520210 -116.017010</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.520210 -116.017010</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10124360</ms:dep_id>
+        <ms:site_name>Storm King</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32007</ms:fips_code>
+        <ms:huc_code>h16040103</ms:huc_code>
+        <ms:quad_code>q41118NEH4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10124360</ms:url>
+        <ms:code_list> AG CU PB</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.192154">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.671310 -116.266520</gml:lowerCorner>
+        		<gml:upperCorner>40.671310 -116.266520</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.671310 -116.266520</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10197351</ms:dep_id>
+        <ms:site_name>Black Rock I</ms:site_name>
+        <ms:dev_stat>Unknown</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEF3</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10197351</ms:url>
+        <ms:code_list> W</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.287758">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.569910 -116.580930</gml:lowerCorner>
+        		<gml:upperCorner>40.569910 -116.580930</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.569910 -116.580930</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10295201</ms:dep_id>
+        <ms:site_name>Beowawe Hot Springs - Geysers</ms:site_name>
+        <ms:dev_stat>Unknown</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NED4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10295201</ms:url>
+        <ms:code_list> GEO</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.287959">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.583210 -116.192620</gml:lowerCorner>
+        		<gml:upperCorner>40.583210 -116.192620</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.583210 -116.192620</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10295406</ms:dep_id>
+        <ms:site_name>Zeolite Occurrence</ms:site_name>
+        <ms:dev_stat>Unknown</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEG4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10295406</ms:url>
+        <ms:code_list> ZEO</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.301770">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.613480 -116.011100</gml:lowerCorner>
+        		<gml:upperCorner>40.613480 -116.011100</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.613480 -116.011100</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10310534</ms:dep_id>
+        <ms:site_name>Rain Mine</ms:site_name>
+        <ms:dev_stat>Producer</ms:dev_stat>
+        <ms:fips_code>f32007</ms:fips_code>
+        <ms:huc_code>h16040103</ms:huc_code>
+        <ms:quad_code>q41118NEH4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10310534</ms:url>
+        <ms:code_list> AU BA AS HG</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.46250">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.929900 -116.323990</gml:lowerCorner>
+        		<gml:upperCorner>40.929900 -116.323990</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.929900 -116.323990</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10047571</ms:dep_id>
+        <ms:site_name>Genesis Mine</ms:site_name>
+        <ms:dev_stat>Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF1</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10047571</ms:url>
+        <ms:code_list> AU</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.8636">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.666580 -116.267590</gml:lowerCorner>
+        		<gml:upperCorner>40.666580 -116.267590</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.666580 -116.267590</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10008818</ms:dep_id>
+        <ms:site_name>Angelo Belli</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEF3</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10008818</ms:url>
+        <ms:code_list> W CU AG AU PB MN</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.39378">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.911840 -116.323990</gml:lowerCorner>
+        		<gml:upperCorner>40.911840 -116.323990</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.911840 -116.323990</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10040611</ms:dep_id>
+        <ms:site_name>Carlin Gold Mine</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF1</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10040611</ms:url>
+        <ms:code_list> AU HG AG ZN PB CU TL</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.42812">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.916570 -116.292600</gml:lowerCorner>
+        		<gml:upperCorner>40.916570 -116.292600</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.916570 -116.292600</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044097</ms:dep_id>
+        <ms:site_name>Black Matrix Claim</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEF1</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044097</ms:url>
+        <ms:code_list> GEM</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.42813">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.924340 -116.342870</gml:lowerCorner>
+        		<gml:upperCorner>40.924340 -116.342870</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.924340 -116.342870</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044098</ms:dep_id>
+        <ms:site_name>Bullion-Monarch Open Pit Mine</ms:site_name>
+        <ms:dev_stat>Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF1</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044098</ms:url>
+        <ms:code_list> AU AG</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.42814">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.909070 -116.304820</gml:lowerCorner>
+        		<gml:upperCorner>40.909070 -116.304820</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.909070 -116.304820</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044099</ms:dep_id>
+        <ms:site_name>Morning Glory Prospect</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEF1</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044099</ms:url>
+        <ms:code_list> SB BI AU AG</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.42815">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.931840 -116.312320</gml:lowerCorner>
+        		<gml:upperCorner>40.931840 -116.312320</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.931840 -116.312320</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044100</ms:dep_id>
+        <ms:site_name>Gold Dollar Mine</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF1</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044100</ms:url>
+        <ms:code_list> AU</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.42817">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.921010 -116.341760</gml:lowerCorner>
+        		<gml:upperCorner>40.921010 -116.341760</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.921010 -116.341760</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044102</ms:dep_id>
+        <ms:site_name>Sheep Creek Placer</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF1</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044102</ms:url>
+        <ms:code_list> AU</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.42818">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.934620 -116.335650</gml:lowerCorner>
+        		<gml:upperCorner>40.934620 -116.335650</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.934620 -116.335650</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044103</ms:dep_id>
+        <ms:site_name>Rodeo Creek Placer</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF1</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044103</ms:url>
+        <ms:code_list> AU</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.42819">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.942120 -116.370930</gml:lowerCorner>
+        		<gml:upperCorner>40.942120 -116.370930</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.942120 -116.370930</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044104</ms:dep_id>
+        <ms:site_name>August Berning Mine</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF1</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044104</ms:url>
+        <ms:code_list> GEM</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43414">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.749900 -116.334260</gml:lowerCorner>
+        		<gml:upperCorner>40.749900 -116.334260</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.749900 -116.334260</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044710</ms:dep_id>
+        <ms:site_name>Asphaltite</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF3</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044710</ms:url>
+        <ms:code_list> V AU U OIL_R</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43415">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.810180 -116.225360</gml:lowerCorner>
+        		<gml:upperCorner>40.810180 -116.225360</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.810180 -116.225360</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044711</ms:dep_id>
+        <ms:site_name>Maggie Creek Barite Mine</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEG2</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044711</ms:url>
+        <ms:code_list> BA AG</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43416">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.809900 -116.225640</gml:lowerCorner>
+        		<gml:upperCorner>40.809900 -116.225640</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.809900 -116.225640</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044712</ms:dep_id>
+        <ms:site_name>Nevada Star Mine</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEG2</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044712</ms:url>
+        <ms:code_list> PB AG AU CU</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43417">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.789910 -116.217590</gml:lowerCorner>
+        		<gml:upperCorner>40.789910 -116.217590</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.789910 -116.217590</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044713</ms:dep_id>
+        <ms:site_name>South End of Good Hope Claims</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEG2</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044713</ms:url>
+        <ms:code_list> BA PB AG</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43418">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.791580 -116.209250</gml:lowerCorner>
+        		<gml:upperCorner>40.791580 -116.209250</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.791580 -116.209250</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044714</ms:dep_id>
+        <ms:site_name>Gold Quarry Mine</ms:site_name>
+        <ms:dev_stat>Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEG2</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044714</ms:url>
+        <ms:code_list> AU AG AS SB HG TL BA PB ZN CU MN NI</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43419">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.810470 -116.220360</gml:lowerCorner>
+        		<gml:upperCorner>40.810470 -116.220360</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.810470 -116.220360</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044715</ms:dep_id>
+        <ms:site_name>Nelson Barite Mine</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEG2</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044715</ms:url>
+        <ms:code_list> BA</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43420">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.842400 -116.182590</gml:lowerCorner>
+        		<gml:upperCorner>40.842400 -116.182590</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.842400 -116.182590</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044716</ms:dep_id>
+        <ms:site_name>Queen Ann Pit</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEG2</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044716</ms:url>
+        <ms:code_list> BA</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43421">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.749910 -116.250920</gml:lowerCorner>
+        		<gml:upperCorner>40.749910 -116.250920</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.749910 -116.250920</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044717</ms:dep_id>
+        <ms:site_name>Marys Mtn.</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEF3</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044717</ms:url>
+        <ms:code_list> DIT</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43440">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.567690 -116.250090</gml:lowerCorner>
+        		<gml:upperCorner>40.567690 -116.250090</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.567690 -116.250090</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044736</ms:dep_id>
+        <ms:site_name>Safford Canyon</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044736</ms:url>
+        <ms:code_list> BA</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43441">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.567130 -116.254530</gml:lowerCorner>
+        		<gml:upperCorner>40.567130 -116.254530</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.567130 -116.254530</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044737</ms:dep_id>
+        <ms:site_name>Onondaga</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044737</ms:url>
+        <ms:code_list> AG CU PB AU ZN</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43442">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.567410 -116.258140</gml:lowerCorner>
+        		<gml:upperCorner>40.567410 -116.258140</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.567410 -116.258140</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044738</ms:dep_id>
+        <ms:site_name>Zenoli Mine</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044738</ms:url>
+        <ms:code_list> AG CU PB ZN AU SB</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43443">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.578520 -116.270360</gml:lowerCorner>
+        		<gml:upperCorner>40.578520 -116.270360</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.578520 -116.270360</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044739</ms:dep_id>
+        <ms:site_name>Barth Mine</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044739</ms:url>
+        <ms:code_list> FE AG</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43444">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.613800 -116.263700</gml:lowerCorner>
+        		<gml:upperCorner>40.613800 -116.263700</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.613800 -116.263700</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044740</ms:dep_id>
+        <ms:site_name>Black Rock</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044740</ms:url>
+        <ms:code_list> MN</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43445">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.567130 -116.257860</gml:lowerCorner>
+        		<gml:upperCorner>40.567130 -116.257860</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.567130 -116.257860</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044741</ms:dep_id>
+        <ms:site_name>Ruby Claim</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEF4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044741</ms:url>
+        <ms:code_list> CU BA</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43446">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.582130 -116.230360</gml:lowerCorner>
+        		<gml:upperCorner>40.582130 -116.230360</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.582130 -116.230360</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044742</ms:dep_id>
+        <ms:site_name>Humboldt</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEG4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044742</ms:url>
+        <ms:code_list> CU</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43447">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.572130 -116.220920</gml:lowerCorner>
+        		<gml:upperCorner>40.572130 -116.220920</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.572130 -116.220920</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044743</ms:dep_id>
+        <ms:site_name>Bonanza Mine</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEG4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044743</ms:url>
+        <ms:code_list> AG PB</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43448">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.583240 -116.192590</gml:lowerCorner>
+        		<gml:upperCorner>40.583240 -116.192590</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.583240 -116.192590</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044744</ms:dep_id>
+        <ms:site_name>Unnamed Zeolite</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEG4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044744</ms:url>
+        <ms:code_list> ZEO</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43449">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.618520 -116.222860</gml:lowerCorner>
+        		<gml:upperCorner>40.618520 -116.222860</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.618520 -116.222860</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044745</ms:dep_id>
+        <ms:site_name>Unnamed Iron</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040105</ms:huc_code>
+        <ms:quad_code>q41118NEG4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044745</ms:url>
+        <ms:code_list> FE</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43450">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.672970 -116.246200</gml:lowerCorner>
+        		<gml:upperCorner>40.672970 -116.246200</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.672970 -116.246200</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044746</ms:dep_id>
+        <ms:site_name>Emigrant Pass</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEG3</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044746</ms:url>
+        <ms:code_list> PER</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43451">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.623520 -116.181480</gml:lowerCorner>
+        		<gml:upperCorner>40.623520 -116.181480</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.623520 -116.181480</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044747</ms:dep_id>
+        <ms:site_name>Palisade Canyon</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEG4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044747</ms:url>
+        <ms:code_list> PER</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43452">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.623240 -116.186480</gml:lowerCorner>
+        		<gml:upperCorner>40.623240 -116.186480</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.623240 -116.186480</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10044748</ms:dep_id>
+        <ms:site_name>Palisade</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32011</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEG4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10044748</ms:url>
+        <ms:code_list> PUM</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43861">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.643520 -116.073140</gml:lowerCorner>
+        		<gml:upperCorner>40.643520 -116.073140</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.643520 -116.073140</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10045158</ms:dep_id>
+        <ms:site_name>Deerhead Prospect</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32007</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEH3</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10045158</ms:url>
+        <ms:code_list> U</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.43862">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.700190 -116.136750</gml:lowerCorner>
+        		<gml:upperCorner>40.700190 -116.136750</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.700190 -116.136750</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10045159</ms:dep_id>
+        <ms:site_name>Unknown-Gravel Pit</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32007</ms:fips_code>
+        <ms:huc_code>h16040101</ms:huc_code>
+        <ms:quad_code>q41118NEG3</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10045159</ms:url>
+        <ms:code_list> SDG</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.44274">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.521020 -116.017300</gml:lowerCorner>
+        		<gml:upperCorner>40.521020 -116.017300</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.521020 -116.017300</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10045574</ms:dep_id>
+        <ms:site_name>Humboldt</ms:site_name>
+        <ms:dev_stat>Occurrence</ms:dev_stat>
+        <ms:fips_code>f32007</ms:fips_code>
+        <ms:huc_code>h16040103</ms:huc_code>
+        <ms:quad_code>q41118NEH4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10045574</ms:url>
+        <ms:code_list> PB AG CU</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+    <gml:featureMember>
+      <ms:mrds gml:id="mrds.44275">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="EPSG:4326">
+        		<gml:lowerCorner>40.516580 -116.013970</gml:lowerCorner>
+        		<gml:upperCorner>40.516580 -116.013970</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geometry>
+          <gml:Point srsName="EPSG:4326">
+            <gml:pos>40.516580 -116.013970</gml:pos>
+          </gml:Point>
+        </ms:geometry>
+        <ms:dep_id>10045575</ms:dep_id>
+        <ms:site_name>Last Chance</ms:site_name>
+        <ms:dev_stat>Past Producer</ms:dev_stat>
+        <ms:fips_code>f32007</ms:fips_code>
+        <ms:huc_code>h16040103</ms:huc_code>
+        <ms:quad_code>q41118NEH4</ms:quad_code>
+        <ms:url>https://mrdata.usgs.gov/mrds/show-mrds.php?dep_id=10045575</ms:url>
+        <ms:code_list> AG AU</ms:code_list>
+      </ms:mrds>
+    </gml:featureMember>
+</wfs:FeatureCollection>
+
