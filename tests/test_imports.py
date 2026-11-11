@@ -67,16 +67,22 @@ def select_asset(name):
 def test_user_confirms_or_retracts_an_imported_figure(client, session):
     _import(client, text=TABLE)
     rows = {r["metric"]: r for r in client.get(f"{API}/imports/unverified").json()}
-    confirmed = client.post(f"{API}/facts/{rows['aisc']['fact_id']}/confirm").json()
-    assert confirmed["origin"] == "user" and not confirmed["unverified"]
+    confirm = f"{API}/facts/{rows['aisc']['fact_id']}/confirm"
+    assert client.post(confirm, json={"reason": "ok"}).status_code == 400  # no rubber stamp
+    confirmed = client.post(confirm, json={"reason": "Im Jahresbericht nachgelesen"}).json()
+    assert confirmed["origin"] == "user" and confirmed["own_claim"]
+    assert confirmed["confidence"] == "low" and confirmed["confirm_reason"].startswith("Im Jahr")
     retracted = client.post(f"{API}/facts/{rows['reserves']['fact_id']}/retract").json()
     assert retracted["retracted"]
     left = client.get(f"{API}/imports/unverified").json()
     assert [r["metric"] for r in left] == ["production"]
     asset = client.get(f"{API}/assets/{rows['aisc']['subject_id']}").json()["card"]
     metrics = {m["metric"]: m for m in asset["metrics"]}
-    assert metrics["reserves"]["provenance"] == "unknown" and not metrics["aisc"]["unverified"]
-    assert client.post(f"{API}/facts/{rows['aisc']['fact_id']}/confirm").status_code == 400
+    assert metrics["reserves"]["provenance"] == "unknown" and metrics["aisc"]["own_claim"]
+    economics = {m["metric"]: m for m in asset["economics"]}
+    assert economics["margin_pct"]["unverified"]  # derived figures inherit the weak input
+    assert asset["knowledge"]["status"] == "unexamined"  # an import is not knowledge
+    assert client.post(confirm, json={"reason": "noch einmal dasselbe"}).status_code == 400
     assert client.post(f"{API}/facts/{rows['reserves']['fact_id']}/retract").status_code == 400
 
 
@@ -177,3 +183,22 @@ def test_api_token_opens_the_api_without_a_browser_session(tmp_path):
         body = {"rows": [{"name": "Demo Mina Laguna Clara", "aisc": 9.5}]}
         assert client.post(f"{API}/imports", json=body, headers=good).status_code == 201
     container.engine.dispose()
+
+
+def test_import_rejects_implausible_values_keeps_conflicts_and_retract_restores(client, session):
+    bad = "name;aisc;recovery;reserves\nDemo Mina Laguna Clara;-3;140;-5\n"
+    report = _import(client, text=bad)
+    assert report["facts"] == 0 and len(report["skipped"]) == 3
+    report = _import(client, text="name;production\nDemo Mina Altiplano;999999\n")
+    assert len(report["conflicts"]) == 1
+    asset = session.scalars(select_asset("Demo Mina Altiplano")).one()
+    findings = client.get(f"{API}/assets/{asset.id}").json()["findings"]
+    assert any("nennt für Jahresproduktion 999999" in f["text"] for f in findings)
+    first = _import(client, text="name;grade\nDemo Mina Laguna Clara;0.51 Prozent Cu\n")
+    _import(client, text="name;grade\nDemo Mina Laguna Clara;0.82 Prozent Cu\n\n")
+    newest = client.get(f"{API}/imports/unverified").json()[0]
+    assert newest["fact_id"] != first["fact_ids"][0]
+    client.post(f"{API}/facts/{newest['fact_id']}/retract")
+    assert client.get(f"{API}/imports/unverified").json()[0]["fact_id"] == first["fact_ids"][0]
+    stress = client.get(f"{API}/map", params={"commodity": "copper"}).json()["summary"]
+    assert stress["unverified"] == 0

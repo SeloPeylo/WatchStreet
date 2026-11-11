@@ -31,6 +31,7 @@ from watchstreet.container import (
     Container,
     agent_config,
     runner_for,
+    runner_from_config,
 )
 from watchstreet.domain import DataOrigin, SubjectType, TicketStatus, WorkflowKey
 from watchstreet.models import (
@@ -331,9 +332,23 @@ def set_agent(body: AgentBody, session: SessionDep, container: ContainerDep) -> 
 
 
 @router.post(f"{API}/system/agent/test")
-def test_agent(session: SessionDep, container: ContainerDep) -> dict[str, Any]:
-    """One tiny request to the configured backend, to see whether key and address work."""
+def test_agent(
+    session: SessionDep, container: ContainerDep, body: AgentBody | None = None
+) -> dict[str, Any]:
+    """One tiny request to see whether key and address work.
+
+    With a body the settings in it are tried without saving them (an empty key uses the
+    stored one); without a body the active backend is tried.
+    """
     runner = runner_for(container, session)
+    if body is not None and body.runner in RUNTIME_RUNNERS:
+        key = body.api_key.strip() or agent_config(session).get("api_key", "")
+        trial = {"runner": body.runner, "model": body.model.strip(), "api_key": key}
+        trial["base_url"] = body.base_url.strip()
+        try:
+            runner = runner_from_config(container, trial)
+        except AgentError as exc:
+            return {"ok": False, "detail": str(exc)[:AGENT_TEST_CHARS]}
     if runner.name == "offline":
         return {"ok": False, "detail": "Kein Agent konfiguriert"}
     try:
@@ -512,8 +527,14 @@ def decision_journal(session: SessionDep) -> list[dict[str, Any]]:
 
 
 @router.delete(f"{API}/portfolio/holdings/{{holding_id}}")
-def remove_holding(holding_id: int, session: SessionDep) -> dict[str, str]:
-    session.delete(get_or_404(session, Holding, holding_id))
+def remove_holding(holding_id: int, session: SessionDep, container: ContainerDep) -> dict[str, str]:
+    """Remove a position entered by mistake; the journal still records that it was removed."""
+    holding = get_or_404(session, Holding, holding_id)
+    portfolio.record_decision(
+        session, container.market, holding.stock, "remove", "Position ohne Verkauf entfernt",
+        thesis_id=holding.thesis_id, quantity=holding.quantity,
+    )  # fmt: skip
+    session.delete(holding)
     return {"status": "deleted"}
 
 

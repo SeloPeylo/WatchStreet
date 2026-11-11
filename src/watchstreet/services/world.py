@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from watchstreet.analysis.rules import KnowledgeInputs, knowledge_status
 from watchstreet.commodities import BY_KEY
-from watchstreet.constants import PERCENT, STALE_FACT_AFTER
+from watchstreet.constants import PERCENT, STALE_FACT_AFTER, USER_CONFIRMED
 from watchstreet.domain import (
     ClaimKind,
     DataOrigin,
@@ -156,6 +156,11 @@ def primary_commodity(asset: Asset) -> str:
     return primary[0] if primary else (asset.commodities[0].commodity if asset.commodities else "")
 
 
+def is_unproven(fact: Fact) -> bool:
+    """No primary source stands behind it: imported, or imported and merely vouched for."""
+    return fact.origin == DataOrigin.IMPORT or fact.formula_key == USER_CONFIRMED
+
+
 def metric_unit(subject: Asset | Company, metric_key: str) -> str:
     """The unit a figure of this subject carries, from the commodity or the metric catalog."""
     metric = METRICS[metric_key]
@@ -197,6 +202,7 @@ def fact_payload(fact: Fact | None, metric_key: str, ctx: ViewContext) -> dict[s
         "confidence": fact.confidence,
         "origin": fact.origin,
         "unverified": fact.origin == DataOrigin.IMPORT,
+        "own_claim": fact.formula_key == USER_CONFIRMED,
         "fact_id": fact.id,
         "document_id": fact.document_id,
         "is_demo": fact.is_demo,
@@ -227,6 +233,10 @@ class AssetEconomics:
     def provenance(self) -> str:
         weakest_is_estimate = any(f.provenance == Provenance.ESTIMATED for f in self.inputs)
         return Provenance.ESTIMATED if weakest_is_estimate else Provenance.DERIVED
+
+    @property
+    def unproven(self) -> bool:
+        return any(is_unproven(f) for f in self.inputs)
 
 
 def asset_economics(
@@ -278,6 +288,7 @@ def _derived(
         "formula": formula,
         "input_fact_ids": [f.id for f in econ.inputs],
         "origin": DataOrigin.ENGINE,
+        "unverified": econ.unproven,  # inherits the weakness of its inputs
     }
 
 
@@ -312,7 +323,14 @@ def economics_payload(econ: AssetEconomics | None, commodity: str) -> list[dict[
             "Produktion × (Preis nach Royalties − Kosten)",
             econ,
         ),
-        _derived("mine_life", "Restlaufzeit", life, "Jahre", "Reserven / Produktion", econ),
+        _derived(
+            "mine_life",
+            "Restlaufzeit",
+            life,
+            "Jahre",
+            "Reserven / Produktion, höchstens 30 Jahre",
+            econ,
+        ),
         _derived(
             "nav",
             "Einfacher Asset-NAV",
@@ -337,7 +355,7 @@ def knowledge_payload(
     now = ctx.as_of is None  # research, visits and open questions belong to today, not to the past
     state = knowledge_status(
         KnowledgeInputs(
-            has_facts=bool(facts),
+            has_facts=any(not is_unproven(f) for f in facts.values()),  # an import is not knowledge
             has_agent_research=now and asset.id in bundle.researched,
             changed_since_visit=now and asset.id in bundle.changed,
             is_stale=stale,
@@ -449,6 +467,7 @@ def map_feature(asset: Asset, bundle: Bundle, ctx: ViewContext, color: str) -> d
             "margin": _mid(econ.result.margin_pct) if econ and not econ.is_forecast else None,
             "unit_cost": _mid(econ.result.cost) if econ and not econ.is_forecast else None,
             "production": _mid(fact_interval(facts.get("production"))),
+            "unverified": bool(econ and econ.unproven),
             "color_known": value is not None,
             "knowledge": knowledge["status"],
             "open_questions": knowledge["open_questions"],

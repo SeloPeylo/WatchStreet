@@ -211,5 +211,7 @@ VALUE_WEIGHTS: dict[str, float] = {
 IMPORT_TOLERANCE = 0.05  # relative difference up to which two figures count as the same
 MAX_LAT, MAX_LON = 90.0, 180.0
 MIN_IMPORT_CHARS = 20
+MIN_REASON_CHARS = 10  # a reason shorter than this is a formality, not a reason
+USER_CONFIRMED = "user_confirmed"  # formula_key of an imported figure the user vouched for
 MAX_IMPORT_ROWS = 2000
 MAX_IMPORT_PROMPT_CHARS = 60_000

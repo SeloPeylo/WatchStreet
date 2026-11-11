@@ -27,6 +27,7 @@ from watchstreet.services.world import (
     card,
     fact_interval,
     fact_payload,
+    is_unproven,
     load_bundle,
     primary_commodity,
     stakes_on,
@@ -91,6 +92,7 @@ def _derived(
         "formula": formula,
         "input_fact_ids": [f.id for f in used],
         "origin": DataOrigin.ENGINE,
+        "unverified": any(is_unproven(f) for f in used),
     }
 
 
@@ -134,6 +136,7 @@ class Attributable:
     cash_flow: float  # per year, by ownership
     valued: int  # producing assets that entered the NAV
     producing: int
+    unproven: bool = False  # built on at least one imported, unverified figure
 
 
 def _reserves(facts: Mapping[str, Fact]) -> float | None:
@@ -165,7 +168,9 @@ def _costs_known(bundle: Bundle, ctx: ViewContext) -> bool:
     ]
     return bool(producing) and all(
         any(
-            k in latest_per_metric(bundle.facts.get(a.id, []), ctx.as_of, ctx.view)
+            (f := latest_per_metric(bundle.facts.get(a.id, []), ctx.as_of, ctx.view).get(k))
+            is not None
+            and not is_unproven(f)
             for k in COST_METRICS
         )
         for a in producing
@@ -173,7 +178,7 @@ def _costs_known(bundle: Bundle, ctx: ViewContext) -> bool:
 
 
 def _attributable(bundle: Bundle, company_id: int, ctx: ViewContext) -> Attributable:
-    nav_total, cash_flow, valued, producing = 0.0, 0.0, 0, 0
+    nav_total, cash_flow, valued, producing, unproven = 0.0, 0.0, 0, 0, False
     for asset in bundle.assets:
         period = status_on(asset, ctx.reference)
         if period is None or period.status not in PRODUCING_STATUSES:
@@ -195,12 +200,13 @@ def _attributable(bundle: Bundle, company_id: int, ctx: ViewContext) -> Attribut
                 valued += 1
         if econ is None or share <= 0:
             continue
+        unproven = unproven or econ.unproven
         if econ.result.nav is not None:
             nav_total += econ.result.nav.mid * share
             valued += 1
         if econ.result.cash_flow is not None:
             cash_flow += max(econ.result.cash_flow.mid, 0.0) * share  # a losing mine is closed
-    return Attributable(nav_total if valued else None, cash_flow, valued, producing)
+    return Attributable(nav_total if valued else None, cash_flow, valued, producing, unproven)
 
 
 def _project_sum(
@@ -381,6 +387,9 @@ def company_view(
         ),
     ]  # fmt: skip
     derived = [m for m in derived if "value" in m or m["metric"] not in PRO_FORMA]
+    for row in derived:
+        if row["metric"] in ("nav_sum", "p_nav") and "value" in row:
+            row["unverified"] = attributable.unproven
     return {
         "id": company.id,
         "name": company.name,

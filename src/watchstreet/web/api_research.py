@@ -243,8 +243,13 @@ def update_assumption(
     assumption_id: int, body: AssumptionBody, session: SessionDep
 ) -> dict[str, Any]:
     assumption = get_or_404(session, ThesisAssumption, assumption_id)
-    if body.criterion is not None:
-        theses.update_assumption_test(session, assumption, body.criterion, body.review_by)
+    if body.criterion is not None or "review_by" in body.model_fields_set:
+        theses.update_assumption_test(
+            session,
+            assumption,
+            assumption.criterion if body.criterion is None else body.criterion,
+            body.review_by if "review_by" in body.model_fields_set else assumption.review_by,
+        )
     if body.status:
         theses.set_assumption_status(session, assumption, body.status, body.reason)
     return {"id": assumption.id, "status": assumption.status}

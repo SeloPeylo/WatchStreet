@@ -84,6 +84,7 @@ def _stress_summary(features: list[dict[str, Any]], commodity: str) -> dict[str,
     return {
         "producing": len(producing),
         "unknown": len(producing) - len(known),
+        "unverified": sum(1 for p in known if p["unverified"]),
         "under_water": len(under),
         "production_share_under_water": lost / total if total else None,
     }
@@ -226,10 +227,14 @@ def add_fact(body: FactBody, session: SessionDep, container: ContainerDep) -> di
     return payloads.fact_detail(fact)
 
 
+class ConfirmBody(BaseModel):
+    reason: str = ""
+
+
 @router.post("/facts/{fact_id}/confirm")
-def confirm_fact(fact_id: int, session: SessionDep) -> dict[str, Any]:
-    """The user vouches for an imported figure; it then counts as the user's own entry."""
-    fact = imports.confirm(session, get_or_404(session, Fact, fact_id))
+def confirm_fact(fact_id: int, body: ConfirmBody, session: SessionDep) -> dict[str, Any]:
+    """The user vouches for an imported figure and says why; it stays marked as an own claim."""
+    fact = imports.confirm(session, get_or_404(session, Fact, fact_id), body.reason)
     session.commit()
     return payloads.fact_detail(fact)
 

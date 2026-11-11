@@ -107,6 +107,31 @@ Prüfungen je These.
 | SOLL | Preishebel für Entwickler; Unternehmensvergleich | Rule |
 | KANN | Überzeugungsgrad je Annahme, Ursache-Wirkungs-Kette, Korrelation | |
 
+## Vierter Durchlauf (Inversion, in der Art von Charlie Munger)
+
+Leitfrage: Wie bringt das Werkzeug seinen Nutzer dazu, sich etwas vorzumachen? Testfall war eine
+Newsletter-Liste mit zu günstigen Zahlen.
+
+Behoben: „ungeprüft“ vererbt sich auf Marge, Cashflow, NAV, Unternehmenssummen, Kostenrangliste und
+Szenario-Banner; ein Import allein macht ein Objekt nicht „bekannt“ und erfüllt den Prüfkatalog nicht;
+Selbstbestätigung nur mit Begründung, bleibt als „eigene Annahme“ mit niedrigem Vertrauen markiert;
+Abweichungen zwischen Analyse und belegter Zahl bleiben als Auffälligkeit am Objekt; Plausibilitätsgrenzen
+im Import; Storno stellt den Vorwert wieder her; Kauf nur mit Absicht und Ausstiegsbedingung;
+Änderungseintrag nennt alt und neu; Entfernen wird protokolliert; Begründungen brauchen mindestens zehn
+Zeichen; der Wissensstand im Protokoll enthält die Objektzahlen mit Prüfstatus; Restlaufzeit nennt ihre
+Kappung bei 30 Jahren; Prüfdatum und Kriterium einer Annahme lassen sich einzeln ändern; „Verbindung
+testen“ prüft die Eingabe im Formular.
+
+| Prio | Offen | Begründung |
+|---|---|---|
+| MUSS | Schalter „nur Belegtes“ für Karte, Rangliste und Summen | sonst bleibt nur die Markierung |
+| MUSS | Pro-forma durchgängig: Börsenwert, Überhang, Lücke und Reichweite auf derselben Basis; Warrants einrechnen | heute stehen zwei Rechenstände nebeneinander |
+| SOLL | Je Quelle „Wer verdient daran?“ und eine Bilanz bestätigt/widerlegt/offen | Anreize und Trefferquote |
+| SOLL | Markierung „zu schwierig“ je Objekt oder Unternehmen | bewusst nicht investieren |
+| SOLL | Hinweis beim Kauf bei leerer Kasse oder Lücke über dem Börsenwert; Zähler „Ausstieg n-mal geändert“ | |
+| SOLL | Realisiertes Ergebnis geschlossener Positionen; Nachkäufe | |
+| Entscheidung | Weglassen oder entschärfen: Börsenwert/Studien-NPV und Börsenwert/Asset-NAV, Nachkommastellen, Nutzenwert im Backlog, „Kasse pro forma“ ohne Ausgaben, Übernahme-Vorschläge aus blosser Nähe, Zählung im Prüfkatalog | täuschen Präzision vor oder nähren Spekulation |
+
 ## Wo die Anwendung weiterhin zu falscher Sicherheit verleiten kann
 
 * **NAV und Cashflow** lesen sich wie Bewertungen, enthalten aber weder Steuern, Royalties,

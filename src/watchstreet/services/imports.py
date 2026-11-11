@@ -12,8 +12,22 @@ from sqlalchemy.orm import Session
 
 from watchstreet.analysis.imports import ImportRow, number, status_of
 from watchstreet.commodities import BY_KEY, COMMODITIES
-from watchstreet.constants import IMPORT_TOLERANCE, MAX_LAT, MAX_LON, PERCENT
-from watchstreet.domain import AssetKind, DataOrigin, StakeRole, SubjectType
+from watchstreet.constants import (
+    IMPORT_TOLERANCE,
+    MAX_LAT,
+    MAX_LON,
+    MIN_REASON_CHARS,
+    PERCENT,
+    USER_CONFIRMED,
+)
+from watchstreet.domain import (
+    AssetKind,
+    DataOrigin,
+    Epistemic,
+    FindingKind,
+    StakeRole,
+    SubjectType,
+)
 from watchstreet.intel.documents import content_hash, store_document, verify_quote
 from watchstreet.metrics import METRICS
 from watchstreet.models import (
@@ -23,6 +37,7 @@ from watchstreet.models import (
     Document,
     DocumentLink,
     Fact,
+    Finding,
     Stake,
     StatusPeriod,
 )
@@ -179,6 +194,9 @@ def _fact(  # noqa: PLR0913, PLR0917
     if not metric.is_text and value is None:
         outcome.skipped.append(f"{label}: „{raw}“ ist keine Zahl")
         return
+    if value is not None and (value <= 0 or (metric.unit == "%" and value > PERCENT)):
+        outcome.skipped.append(f"{label}: {raw} ist nicht plausibel (muss positiv sein, % ≤ 100)")
+        return
     current = current_any(session, SubjectType.ASSET, asset.id, metric_key)
     if current is not None and agrees(current, value, raw):
         outcome.unchanged += 1
@@ -188,6 +206,16 @@ def _fact(  # noqa: PLR0913, PLR0917
             f"{label}: Analyse nennt {raw}, vorhanden ist {display_value(current)} – "
             "nicht überschrieben"
         )
+        # the disagreement stays at the asset: how often a source is wrong is what matters about it
+        session.add(
+            Finding(
+                subject_type=SubjectType.ASSET, subject_id=asset.id, kind=FindingKind.ANOMALY,
+                epistemic=Epistemic.UNRESOLVED,
+                text=f"„{document.title}“ ({document.publisher}) nennt für {metric.label} {raw}; "
+                f"vorhanden ist {display_value(current)}.",
+                uncertainty="Die importierte Angabe wurde nicht übernommen.",
+            )
+        )  # fmt: skip
         return
     try:
         fact = record_fact(
@@ -271,10 +299,17 @@ def unverified_facts(session: Session) -> list[dict[str, Any]]:
     return rows
 
 
-def confirm(session: Session, fact: Fact) -> Fact:
-    """The user vouches for an imported figure: it is re-recorded as the user's own entry."""
+def confirm(session: Session, fact: Fact, reason: str) -> Fact:
+    """The user vouches for an imported figure and says why.
+
+    It becomes the user's entry but keeps its mark: vouching is not a primary source, so the
+    confidence stays low and everything derived from it stays flagged.
+    """
     if fact.origin != DataOrigin.IMPORT or fact.superseded_by is not None:
         msg = "Nur eine noch ungeprüfte importierte Angabe lässt sich bestätigen"
+        raise FactError(msg)
+    if len(reason.strip()) < MIN_REASON_CHARS:
+        msg = "Bitte begründen, woher du weisst, dass die Angabe stimmt"
         raise FactError(msg)
     return record_fact(
         session,
@@ -283,7 +318,8 @@ def confirm(session: Session, fact: Fact) -> Fact:
             value=fact.value, low=fact.value_low, high=fact.value_high, text=fact.text,
             unit=fact.unit, basis=fact.basis, period_end=fact.period_end,
             published_at=fact.published_at, document_id=fact.document_id, quote=fact.quote,
-            confidence="medium", origin=DataOrigin.USER,
+            confidence="low", origin=DataOrigin.USER,
+            formula_key=USER_CONFIRMED, inputs={"reason": reason.strip()},
         ),
     )  # fmt: skip
 
@@ -294,6 +330,10 @@ def retract(session: Session, fact: Fact) -> None:
         msg = "Nur eigene oder importierte, noch gültige Angaben lassen sich stornieren"
         raise FactError(msg)
     fact.superseded_by = fact.id
+    for earlier in session.scalars(
+        select(Fact).where(Fact.superseded_by == fact.id, Fact.id != fact.id)
+    ):
+        earlier.superseded_by = None  # the value it had replaced stands again
     log_change(
         session, fact.subject_type, fact.subject_id, "fact",
         f"{METRICS[fact.metric_key].label} storniert", old=display_value(fact),

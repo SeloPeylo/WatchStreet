@@ -7,16 +7,29 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from watchstreet.constants import PERCENT
+from watchstreet.constants import MIN_REASON_CHARS, PERCENT
 from watchstreet.domain import SubjectType
 from watchstreet.errors import WatchStreetError
 from watchstreet.market.base import MarketDataError
 from watchstreet.market.service import MarketService
-from watchstreet.models import Company, Decision, Fact, Holding, Stock, Thesis, WatchEntry
+from watchstreet.metrics import METRICS
+from watchstreet.models import (
+    Asset,
+    Company,
+    Decision,
+    Fact,
+    Holding,
+    Stake,
+    Stock,
+    Thesis,
+    WatchEntry,
+)
 from watchstreet.services.facts import display_value
+from watchstreet.services.world import is_unproven
 from watchstreet.timeutil import utcnow
 
 SYMBOL_MAX_LEN = 32
+SNAPSHOT_METRICS = ("aisc", "cash_cost", "production", "capex", "study_npv", "expected_aisc")
 
 
 class PortfolioError(WatchStreetError, ValueError):
@@ -98,8 +111,29 @@ def snapshot(
         }
         if thesis
         else None,
-        "figures": {f.metric_key: display_value(f) for f in facts},
+        "figures": {METRICS[f.metric_key].label: display_value(f) for f in facts},
+        "assets": _asset_figures(session, company) if company else {},
     }
+
+
+def _asset_figures(session: Session, company: Company) -> dict[str, dict[str, str]]:
+    """Cost, production and study figures of the company's assets, each with how sure it is."""
+    asset_ids = set(session.scalars(select(Stake.asset_id).where(Stake.company_id == company.id)))
+    out: dict[str, dict[str, str]] = {}
+    for fact in session.scalars(
+        select(Fact).where(
+            Fact.subject_type == SubjectType.ASSET,
+            Fact.subject_id.in_(asset_ids),
+            Fact.metric_key.in_(SNAPSHOT_METRICS),
+            Fact.superseded_by.is_(None),
+        )
+    ):
+        asset = session.get(Asset, fact.subject_id)
+        mark = " (ungeprüft)" if is_unproven(fact) else ""
+        out.setdefault(asset.name if asset else "?", {})[METRICS[fact.metric_key].label] = (
+            display_value(fact) + mark
+        )
+    return out
 
 
 def record_decision(  # noqa: PLR0913
@@ -140,6 +174,12 @@ def add_holding(session: Session, market: MarketService, data: NewHolding) -> Ho
         msg = f"{stock.symbol} ist bereits in den Beständen"
         raise PortfolioError(msg)
     _check_thesis(session, data.thesis_id)
+    if (
+        len(data.exit_condition.strip()) < MIN_REASON_CHARS
+        or len(data.intent.strip()) < MIN_REASON_CHARS
+    ):
+        msg = "Ein Kauf braucht eine Absicht und eine Ausstiegsbedingung (je mindestens 10 Zeichen)"
+        raise PortfolioError(msg)
     record_decision(
         session, market, stock, "buy", data.reason or data.intent, thesis_id=data.thesis_id,
         quantity=data.quantity, price=data.avg_price, day=data.bought_at,
@@ -171,7 +211,7 @@ def adjust_holding(  # noqa: PLR0913
     clear_thesis: bool = False,
 ) -> None:
     """Change why a position is held. Needs a reason, so the journal shows the bar being moved."""
-    if not reason.strip():
+    if len(reason.strip()) < MIN_REASON_CHARS:
         msg = "Bitte begründen, warum Absicht, These oder Ausstiegsbedingung geändert werden"
         raise PortfolioError(msg)
     _check_thesis(session, thesis_id)
@@ -182,8 +222,10 @@ def adjust_holding(  # noqa: PLR0913
         holding.exit_condition = exit_condition.strip()
     if thesis_id is not None or clear_thesis:
         holding.thesis_id = thesis_id
+    after = f"{holding.intent} | Ausstieg: {holding.exit_condition}"
     record_decision(
-        session, market, holding.stock, "adjust", f"{reason.strip()} (vorher: {before})",
+        session, market, holding.stock, "adjust",
+        f"{reason.strip()} (vorher: {before} → neu: {after})",
         thesis_id=holding.thesis_id,
     )  # fmt: skip
 
@@ -192,7 +234,7 @@ def sell_holding(
     session: Session, market: MarketService, holding: Holding, reason: str, price: float | None
 ) -> None:
     """Close a position; the reason and the knowledge at that time stay in the journal."""
-    if not reason.strip():
+    if len(reason.strip()) < MIN_REASON_CHARS:
         msg = "Bitte begründen, warum die Position geschlossen wird"
         raise PortfolioError(msg)
     record_decision(

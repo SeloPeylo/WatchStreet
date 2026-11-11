@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from watchstreet.constants import USER_CONFIRMED
 from watchstreet.domain import DataOrigin
 from watchstreet.models import (
     ChangeEntry,
@@ -121,6 +122,8 @@ def fact_detail(row: Fact) -> dict[str, Any]:
         "superseded": row.superseded_by is not None,
         "retracted": row.superseded_by == row.id,
         "unverified": row.origin == DataOrigin.IMPORT,
+        "own_claim": row.formula_key == USER_CONFIRMED,
+        "confirm_reason": row.inputs.get("reason", "") if isinstance(row.inputs, dict) else "",
         "document": document(row.document) if row.document else None,
         "is_demo": row.is_demo,
     }

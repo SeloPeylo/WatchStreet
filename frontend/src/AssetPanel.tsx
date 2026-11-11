@@ -26,7 +26,8 @@ export function MetricRow({ m, onOpen, action }: { m: Metric; onOpen?: () => voi
       <td className={`n ${forecast ? "forecast" : ""}`}>
         {metricText(m)}
         {m.stale && <span title="veraltet"> ⚠</span>}
-        {m.unverified && <span className="pill unresolved" title="Aus einer importierten Analyse, noch nicht geprüft"> ungeprüft</span>}
+        {m.unverified && <span className="pill unresolved" title="Stammt aus einer importierten Analyse oder beruht darauf; noch nicht gegen eine Primärquelle geprüft"> ungeprüft</span>}
+        {m.own_claim && <span className="pill unresolved" title="Von dir bestätigt, ohne Primärquelle"> eigene Annahme</span>}
         {action}
         {m.provenance !== "unknown" && (
           <div className="muted small">
@@ -46,8 +47,8 @@ export function Derivation({ path, thesisId, onClose, notify, onChanged }: { pat
   }, [path]);
   const link = (factId: number, stance: string) =>
     post(`/theses/${thesisId}/links`, { target_type: "fact", target_id: factId, stance }).then(() => { notify("Kennzahl der aktiven These als Evidenz zugeordnet"); onChanged(); }).catch((e) => notify(e.message));
-  const change = (url: string, text: string) =>
-    post(url).then(() => { notify(text); onChanged(); return get(path).then(setData); }).catch((e) => notify(e.message));
+  const change = (url: string, text: string, body: Json = {}) =>
+    post(url, body).then(() => { notify(text); onChanged(); return get(path).then(setData); }).catch((e) => notify(e.message));
   if (!data) return null;
   const block = (f: Json, title: string) => (
     <div key={f.id} className="box" style={{ marginBottom: 10 }}>
@@ -59,6 +60,7 @@ export function Derivation({ path, thesisId, onClose, notify, onChanged }: { pat
         {f.is_demo && <span className="demo">synthetisch</span>}
         {f.retracted ? <span className="pill">storniert</span> : f.superseded && <span className="pill">ersetzt</span>}
         {f.unverified && !f.superseded && <span className="pill unresolved">ungeprüft</span>}
+        {f.own_claim && <span className="pill unresolved">eigene Annahme, keine Primärquelle</span>}
       </div>
       <table>
         <tbody>
@@ -72,10 +74,11 @@ export function Derivation({ path, thesisId, onClose, notify, onChanged }: { pat
           <tr><th>Herkunft</th><td>{ORIGIN_LABEL[f.origin as string]}</td></tr>
         </tbody>
       </table>
+      {f.confirm_reason && <div className="small">Deine Begründung: {f.confirm_reason}</div>}
       {f.quote && <div className="quote">„{f.quote}“</div>}
       {!f.superseded && (f.origin === "user" || f.origin === "import") && (
         <div className="row small">
-          {f.unverified && <button onClick={() => change(`/facts/${f.id}/confirm`, "Angabe bestätigt – gilt jetzt als deine eigene")}>Selbst bestätigen</button>}
+          {f.unverified && <button onClick={() => { const reason = window.prompt("Woher weisst du, dass die Angabe stimmt? (bleibt als eigene Annahme markiert)", "") ?? ""; if (reason.trim().length >= 10) change(`/facts/${f.id}/confirm`, "Als eigene Annahme übernommen", { reason }); else notify("Ohne Begründung (mindestens 10 Zeichen) wird nichts bestätigt"); }}>Selbst bestätigen</button>}
           <button onClick={() => change(`/facts/${f.id}/retract`, "Angabe storniert")}>Stornieren</button>
           <span className="muted">Stornierte Angaben bleiben in der Historie sichtbar.</span>
         </div>

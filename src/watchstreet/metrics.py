@@ -28,7 +28,7 @@ METRICS: dict[str, Metric] = {
         Metric("resources", "Ressourcen"),
         Metric("resources_mi", "Ressourcen gemessen + angezeigt (M&I)"),
         Metric("resources_inferred", "Ressourcen vermutet (Inferred)"),
-        Metric("grade", "Gehalt"),
+        Metric("grade", "Gehalt", unit="laut Quelle"),
         Metric("recovery", "Ausbringung", unit="%"),
         Metric("study_date", "Datum der Studie", is_text=True),
         Metric("study_stage", "Studienstand", is_text=True),

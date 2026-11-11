@@ -18,13 +18,13 @@ export function Portfolio({ notify }: { notify: Notify }) {
   const adjust = (h: Json) => {
     const exit_condition = window.prompt("Ausstiegsbedingung: Was müsste eintreten, damit du verkaufst?", h.exit_condition ?? "");
     if (exit_condition === null) return;
-    const reason = window.prompt("Warum änderst du sie? (steht im Entscheidungsprotokoll)", "") ?? "";
-    if (!reason.trim()) return notify("Ohne Begründung wird nichts geändert");
+    const reason = window.prompt("Warum änderst du sie? (steht mit alter und neuer Bedingung im Entscheidungsprotokoll)", "") ?? "";
+    if (reason.trim().length < 10) return notify("Ohne Begründung (mindestens 10 Zeichen) wird nichts geändert");
     act(patch(`/portfolio/holdings/${h.id}`, { exit_condition, reason }));
   };
   const sell = (h: Json) => {
     const reason = window.prompt(`Warum schliesst du ${h.symbol}? (steht im Entscheidungsprotokoll)`, "") ?? "";
-    if (!reason.trim()) return notify("Ohne Begründung wird die Position nicht geschlossen");
+    if (reason.trim().length < 10) return notify("Ohne Begründung (mindestens 10 Zeichen) wird die Position nicht geschlossen");
     const price = Number(window.prompt("Verkaufspreis je Stück (leer lassen, wenn unbekannt)", "") ?? "");
     act(post(`/portfolio/holdings/${h.id}/sell`, { reason, ...(price > 0 ? { price } : {}) }));
   };
@@ -61,7 +61,7 @@ export function Portfolio({ notify }: { notify: Notify }) {
           </select>
           <input className="grow" placeholder="Warum kaufst du? (Absicht)" value={holding.intent} onChange={(e) => setHolding({ ...holding, intent: e.target.value })} />
           <input className="grow" placeholder="Ausstiegsbedingung: Was müsste eintreten, damit du verkaufst?" value={holding.exit_condition} onChange={(e) => setHolding({ ...holding, exit_condition: e.target.value })} />
-          <button className="primary" onClick={() => act(post("/portfolio/holdings", { ...holding, quantity: Number(holding.quantity), avg_price: Number(holding.avg_price), bought_at: holding.bought_at || null, thesis_id: holding.thesis_id ? Number(holding.thesis_id) : null })).then(() => setHolding(empty))}>Hinzufügen</button>
+          <button className="primary" disabled={holding.intent.trim().length < 10 || holding.exit_condition.trim().length < 10} title="Absicht und Ausstiegsbedingung sind Pflicht" onClick={() => act(post("/portfolio/holdings", { ...holding, quantity: Number(holding.quantity), avg_price: Number(holding.avg_price), bought_at: holding.bought_at || null, thesis_id: holding.thesis_id ? Number(holding.thesis_id) : null })).then(() => setHolding(empty))}>Hinzufügen</button>
         </div>
       </div>
       <div className="box section" data-testid="journal">
@@ -70,10 +70,11 @@ export function Portfolio({ notify }: { notify: Notify }) {
         <table><tbody>
           {journal.map((d) => (
             <tr key={d.id}>
-              <td>{day(d.day)}</td><td><b>{d.symbol}</b></td><td>{{ buy: "Kauf", sell: "Verkauf", adjust: "Änderung" }[d.kind as string]}</td>
+              <td>{day(d.day)}</td><td><b>{d.symbol}</b></td><td>{{ buy: "Kauf", sell: "Verkauf", adjust: "Änderung", remove: "Entfernt" }[d.kind as string]}</td>
               <td className="n">{d.quantity != null ? `${num(d.quantity)} Stück` : ""}{d.price != null ? ` zu ${num(d.price)}` : ""}</td>
               <td>{d.reason || <span className="muted">ohne Begründung</span>}
-                <div className="small muted">Damals: Kurs {num(d.snapshot.price)}{d.snapshot.thesis ? ` · These „${d.snapshot.thesis.title}“ (${d.snapshot.thesis.assumptions.map((a: Json) => `${a.text}: ${STATE[a.status] ?? a.status}`).join("; ") || "ohne Annahmen"})` : " · ohne These"}{Object.keys(d.snapshot.figures ?? {}).length > 0 ? ` · ${Object.entries(d.snapshot.figures).map(([k, v]) => `${k} ${v}`).join(", ")}` : ""}</div></td>
+                <div className="small muted">Damals: Kurs {num(d.snapshot.price)}{d.snapshot.thesis ? ` · These „${d.snapshot.thesis.title}“ (${d.snapshot.thesis.assumptions.map((a: Json) => `${a.text}: ${STATE[a.status] ?? a.status}`).join("; ") || "ohne Annahmen"})` : " · ohne These"}{Object.keys(d.snapshot.figures ?? {}).length > 0 ? ` · ${Object.entries(d.snapshot.figures).map(([k, v]) => `${k} ${v}`).join(", ")}` : ""}
+                  {Object.entries(d.snapshot.assets ?? {}).map(([name, figures]) => <div key={name}>{name}: {Object.entries(figures as Record<string, string>).map(([k, v]) => `${k} ${v}`).join(", ")}</div>)}</div></td>
             </tr>
           ))}
           {journal.length === 0 && <tr><td className="muted">Noch keine Entscheidung protokolliert.</td></tr>}
@@ -141,7 +142,7 @@ function ImportBox({ notify, onDone }: { notify: Notify; onDone: () => void }) {
         {open.map((f) => (
           <tr key={f.fact_id}>
             <td>{f.name}</td><td>{f.label}</td><td className="n">{f.display}</td><td className="small muted">{f.document}</td>
-            <td><button className="link small" onClick={() => run(post(`/facts/${f.fact_id}/confirm`), "Bestätigt")}>bestätigen</button> · <button className="link small" onClick={() => run(post(`/facts/${f.fact_id}/retract`), "Storniert")}>stornieren</button></td>
+            <td><button className="link small" onClick={() => { const reason = window.prompt("Woher weisst du, dass die Angabe stimmt? (bleibt als eigene Annahme markiert)", "") ?? ""; if (reason.trim().length >= 10) run(post(`/facts/${f.fact_id}/confirm`, { reason }), "Als eigene Annahme übernommen"); else notify("Ohne Begründung (mindestens 10 Zeichen) wird nichts bestätigt"); }}>selbst bestätigen</button> · <button className="link small" onClick={() => run(post(`/facts/${f.fact_id}/retract`), "Storniert")}>stornieren</button></td>
           </tr>
         ))}
         {open.length === 0 && <tr><td className="muted">Nichts offen.</td></tr>}
@@ -188,7 +189,7 @@ function AgentBox({ notify, onChanged }: { notify: Notify; onChanged: () => void
   useEffect(() => { get("/system/agent").then(apply); }, []);
   if (!view) return null;
   const save = () => put("/system/agent", form).then((v) => { apply(v); notify("Agent gespeichert"); onChanged(); }).catch((e) => notify(e.message));
-  const test = () => post("/system/agent/test").then((r) => notify(r.ok ? `Agent antwortet: ${r.detail}` : `Agent nicht erreichbar: ${r.detail}`)).catch((e) => notify(e.message));
+  const test = () => post("/system/agent/test", form).then((r) => notify(r.ok ? `Agent antwortet: ${r.detail}` : `Agent nicht erreichbar: ${r.detail}`)).catch((e) => notify(e.message));
   return (
     <div className="box" data-testid="agent" style={{ maxWidth: 720 }}>
       <h2>Agent</h2>
@@ -205,7 +206,7 @@ function AgentBox({ notify, onChanged }: { notify: Notify; onChanged: () => void
             {form.runner === "openai" && <input className="grow" placeholder="Adresse, z. B. http://host.docker.internal:11434/v1" value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} />}
           </div>
           <div className="row">
-            <input className="grow" type="password" autoComplete="off" placeholder={view.has_key ? "Schlüssel gespeichert – leer lassen, um ihn zu behalten" : "API-Schlüssel (für lokale Server leer)"} value={form.api_key} onChange={(e) => setForm({ ...form, api_key: e.target.value })} />
+            <input className="grow" type="password" autoComplete="off" placeholder={view.has_key ? "Schlüssel gespeichert – leer lassen, um ihn zu behalten" : form.runner === "anthropic" ? "API-Schlüssel" : "API-Schlüssel (für lokale Server leer)"} value={form.api_key} onChange={(e) => setForm({ ...form, api_key: e.target.value })} />
           </div>
         </>
       )}

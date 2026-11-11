@@ -522,7 +522,13 @@ def test_thesis_board(client, session):
 
 
 def test_portfolio(client):
-    holding = {"symbol": "nem", "quantity": 10, "avg_price": 40.0, "intent": "Goldhebel"}
+    holding = {
+        "symbol": "nem",
+        "quantity": 10,
+        "avg_price": 40.0,
+        "intent": "Goldhebel im Aufschwung",
+        "exit_condition": "Verkauf bei AISC über 1500",
+    }
     made = client.post(f"{API}/portfolio/holdings", json=holding).json()
     assert client.post(f"{API}/portfolio/holdings", json=holding).status_code == 400
     assert (
@@ -806,10 +812,19 @@ def test_assumptions_need_a_reason_and_carry_criterion_and_evidence(client, sess
 
 
 def test_position_shows_company_assets_and_theses(client):
-    client.post(
-        f"{API}/portfolio/holdings", json={"symbol": "DACC", "quantity": 10, "avg_price": 30}
+    why = {"intent": "Goldhebel im Aufschwung", "exit_condition": "Verkauf bei AISC über 1500"}
+    assert (
+        client.post(
+            f"{API}/portfolio/holdings", json={"symbol": "DACC", "quantity": 10, "avg_price": 30}
+        ).status_code
+        == 400  # no purchase without intent and exit condition
     )
-    client.post(f"{API}/portfolio/holdings", json={"symbol": "NEM", "quantity": 1, "avg_price": 30})
+    client.post(
+        f"{API}/portfolio/holdings", json={"symbol": "DACC", "quantity": 10, "avg_price": 30, **why}
+    )
+    client.post(
+        f"{API}/portfolio/holdings", json={"symbol": "NEM", "quantity": 1, "avg_price": 30, **why}
+    )
     known, unknown = client.get(f"{API}/portfolio").json()["holdings"]
     assert known["company"]["name"] == "Demo Andes Copper Corp"
     assert {a["name"] for a in known["assets"]} == {"Demo Mina Altiplano", "Demo Mina Río Seco"}
@@ -927,27 +942,32 @@ def test_position_carries_thesis_exit_condition_and_a_decision_journal(client, s
     client.post(f"{API}/theses/{thesis['id']}/assumptions", json={"text": "Preis über 3"})
     body = {
         "symbol": "DJEX", "quantity": 1000, "avg_price": 0.3, "thesis_id": thesis["id"],
-        "exit_condition": "Verkauf, wenn Finanzierung unter 0,20", "reason": "Optionalität",
+        "exit_condition": "Verkauf, wenn Finanzierung unter 0,20", "intent": "Optionalität auf Kupfer",
     }  # fmt: skip
     holding = client.post(f"{API}/portfolio/holdings", json=body).json()["id"]
     row = client.get(f"{API}/portfolio").json()["holdings"][0]
     assert row["thesis"]["title"] == "Kupfer knapp" and row["thesis"]["direct"]
     assert row["exit_condition"].startswith("Verkauf")
     path = f"{API}/portfolio/holdings/{holding}"
-    assert client.patch(path, json={"reason": "", "exit_condition": "nie"}).status_code == 400
+    assert client.patch(path, json={"reason": ".", "exit_condition": "nie"}).status_code == 400
     moved = {"reason": "Finanzierung kam besser", "exit_condition": "Verkauf unter 0,15"}
     assert client.patch(path, json=moved).status_code == 200
-    assert client.patch(path, json={"reason": "x", "thesis_id": 9999}).status_code == 400
-    assert client.post(f"{path}/sell", json={"reason": ""}).status_code == 400
+    assert (
+        client.patch(path, json={"reason": "andere These passt", "thesis_id": 9999}).status_code
+        == 400
+    )
+    assert client.post(f"{path}/sell", json={"reason": "weg"}).status_code == 400
     sold = {"reason": "Annahme widerlegt", "price": 0.5}
     assert client.post(f"{path}/sell", json=sold).status_code == 200
     assert client.get(f"{API}/portfolio").json()["holdings"] == []
     journal = client.get(f"{API}/portfolio/decisions").json()
     assert [d["kind"] for d in journal] == ["sell", "adjust", "buy"]
     assert "vorher:" in journal[1]["reason"] and "Finanzierung unter 0,20" in journal[1]["reason"]
+    assert "→ neu:" in journal[1]["reason"] and "unter 0,15" in journal[1]["reason"]
     bought = journal[2]["snapshot"]
     assert bought["thesis"]["assumptions"][0]["status"] == "open" and bought["price"]
-    assert bought["figures"]["cash"].endswith("USD")
+    assert bought["figures"]["Kasse"].endswith("USD")
+    assert "Capex" in bought["assets"]["Demo Projekt Cobre Alto"]
 
 
 def test_reference_date_hides_todays_research_sources_and_questions(client, container, session):

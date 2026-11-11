@@ -242,11 +242,12 @@ Besuchszeitpunkt; mit „ab“ lässt sich ein anderes Vergleichsdatum wählen.
 Bestände und Watchlist. Zu jeder Position gehören drei Angaben, die eine Entscheidung später
 überprüfbar machen: die **These**, auf der sie beruht, die **Absicht** (warum du kaufst) und die
 **Ausstiegsbedingung** (was eintreten müsste, damit du verkaufst). Fehlt eine davon, steht ein
-Warnzeichen an der Position.
+Warnzeichen an der Position. Ein Kauf lässt sich nur mit Absicht und Ausstiegsbedingung erfassen.
 
 Das **Entscheidungsprotokoll** hält jeden Kauf, jede Änderung der Ausstiegsbedingung und jeden Verkauf
 fest, mit Begründung und dem damaligen Wissensstand: Kurs, Status der Annahmen der These und die
-Unternehmenskennzahlen zu diesem Zeitpunkt. Änderungen und Verkäufe brauchen eine Begründung; die
+Unternehmenskennzahlen und die Kosten- und Studienwerte der Objekte zu diesem Zeitpunkt, mit dem
+Vermerk „ungeprüft“, wo er galt. Änderungen und Verkäufe brauchen eine Begründung; die
 alte Ausstiegsbedingung bleibt im Eintrag lesbar. Einträge lassen sich nicht ändern.
 Unter „Absicht und Bezug“ steht zu jeder Position das erfasste Unternehmen, seine Objekte (mit Sprung
 auf die Karte) und die Thesen, die sich auf das Unternehmen oder seine Objekte stützen. Eine Position
@@ -302,13 +303,22 @@ Was der Import bewirkt:
 
 Prüfen lässt sich auf drei Wegen:
 
-1. **Selbst bestätigen** (in der Liste oder in der Herleitung der Zahl): Die Angabe gilt danach als
-   dein eigener Eintrag.
-2. **Stornieren**: Die Angabe zählt nicht mehr, bleibt aber in der Historie sichtbar. Das geht auch
-   für eigene Einträge, etwa nach einem Tippfehler.
+1. **Selbst bestätigen** (in der Liste oder in der Herleitung der Zahl): Du gibst an, woher du weisst,
+   dass die Angabe stimmt. Sie gilt danach als dein Eintrag, bleibt aber als „eigene Annahme“ markiert
+   und behält niedriges Vertrauen – eine Bestätigung ist keine Primärquelle.
+2. **Stornieren**: Die Angabe zählt nicht mehr, bleibt aber in der Historie sichtbar; der Wert, den sie
+   ersetzt hatte, gilt wieder. Das geht auch für eigene Einträge, etwa nach einem Tippfehler.
 3. **Prüfung gegen Primärquellen vormerken**: Je Angabe entsteht ein Vorschlag im Research-Backlog.
    Nach dem Start sucht das System die Zahl zuerst ohne Sprachmodell in den gespeicherten
    Primärdokumenten; erst wenn das nichts ergibt, arbeitet der eingestellte Agent.
+
+Ungeprüfte Zahlen wirken weiter, und das ist sichtbar: Marge, Cashflow, NAV und die
+Unternehmenssummen, die auf einer ungeprüften oder nur selbst bestätigten Zahl beruhen, tragen
+ebenfalls „ungeprüft“; die Kostenrangliste markiert solche Minen, und das Szenario-Banner nennt, wie
+viele Minen mit ungeprüften Zahlen mitgezählt sind. Ein Objekt, zu dem nur Importiertes vorliegt, gilt
+weiter als „noch nicht geprüft“. Nennt eine Analyse etwas anderes als eine belegte Zahl, bleibt das als
+Auffälligkeit am Objekt stehen. Nicht plausible Werte (negativ, null, Prozent über 100) werden nicht
+übernommen.
 
 Fliesstext ohne Tabelle zerlegt der Agent in einem Aufruf; jede Zeile braucht ein wörtliches Zitat aus
 dem Text. Skripte und Research-Agenten ausserhalb der Anwendung nutzen dieselbe Funktion über die

@@ -49,6 +49,22 @@ def agent_config(session: Session) -> dict[str, str]:
     return {k: str(v) for k, v in data.items()} if isinstance(data, dict) else {}
 
 
+def runner_from_config(container: Container, config: dict[str, str]) -> AgentRunner:
+    """Build a runner from runtime settings; missing parts fall back to the environment."""
+    base = container.settings
+    return build_runner(
+        replace(
+            base,
+            agent_runner=config.get("runner", ""),
+            anthropic_api_key=config.get("api_key") or base.anthropic_api_key,
+            anthropic_model=config.get("model") or base.anthropic_model,
+            openai_api_key=config.get("api_key") or base.openai_api_key,
+            openai_model=config.get("model") or base.openai_model,
+            openai_base_url=config.get("base_url") or base.openai_base_url,
+        )
+    )
+
+
 def runner_for(container: Container, session: Session) -> AgentRunner:
     """The runner to use now: the runtime setting if there is one, else the one from the start."""
     config = agent_config(session)
@@ -57,18 +73,8 @@ def runner_for(container: Container, session: Session) -> AgentRunner:
         return container.runner
     cache_key = json.dumps(config, sort_keys=True)
     if cache_key not in container.runtime_runners:
-        base = container.settings
-        settings = replace(
-            base,
-            agent_runner=kind,
-            anthropic_api_key=config.get("api_key") or base.anthropic_api_key,
-            anthropic_model=config.get("model") or base.anthropic_model,
-            openai_api_key=config.get("api_key") or base.openai_api_key,
-            openai_model=config.get("model") or base.openai_model,
-            openai_base_url=config.get("base_url") or base.openai_base_url,
-        )
         try:
-            runner = build_runner(settings)
+            runner = runner_from_config(container, config)
         except AgentError:
             return container.runner
         container.runtime_runners.clear()

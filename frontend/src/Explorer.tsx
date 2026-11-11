@@ -198,7 +198,7 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
   const name = (id: number) => world.features.find((f: Json) => f.id === id)?.properties.name ?? `#${id}`;
   const [scKey, scPrice] = state.sc.split(":");
   const stress = world.summary;
-  const stressText = stress && stress.producing > 0 ? ` · ${stress.under_water} von ${stress.producing - stress.unknown} Minen mit negativer Marge${stress.production_share_under_water != null ? ` (${Math.round(stress.production_share_under_water * 100)} % der Produktion)` : ""}${stress.unknown ? `, ${stress.unknown} ohne Kostendaten` : ""}` : "";
+  const stressText = stress && stress.producing > 0 ? ` · ${stress.under_water} von ${stress.producing - stress.unknown} Minen mit negativer Marge${stress.production_share_under_water != null ? ` (${Math.round(stress.production_share_under_water * 100)} % der Produktion)` : ""}${stress.unknown ? `, ${stress.unknown} ohne Kostendaten` : ""}${stress.unverified ? `, davon ${stress.unverified} mit ungeprüften Zahlen` : ""}` : "";
   const banner = state.sc ? `Szenario: ${COMMODITY_LABEL[scKey] ?? scKey} = ${Number(scPrice).toLocaleString("de-DE")}${stressText}${state.asof ? ` auf Datenstand ${day(state.asof)}` : ""}` : state.asof ? `Stichtag ${day(state.asof)} – ${state.view === "hindsight" ? "rückblickend bekannt" : "wie damals bekannt"}` : "";
   return (
     <div className="explorer">
@@ -265,7 +265,7 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
               {[...features].sort((x: Json, y: Json) => (x.properties.unit_cost ?? Infinity) - (y.properties.unit_cost ?? Infinity)).map((f: Json) => (
                 <tr key={f.id}><td><button className="link" onClick={() => update({ a: String(f.id) })}>{f.properties.name}</button></td>
                   <td className="small muted">{STATUS_LABEL[f.properties.status]}</td>
-                  <td className="n">{f.properties.unit_cost != null ? num(f.properties.unit_cost) : <span className="muted">?</span>}</td>
+                  <td className="n">{f.properties.unit_cost != null ? num(f.properties.unit_cost) : <span className="muted">?</span>}{f.properties.unverified && <span className="pill unresolved" title="Kosten oder Produktion stammen aus einer ungeprüften Analyse"> ungeprüft</span>}</td>
                   <td className={`n ${f.properties.margin != null && f.properties.margin < 0 ? "down" : ""}`}>{f.properties.margin != null ? `${Math.round(f.properties.margin * 100)} %` : <span className="muted">?</span>}</td>
                   <td className="small muted">{KNOWLEDGE_LABEL[f.properties.knowledge]}</td></tr>
               ))}

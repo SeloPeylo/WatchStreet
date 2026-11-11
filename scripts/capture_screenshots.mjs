@@ -146,8 +146,10 @@ await page.locator(".search li button", { hasText: "Mina Ejemplo" }).click();
 await panel.getByText("ungeprüft").first().waitFor();
 await shot("ungeprueft_am_objekt");
 await panel.locator("[data-metric=aisc]").click();
+page.once("dialog", (dialog) => dialog.accept("Im Geschäftsbericht 2025 des Betreibers nachgelesen"));
 await page.getByTestId("derivation").getByRole("button", { name: "Selbst bestätigen" }).click();
-await page.getByRole("status").getByText("Angabe bestätigt").waitFor();
+await page.getByRole("status").getByText("Als eigene Annahme übernommen").waitFor();
+await page.getByTestId("derivation").getByText("eigene Annahme, keine Primärquelle").waitFor();
 await page.getByTestId("derivation").getByRole("button", { name: "Schliessen" }).click();
 
 // the agent backend is chosen at runtime

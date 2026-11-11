@@ -17,6 +17,7 @@ export interface Metric {
   formula?: string;
   origin?: string;
   unverified?: boolean;
+  own_claim?: boolean;
   is_demo?: boolean;
 }
 
