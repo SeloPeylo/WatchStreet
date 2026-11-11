@@ -737,3 +737,33 @@ def test_fact_as_thesis_evidence(client, session):
         x for x in client.get(f"{API}/theses").json()[0]["links"] if x["target_type"] == "fact"
     ]
     assert evidence[0]["fact"]["display"].startswith("2.05") and evidence[0]["stance"] == "supports"
+
+
+# --- login ----------------------------------------------------------------------------------
+
+
+def test_password_protects_the_api_but_not_the_page(container, tmp_path):
+    from dataclasses import replace
+
+    from fastapi.testclient import TestClient
+
+    from watchstreet.web.app import create_app
+
+    container.settings = replace(container.settings, password="geheim", secret_key="k")
+    with TestClient(create_app(container)) as locked:
+        assert locked.get("/").status_code == 200 and locked.get("/healthz").status_code == 200
+        assert locked.get(f"{API}/session").json() == {"auth_required": True, "logged_in": False}
+        assert locked.get(f"{API}/map").status_code == 401
+        assert locked.post(f"{API}/login", json={"password": "falsch"}).status_code == 401
+        assert locked.post(f"{API}/login", json={"password": "geheim"}).json() == {
+            "logged_in": True
+        }
+        assert locked.get(f"{API}/map").status_code == 200
+        assert locked.get(f"{API}/session").json()["logged_in"]
+        locked.cookies.set("ws_session", "9999999999.gefaelscht")
+        assert locked.get(f"{API}/map").status_code == 401
+        locked.post(f"{API}/logout")
+    with TestClient(create_app(container)) as brute:
+        for _ in range(5):
+            brute.post(f"{API}/login", json={"password": "x"})
+        assert brute.post(f"{API}/login", json={"password": "geheim"}).status_code == 401  # locked

@@ -253,6 +253,7 @@ aktualisiert Preise und Ereignisse und führt die Regelprüfung aus; er startet 
 |---|---|
 | Demo ohne Netz und Schlüssel | `make demo` → http://localhost:8000 |
 | Mit Docker und PostgreSQL | `docker compose up --build` |
+| Öffentlich mit HTTPS und Anmeldung | siehe `docs/deployment.md` |
 | Lokales Modell (llama.cpp) | `docker compose --profile llm-cpu up --build` bzw. `llm-gpu`, dazu `WATCHSTREET_AGENT_RUNNER=llama` |
 
 Einstellungen stehen in `.env.example`. Ohne konfigurierten Agenten (`offline`) arbeitet WatchStreet
@@ -269,7 +270,7 @@ vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehr
 * Register liefern nur Ort, Namen und teils Betreiber. Der USGS-Abruf ist mit echten Daten geprüft; der
   Wikidata-Abruf ist gegen aufgezeichnete echte Antworten geprüft, wurde in der Entwicklungsumgebung
   aber von Wikidata abgewiesen (Bot-Richtlinie) und ist im Betrieb noch zu bestätigen.
-* Noch nicht vorhanden: Marker-Clustering, Standortbilder, Anmeldung, Inflations- und
+* Noch nicht vorhanden: Marker-Clustering, Standortbilder, Inflations- und
   Rohstoffäquivalent-Spalten im Vergleich.
 * Die Zitatprüfung stellt sicher, dass ein Zitat wörtlich im Dokument steht, nicht, dass es die Zahl
   inhaltlich richtig belegt.

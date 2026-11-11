@@ -1,7 +1,7 @@
 // Shell: commodity bar, navigation, search, notifications and the page switch.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Commodity, Json } from "./api";
-import { TICKET_LABEL, get, num } from "./api";
+import { TICKET_LABEL, get, num, post } from "./api";
 import { Explorer } from "./Explorer";
 import { Manual, Portfolio, Sources, System } from "./Pages";
 import { Research } from "./Research";
@@ -10,7 +10,34 @@ import { useViewState } from "./state";
 const NAV: [string, string][] = [["/", "Explorer"], ["/research", "Research"], ["/portfolio", "Portfolio"], ["/sources", "Quellen"], ["/system", "System"], ["/manual", "Handbuch"]];
 const POLL_MS = 4000;
 
+function Login({ onDone }: { onDone: () => void }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    post("/login", { password }).then(onDone).catch((err) => setError(err.message));
+  };
+  return (
+    <div className="modal"><form onSubmit={submit} data-testid="login" style={{ background: "var(--panel)", borderRadius: 10, padding: 24, width: 340 }}>
+      <h2>WatchStreet</h2>
+      <p className="muted small">Bitte anmelden.</p>
+      <input type="password" autoFocus placeholder="Passwort" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
+      {error && <div className="note">{error}</div>}
+      <button className="primary" type="submit">Anmelden</button>
+    </form></div>
+  );
+}
+
 export function App() {
+  const [session, setSession] = useState<Json>(null);
+  const check = useCallback(() => { get("/session").then(setSession); }, []);
+  useEffect(check, [check]);
+  if (!session) return null;
+  if (session.auth_required && !session.logged_in) return <Login onDone={check} />;
+  return <Shell canLogout={session.auth_required} onLogout={() => post("/logout").then(check)} />;
+}
+
+function Shell({ canLogout, onLogout }: { canLogout: boolean; onLogout: () => void }) {
   const [state, update] = useViewState();
   const [commodities, setCommodities] = useState<Commodity[]>([]);
   const [templates, setTemplates] = useState<Json[]>([]);
@@ -84,6 +111,7 @@ export function App() {
           {hits.length > 0 && <ul>{hits.map((hit) => <li key={`${hit.type}${hit.id}`}><button onClick={() => go(hit)}>{hit.label} <span className="muted small">{{ asset: "Objekt", company: "Unternehmen", thesis: "These" }[hit.type as string]}</span></button></li>)}</ul>}
         </div>
         <div className="bell">
+          {canLogout && <button onClick={onLogout} title="Abmelden" style={{ marginRight: 6 }}>Abmelden</button>}
           <button data-testid="bell" onClick={() => setBellOpen(!bellOpen)}>🔔 {bell.running > 0 ? `${bell.running} läuft` : ""}</button>
           {bell.unseen.length > 0 && <span className="count">{bell.unseen.length}</span>}
           {bellOpen && (

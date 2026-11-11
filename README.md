@@ -15,11 +15,12 @@ docker compose up --build    # App + Worker + PostgreSQL
 |---|---|
 | [`docs/user-manual.md`](docs/user-manual.md) | Benutzerhandbuch mit Screenshots (in der App unter „Handbuch“) |
 | [`docs/spec/world-explorer-spec.md`](docs/spec/world-explorer-spec.md) | Spezifikation und Designplan |
+| [`docs/deployment.md`](docs/deployment.md) | Betrieb als Webanwendung auf eigenem Server, Wahl des Sprachmodells |
 | [`docs/architecture.md`](docs/architecture.md) | Was gebaut ist und wie die Schichten zusammenhängen |
 | [`docs/engineering-rules.md`](docs/engineering-rules.md) | Regeln für Änderungen |
 
 Der frühere aktienzentrierte Stand liegt unter dem Tag `v0-dashboard`.
 
-**Stand:** Mit Demo-Daten Ende zu Ende geprüft (`scripts/capture_screenshots.mjs`). Echte Datenquellen
-(Yahoo, SEC, USGS), ein echter Agentenlauf und der Docker-Build sind in der Entwicklungsumgebung nicht
-geprüft worden.
+**Stand:** Mit Demo-Daten Ende zu Ende geprüft (`scripts/capture_screenshots.mjs`); Docker-Build und
+PostgreSQL-Tests laufen in der CI; der Register-Import ist mit echten USGS-Daten geprüft. Nicht geprüft:
+Yahoo- und SEC-Abrufe, Wikidata im Betrieb, ein Lauf mit echtem Sprachmodell, die öffentliche Aufstellung.

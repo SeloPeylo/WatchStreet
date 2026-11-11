@@ -29,6 +29,8 @@ class Settings:
     docs_dir: str = "docs"
     llama_base_url: str = "http://llama:8080/v1"
     agent_tools: bool = True
+    password: str = ""  # empty = no login (only safe on localhost)
+    secret_key: str = ""  # signs session cookies; random per start if empty
     sec_user_agent: str = "WatchStreet (set WATCHSTREET_SEC_USER_AGENT to your name and e-mail)"
 
 
@@ -57,5 +59,7 @@ def load_settings() -> Settings:
         docs_dir=_env("DOCS_DIR", base.docs_dir),
         llama_base_url=_env("LLAMA_BASE_URL", base.llama_base_url),
         sec_user_agent=_env("SEC_USER_AGENT", base.sec_user_agent),
+        password=_env("PASSWORD", base.password),
+        secret_key=_env("SECRET_KEY", base.secret_key),
         agent_tools=_env("AGENT_TOOLS", "true").lower() in ("1", "true", "yes"),
     )

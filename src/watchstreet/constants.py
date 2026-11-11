@@ -183,6 +183,9 @@ LOWER_QUARTILE = 0.25
 UPPER_QUARTILE = 0.75
 MAX_OPEN_PROPOSALS_PER_SUBJECT = 6
 MAX_SELECTION = 8
+SESSION_TTL = timedelta(days=30)
+MAX_LOGIN_FAILURES = 5  # then logins are refused for LOGIN_LOCK
+LOGIN_LOCK = timedelta(minutes=5)
 REGISTRY_MAX_RESULTS = 300  # per import; a larger area must be loaded in parts
 REGISTRY_MAX_SPAN_DEG = 25.0  # largest box edge accepted for one import
 DUPLICATE_RADIUS_KM = 2.0  # same name within this distance is the same mine

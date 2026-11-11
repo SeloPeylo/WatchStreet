@@ -6,6 +6,8 @@ from urllib.parse import urlparse
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
+from watchstreet.web.auth import COOKIE, Auth
+
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 # MapLibre needs blob: workers and injects inline styles; scripts stay strictly same-origin.
 CONTENT_SECURITY_POLICY = (
@@ -34,6 +36,9 @@ async def security_middleware(
 ) -> Response:
     if is_cross_site(request):
         return JSONResponse({"detail": "Anfrage von fremder Herkunft abgelehnt"}, status_code=403)
+    auth: Auth = request.app.state.auth
+    if auth.needs_session(request.url.path) and not auth.is_valid(request.cookies.get(COOKIE)):
+        return JSONResponse({"detail": "Anmeldung erforderlich"}, status_code=401)
     response = await call_next(request)
     for name, value in HEADERS.items():
         response.headers.setdefault(name, value)

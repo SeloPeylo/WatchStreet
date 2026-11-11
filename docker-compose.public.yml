@@ -1,0 +1,20 @@
+# Public deployment: adds Caddy as HTTPS reverse proxy in front of the app.
+#   docker compose -f docker-compose.yml -f docker-compose.public.yml up -d --build
+# Requires in .env: WATCHSTREET_DOMAIN, WATCHSTREET_PASSWORD, WATCHSTREET_SECRET_KEY, POSTGRES_PASSWORD.
+# The domain's DNS record must point at this server; ports 80 and 443 must be open.
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    command: caddy reverse-proxy --from ${WATCHSTREET_DOMAIN:?set WATCHSTREET_DOMAIN in .env} --to web:8000
+    volumes:
+      - ./data/caddy:/data
+    depends_on:
+      - web
+  web:
+    environment:
+      WATCHSTREET_PASSWORD: ${WATCHSTREET_PASSWORD:?set WATCHSTREET_PASSWORD in .env}
+      WATCHSTREET_SECRET_KEY: ${WATCHSTREET_SECRET_KEY:?set WATCHSTREET_SECRET_KEY in .env}

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import markdown
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import func, select, text
 
@@ -14,6 +14,7 @@ from watchstreet.constants import (
     LAST_SCAN_KEY,
     REGISTRY_MAX_SPAN_DEG,
     SCAN_REQUEST_KEY,
+    SESSION_TTL,
     WORKER_HEARTBEAT_KEY,
 )
 from watchstreet.domain import SubjectType, TicketStatus, WorkflowKey
@@ -23,6 +24,7 @@ from watchstreet.services.state import touch, updated_at
 from watchstreet.services.tickets import create_ticket
 from watchstreet.timeutil import utcnow
 from watchstreet.web import payloads
+from watchstreet.web.auth import COOKIE, Auth
 from watchstreet.web.deps import ContainerDep, SessionDep, get_or_404
 
 router = APIRouter(tags=["system"])
@@ -73,6 +75,42 @@ def manual(container: ContainerDep) -> dict[str, str]:
         raise HTTPException(status_code=404, detail="Handbuch nicht gefunden")
     source = path.read_text(encoding="utf-8").replace("](screenshots/", "](/manual-assets/")
     return {"html": markdown.markdown(source, extensions=["tables", "toc", "fenced_code"])}
+
+
+# --- session ----------------------------------------------------------------------------
+
+
+class LoginBody(BaseModel):
+    password: str
+
+
+@router.get(f"{API}/session")
+def session_state(request: Request) -> dict[str, bool]:
+    auth: Auth = request.app.state.auth
+    return {"auth_required": auth.required, "logged_in": auth.is_valid(request.cookies.get(COOKIE))}
+
+
+@router.post(f"{API}/login")
+def login(body: LoginBody, request: Request, response: Response) -> dict[str, bool]:
+    auth: Auth = request.app.state.auth
+    token = auth.login(body.password)
+    if token is None:
+        raise HTTPException(status_code=401, detail="Falsches Passwort oder vorübergehend gesperrt")
+    response.set_cookie(
+        COOKIE,
+        token,
+        max_age=int(SESSION_TTL.total_seconds()),
+        httponly=True,
+        samesite="strict",
+        secure=request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https",
+    )
+    return {"logged_in": True}
+
+
+@router.post(f"{API}/logout")
+def logout(response: Response) -> dict[str, bool]:
+    response.delete_cookie(COOKIE)
+    return {"logged_in": False}
 
 
 # --- sources -------------------------------------------------------------------------

@@ -12,6 +12,7 @@ from watchstreet.config import load_settings
 from watchstreet.container import Container, build_container
 from watchstreet.errors import WatchStreetError
 from watchstreet.web import api_explorer, api_research, api_system
+from watchstreet.web.auth import Auth
 from watchstreet.web.security import security_middleware
 
 WEB_DIR = Path(__file__).parent
@@ -41,6 +42,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     app = FastAPI(title="WatchStreet", version="1.0", lifespan=lifespan)
     if container is not None:
         app.state.container = container
+    app.state.auth = Auth.from_settings(settings)
     app.middleware("http")(security_middleware)
     app.add_exception_handler(WatchStreetError, _domain_error)
     for module in API_MODULES:
