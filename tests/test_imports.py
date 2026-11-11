@@ -73,7 +73,7 @@ def test_user_confirms_or_retracts_an_imported_figure(client, session):
     assert retracted["retracted"]
     left = client.get(f"{API}/imports/unverified").json()
     assert [r["metric"] for r in left] == ["production"]
-    asset = client.get(f"{API}/assets/{rows["aisc"]["subject_id"]}").json()["card"]
+    asset = client.get(f"{API}/assets/{rows['aisc']['subject_id']}").json()["card"]
     metrics = {m["metric"]: m for m in asset["metrics"]}
     assert metrics["reserves"]["provenance"] == "unknown" and not metrics["aisc"]["unverified"]
     assert client.post(f"{API}/facts/{rows['aisc']['fact_id']}/confirm").status_code == 400

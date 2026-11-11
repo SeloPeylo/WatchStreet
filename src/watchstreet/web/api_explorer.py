@@ -64,9 +64,18 @@ def price_history(key: str, session: SessionDep) -> list[dict[str, Any]]:
     return [{"day": p.day.isoformat(), "close": p.close} for p in prices.history(session, key)]
 
 
-def _stress_summary(features: list[dict[str, Any]]) -> dict[str, Any]:
-    """How many producing mines lose money at the view's prices, and how much is unknown."""
-    producing = [f["properties"] for f in features if f["properties"]["status"] == "production"]
+def _stress_summary(features: list[dict[str, Any]], commodity: str) -> dict[str, Any]:
+    """How many producing mines lose money at the view's prices, and how much is unknown.
+
+    Only mines whose main product is the chosen commodity count: a by-product is measured in
+    another unit and at another cost, so adding it up would mix pounds with ounces.
+    """
+    producing = [
+        f["properties"]
+        for f in features
+        if f["properties"]["status"] == "production"
+        and (not commodity or f["properties"]["commodity"] == commodity)
+    ]
     known = [p for p in producing if p["margin"] is not None]
     under = [p for p in known if p["margin"] < 0]
     total = sum(p["production"] or 0.0 for p in known)
@@ -100,7 +109,7 @@ def world_map(
     return {
         "type": "FeatureCollection",
         "features": features,
-        "summary": _stress_summary(features),
+        "summary": _stress_summary(features, commodity),
         "events": [payloads.event(e) for e in recent],
         "prices": dict(ctx.prices),
         "reference": ctx.reference.isoformat(),
@@ -279,6 +288,8 @@ class PersonBody(BaseModel):
     role: str = Field(default="", max_length=120)
     since: date | None = None
     track_record: str = ""
+    prior_companies: str = ""
+    shares_held: float | None = Field(default=None, ge=0)
 
 
 class FinancingBody(BaseModel):
@@ -287,6 +298,10 @@ class FinancingBody(BaseModel):
     amount: float = Field(gt=0)
     price: float | None = Field(default=None, gt=0)
     shares: float | None = Field(default=None, gt=0)
+    warrants: float | None = Field(default=None, gt=0)
+    warrant_price: float | None = Field(default=None, gt=0)
+    warrant_expiry: date | None = None
+    investors: str = ""
     note: str = ""
 
 
@@ -314,6 +329,34 @@ def add_financing(company_id: int, body: FinancingBody, session: SessionDep) -> 
     )
     session.commit()
     return {"id": financing.id}
+
+
+def _own_entry(session: SessionDep, model: type[Person | Financing], entry_id: int) -> Any:
+    entry = get_or_404(session, model, entry_id)
+    if entry.origin != DataOrigin.USER or entry.is_demo:
+        raise HTTPException(status_code=400, detail="Nur eigene Einträge lassen sich löschen")
+    return entry
+
+
+@router.delete("/people/{person_id}", status_code=204)
+def delete_person(person_id: int, session: SessionDep) -> None:
+    """Remove a person the user entered (typing errors must not stay)."""
+    person = _own_entry(session, Person, person_id)
+    log_change(session, COMPANY, person.company_id, "person", f"Person gelöscht: {person.name}")
+    session.delete(person)
+    session.commit()
+
+
+@router.delete("/financings/{financing_id}", status_code=204)
+def delete_financing(financing_id: int, session: SessionDep) -> None:
+    """Remove a financing the user entered."""
+    financing = _own_entry(session, Financing, financing_id)
+    log_change(
+        session, COMPANY, financing.company_id, "financing",
+        f"Finanzierung gelöscht: {financing.day.isoformat()}",
+    )  # fmt: skip
+    session.delete(financing)
+    session.commit()
 
 
 @router.get("/companies/{company_id}/facts/{metric}")

@@ -17,6 +17,10 @@ gespeicherten Dokumenten, Szenarien, Regelprüfung. Fragen, die Urteil brauchen,
 
 ## Alternativen für das Sprachmodell
 
+Der Agent lässt sich im Betrieb unter **System → Agent** einstellen (Anbieter, Modell, Adresse,
+Schlüssel) und dort testen; ein Neustart ist nicht nötig. Die Umgebungsvariablen unten gelten, solange
+dort nichts eingestellt ist. Der Schlüssel liegt dann in der Datenbank des Servers.
+
 | Variante | Einrichtung | Einschätzung |
 |---|---|---|
 | API-Schlüssel | `ANTHROPIC_API_KEY`, Runner `anthropic` – oder Runner `openai` mit beliebigem OpenAI-kompatiblen Dienst | einfachster und stärkster Weg; Kosten nur bei gestarteten Recherchen |
@@ -39,6 +43,7 @@ Pflichtwerte in `.env`:
 | `WATCHSTREET_DOMAIN` | z. B. `watchstreet.example.org`; der DNS-Eintrag muss auf den Server zeigen |
 | `WATCHSTREET_PASSWORD` | Anmeldepasswort |
 | `WATCHSTREET_SECRET_KEY` | langer Zufallswert (`openssl rand -hex 32`) |
+| `WATCHSTREET_API_TOKEN` | optional: Zugang für Skripte und Research-Agenten ([Import-API](import-api.md)) |
 | `POSTGRES_PASSWORD` | eigenes Datenbankpasswort |
 | `WATCHSTREET_SEC_USER_AGENT` | Name und Kontakt für Abrufe bei der SEC |
 

@@ -131,7 +131,7 @@ function Shell({ canLogout, onLogout }: { canLogout: boolean; onLogout: () => vo
       </header>
       {state.path === "/research" ? <Research update={update} theses={theses} {...common} />
         : state.path === "/portfolio" ? <Portfolio notify={notify} />
-        : state.path === "/sources" ? <Sources />
+        : state.path === "/sources" ? <Sources notify={notify} />
         : state.path === "/system" ? <System notify={notify} tick={tick} />
         : state.path === "/manual" ? <Manual />
         : <Explorer state={state} update={update} commodities={commodities} templates={templates} theses={theses} {...common} />}

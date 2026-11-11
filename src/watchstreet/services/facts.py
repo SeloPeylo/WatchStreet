@@ -118,11 +118,19 @@ def current_fact(
     return session.scalars(query.order_by(Fact.id.desc())).first()
 
 
+GERMAN_NUMBER = str.maketrans({",": ".", ".": ","})
+
+
+def _number(value: float) -> str:
+    """1234567.5 -> '1.234.567,5' (German grouping, no exponent)."""
+    return f"{value:,.10g}".translate(GERMAN_NUMBER)
+
+
 def display_value(fact: Fact) -> str:
     if fact.value is not None:
-        return f"{fact.value:,.10g} {fact.unit}".strip()
+        return f"{_number(fact.value)} {fact.unit}".strip()
     if fact.value_low is not None and fact.value_high is not None:
-        return f"{fact.value_low:,.10g}–{fact.value_high:,.10g} {fact.unit}".strip()
+        return f"{_number(fact.value_low)}–{_number(fact.value_high)} {fact.unit}".strip()
     return fact.text
 
 

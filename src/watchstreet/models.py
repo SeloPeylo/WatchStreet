@@ -115,6 +115,8 @@ class Person(Base):
     role: Mapped[str] = mapped_column(String(120), default="")
     since: Mapped[date | None] = mapped_column(Date, nullable=True)
     track_record: Mapped[str] = mapped_column(Text, default="")
+    prior_companies: Mapped[str] = mapped_column(Text, default="")  # and what holders got
+    shares_held: Mapped[float | None] = mapped_column(Float, nullable=True)
     document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), nullable=True)
     quote: Mapped[str] = mapped_column(Text, default="")
     origin: Mapped[str] = mapped_column(String(8), default=DataOrigin.USER)
@@ -133,6 +135,10 @@ class Financing(Base):
     amount: Mapped[float | None] = mapped_column(Float, nullable=True)  # USD raised
     price: Mapped[float | None] = mapped_column(Float, nullable=True)  # per share
     shares: Mapped[float | None] = mapped_column(Float, nullable=True)
+    warrants: Mapped[float | None] = mapped_column(Float, nullable=True)
+    warrant_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    warrant_expiry: Mapped[date | None] = mapped_column(Date, nullable=True)
+    investors: Mapped[str] = mapped_column(Text, default="")
     note: Mapped[str] = mapped_column(Text, default="")
     document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), nullable=True)
     quote: Mapped[str] = mapped_column(Text, default="")

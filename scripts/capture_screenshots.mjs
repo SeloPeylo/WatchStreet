@@ -128,6 +128,29 @@ await page.locator(".search li button", { hasText: "Demo Junior Explorers" }).cl
 await company.getByText("Reichweite ab Bilanzstichtag").waitFor();
 await shot("junior_unternehmen");
 
+// import an analysis: visible at once, marked unverified, then confirmed by the user
+await page.getByRole("button", { name: "Quellen", exact: true }).click();
+const importer = page.getByTestId("import");
+await importer.getByRole("button", { name: "Beispiel einsetzen" }).click();
+await importer.getByTestId("import-run").click();
+await importer.getByTestId("import-report").getByText("1 neue").waitFor();
+await importer.getByTestId("unverified").getByText("Mina Ejemplo").first().waitFor();
+await shot("analyse_import");
+await page.getByRole("button", { name: "Explorer", exact: true }).click();
+await page.getByPlaceholder("Suche").fill("Ejemplo");
+await page.locator(".search li button", { hasText: "Mina Ejemplo" }).click();
+await panel.getByText("ungeprüft").first().waitFor();
+await shot("ungeprueft_am_objekt");
+await panel.locator("[data-metric=aisc]").click();
+await page.getByTestId("derivation").getByRole("button", { name: "Selbst bestätigen" }).click();
+await page.getByRole("status").getByText("Angabe bestätigt").waitFor();
+await page.getByTestId("derivation").getByRole("button", { name: "Schliessen" }).click();
+
+// the agent backend is chosen at runtime
+await page.getByRole("button", { name: "System", exact: true }).click();
+await page.getByTestId("agent").getByTestId("agent-runner").selectOption("openai");
+await shot("agent_einstellung");
+
 await browser.close();
 if (problems.length) {
   console.error("Browser errors:\n" + problems.join("\n"));

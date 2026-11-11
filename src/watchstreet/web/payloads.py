@@ -42,6 +42,7 @@ def proposal(row: Proposal, subject_name: str = "") -> dict[str, Any]:
 
 
 def ticket(row: Ticket, subject_name: str = "", *, full: bool = False) -> dict[str, Any]:
+    result = row.result if isinstance(row.result, dict) else {}
     data: dict[str, Any] = {
         "id": row.id,
         "subject_type": row.subject_type,
@@ -56,6 +57,8 @@ def ticket(row: Ticket, subject_name: str = "", *, full: bool = False) -> dict[s
         "seen": row.seen,
         "created_at": row.created_at.isoformat(),
         "finished_at": row.finished_at.isoformat() if row.finished_at else None,
+        # a finished search that proved nothing must not read like a result
+        "unproven": bool(result.get("not_found")) and not result.get("fact_ids"),
     }
     if full:
         data["result"] = row.result

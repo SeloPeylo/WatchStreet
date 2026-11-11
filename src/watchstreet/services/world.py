@@ -203,7 +203,7 @@ def fact_payload(fact: Fact | None, metric_key: str, ctx: ViewContext) -> dict[s
     }
 
 
-def _interval(fact: Fact | None) -> Interval | None:
+def fact_interval(fact: Fact | None) -> Interval | None:
     if fact is None:
         return None
     if fact.value is not None:
@@ -246,8 +246,8 @@ def asset_economics(
     if price is None or cost is None:
         return None
     inputs = MineInputs(
-        cost=_interval(cost),
-        production=_interval(production),
+        cost=fact_interval(cost),
+        production=fact_interval(production),
         reserves=reserves.value if reserves else None,
         royalty=royalty_rate(asset, ctx.reference),
     )
@@ -447,7 +447,7 @@ def map_feature(asset: Asset, bundle: Bundle, ctx: ViewContext, color: str) -> d
             # plain figures for the cost table and the scenario summary (no forecasts)
             "margin": _mid(econ.result.margin_pct) if econ and not econ.is_forecast else None,
             "unit_cost": _mid(econ.result.cost) if econ and not econ.is_forecast else None,
-            "production": _mid(_interval(facts.get("production"))),
+            "production": _mid(fact_interval(facts.get("production"))),
             "color_known": value is not None,
             "knowledge": knowledge["status"],
             "open_questions": knowledge["open_questions"],

@@ -7,11 +7,26 @@ from sqlalchemy.orm import Session, selectinload
 
 from watchstreet.domain import Stance, SubjectType
 from watchstreet.errors import WatchStreetError
-from watchstreet.models import Thesis, ThesisAssumption, ThesisLink
+from watchstreet.models import (
+    Asset,
+    Company,
+    Document,
+    Fact,
+    Finding,
+    Thesis,
+    ThesisAssumption,
+    ThesisLink,
+)
 from watchstreet.services.changes import log_change
 
 LINK_TARGETS = ("asset", "company", "finding", "document", "fact")
 ASSUMPTION_STATES = ("open", "supported", "contradicted", "unclear")
+STATE_LABEL = {"open": "offen", "supported": "gestützt"}
+STATE_LABEL |= {"contradicted": "widerlegt", "unclear": "unklar"}
+STANCE_LABEL = {"supports": "stützt", "contradicts": "widerspricht", "context": "Kontext"}
+LINK_MODELS: dict[str, type[Asset | Company | Finding | Document | Fact]] = {
+    "asset": Asset, "company": Company, "finding": Finding, "document": Document, "fact": Fact,
+}  # fmt: skip
 
 
 class ThesisError(WatchStreetError, ValueError):
@@ -75,7 +90,7 @@ def set_assumption_status(
     if status not in ASSUMPTION_STATES:
         msg = "Unbekannter Status der Annahme"
         raise ThesisError(msg)
-    if status != "open" and not reason.strip():
+    if not reason.strip() and (status != "open" or assumption.status != "open"):
         msg = "Bitte begründen, warum die Annahme so eingeordnet wird"
         raise ThesisError(msg)
     old, assumption.status = assumption.status, status
@@ -86,17 +101,25 @@ def set_assumption_status(
         SubjectType.THESIS,
         assumption.thesis_id,
         "thesis",
-        f"Annahme neu eingeordnet: {assumption.text} – {reason.strip() or 'ohne Begründung'}",
-        old=old,
-        new=status,
+        f"Annahme jetzt „{STATE_LABEL[status]}“: {assumption.text} – "
+        f"{reason.strip() or 'ohne Begründung'}",
+        old=STATE_LABEL.get(old, old),
+        new=STATE_LABEL[status],
     )
 
 
 def update_assumption_test(
     session: Session, assumption: ThesisAssumption, criterion: str, review_by: date | None
 ) -> None:
+    before = f"{assumption.criterion or '–'} (prüfen bis {assumption.review_by or '–'})"
     assumption.criterion, assumption.review_by = criterion.strip(), review_by
     session.flush()
+    after = f"{assumption.criterion or '–'} (prüfen bis {assumption.review_by or '–'})"
+    if before != after:  # moving the bar afterwards must leave a trace
+        log_change(
+            session, SubjectType.THESIS, assumption.thesis_id, "thesis",
+            f"Kriterium geändert: {assumption.text}", old=before, new=after,
+        )  # fmt: skip
 
 
 def link(  # noqa: PLR0913
@@ -112,6 +135,13 @@ def link(  # noqa: PLR0913
     if target_type not in LINK_TARGETS or stance not in tuple(Stance):
         msg = "Ungültige Verknüpfung"
         raise ThesisError(msg)
+    if session.get(LINK_MODELS[target_type], target_id) is None:
+        msg = "Das verknüpfte Objekt existiert nicht"
+        raise ThesisError(msg)
+    log_change(
+        session, SubjectType.THESIS, thesis.id, "thesis",
+        f"Evidenz zugeordnet ({STANCE_LABEL.get(stance, stance)}): {target_type} #{target_id}",
+    )  # fmt: skip
     existing = session.scalars(
         select(ThesisLink).where(
             ThesisLink.thesis_id == thesis.id,

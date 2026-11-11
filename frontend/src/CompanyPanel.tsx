@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Derivation, MetricRow } from "./AssetPanel";
 import type { Json, Metric } from "./api";
-import { EPISTEMIC_LABEL, STATUS_LABEL, day, get, num, post } from "./api";
+import { EPISTEMIC_LABEL, STATUS_LABEL, day, del, get, num, post } from "./api";
 import type { ViewState } from "./state";
 import { viewParams } from "./state";
 
@@ -28,8 +28,8 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
   const [data, setData] = useState<Json>(null);
   const [open, setOpen] = useState("");
   const [entry, setEntry] = useState({ metric: "cash", value: "" });
-  const [person, setPerson] = useState({ name: "", role: "", track_record: "" });
-  const [fin, setFin] = useState({ day: "", amount: "", price: "", note: "", kind: "equity" });
+  const [person, setPerson] = useState({ name: "", role: "", track_record: "", prior_companies: "", shares_held: "" });
+  const [fin, setFin] = useState({ day: "", amount: "", price: "", note: "", kind: "equity", warrants: "", warrant_price: "", warrant_expiry: "", investors: "" });
   useEffect(() => {
     get(`/companies/${id}`, viewParams(state)).then(setData).catch(() => setData(null));
   }, [id, state.asof, state.view, state.sc, tick]);
@@ -48,9 +48,9 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
   const isText = ENTRY.find(([key]) => key === entry.metric)![2];
   const save = () =>
     act(() => post("/facts", { subject_type: "company", subject_id: id, metric: entry.metric, ...(isText ? { text: entry.value } : { value: Number(entry.value) }) }), "Kennzahl gespeichert").then(() => setEntry({ ...entry, value: "" }));
-  const savePerson = () => act(() => post(`/companies/${id}/people`, person), "Person erfasst").then(() => setPerson({ name: "", role: "", track_record: "" }));
+  const savePerson = () => act(() => post(`/companies/${id}/people`, { ...person, shares_held: person.shares_held ? Number(person.shares_held) : null }), "Person erfasst").then(() => setPerson({ name: "", role: "", track_record: "", prior_companies: "", shares_held: "" }));
   const saveFin = () =>
-    act(() => post(`/companies/${id}/financings`, { day: fin.day, note: fin.note, kind: fin.kind, ...(fin.amount ? { amount: Number(fin.amount) } : {}), ...(fin.price ? { price: Number(fin.price) } : {}) }), "Finanzierung erfasst").then(() => setFin({ day: "", amount: "", price: "", note: "", kind: "equity" }));
+    act(() => post(`/companies/${id}/financings`, { day: fin.day, note: fin.note, kind: fin.kind, investors: fin.investors, ...(fin.warrants ? { warrants: Number(fin.warrants) } : {}), ...(fin.warrant_price ? { warrant_price: Number(fin.warrant_price) } : {}), ...(fin.warrant_expiry ? { warrant_expiry: fin.warrant_expiry } : {}), ...(fin.amount ? { amount: Number(fin.amount) } : {}), ...(fin.price ? { price: Number(fin.price) } : {}) }), "Finanzierung erfasst").then(() => setFin({ day: "", amount: "", price: "", note: "", kind: "equity", warrants: "", warrant_price: "", warrant_expiry: "", investors: "" }));
   const answered = data.checklist.filter((q: Json) => q.answered).length;
   return (
     <div data-testid="company-panel">
@@ -96,7 +96,10 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
         {data.people.map((p: Json) => (
           <div key={p.id} className="small" style={{ marginBottom: 4 }}>
             <b>{p.name}</b> · {p.role}{p.since ? ` seit ${p.since.slice(0, 4)}` : ""} {p.sourced && <span className="pill evidenced">mit Zitat</span>}
+            {p.own_entry && <button className="link small" title="Eigenen Eintrag löschen" onClick={() => act(() => del(`/people/${p.id}`), "Person gelöscht")}> ✕</button>}
             <div className="muted">{p.track_record}</div>
+            {p.prior_companies && <div className="muted">Frühere Unternehmen: {p.prior_companies}</div>}
+            {p.shares_held != null && <div className="muted">Hält {num(p.shares_held)} Aktien{p.ownership != null ? ` (${num(p.ownership * 100)} % des Unternehmens)` : ""}</div>}
           </div>
         ))}
         <details>
@@ -104,6 +107,10 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
           <div className="row">
             <input placeholder="Name" value={person.name} onChange={(e) => setPerson({ ...person, name: e.target.value })} data-testid="person-name" />
             <input placeholder="Rolle" value={person.role} onChange={(e) => setPerson({ ...person, role: e.target.value })} />
+          </div>
+          <div className="row">
+            <input className="grow" placeholder="Frühere Unternehmen und Ergebnis für Aktionäre" value={person.prior_companies} onChange={(e) => setPerson({ ...person, prior_companies: e.target.value })} />
+            <input type="number" placeholder="Eigene Aktien" value={person.shares_held} onChange={(e) => setPerson({ ...person, shares_held: e.target.value })} />
           </div>
           <div className="row">
             <input className="grow" placeholder="Erfolgsbilanz: was hat die Person früher gebaut oder verkauft?" value={person.track_record} onChange={(e) => setPerson({ ...person, track_record: e.target.value })} />
@@ -117,7 +124,8 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
         {data.financings.length === 0 && <p className="muted small">Keine Finanzierung erfasst.</p>}
         <table><tbody>
           {data.financings.map((f: Json) => (
-            <tr key={f.id}><td>{day(f.day)}</td><td className="n">{num(f.amount)} USD</td><td className="n">{f.price != null ? `${num(f.price)} je Aktie` : ""}</td><td className="small muted">{f.note}</td></tr>
+            <tr key={f.id}><td>{day(f.day)}</td><td className="n">{num(f.amount)} USD</td><td className="n">{f.price != null ? `${num(f.price)} je Aktie` : ""}</td><td className="small muted">{f.warrants != null && <>+ {num(f.warrants)} Warrants{f.warrant_price != null ? ` zu ${num(f.warrant_price)}` : ""}{f.warrant_expiry ? ` bis ${day(f.warrant_expiry)}` : ""} · </>}{f.investors && <>{f.investors} · </>}{f.note}{f.after_balance && <> · <b>nach Bilanzstichtag</b></>}
+              {f.own_entry && <button className="link small" title="Eigenen Eintrag löschen" onClick={() => act(() => del(`/financings/${f.id}`), "Finanzierung gelöscht")}> ✕</button>}</td></tr>
           ))}
         </tbody></table>
         <details>
@@ -131,10 +139,16 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
             <input type="number" placeholder="Preis je Aktie" value={fin.price} onChange={(e) => setFin({ ...fin, price: e.target.value })} />
           </div>
           <div className="row">
-            <input className="grow" placeholder="Notiz, z. B. mit Warrants, Zeichner" value={fin.note} onChange={(e) => setFin({ ...fin, note: e.target.value })} />
+            <input type="number" placeholder="Warrants (Stück)" value={fin.warrants} onChange={(e) => setFin({ ...fin, warrants: e.target.value })} />
+            <input type="number" placeholder="Ausübungspreis" value={fin.warrant_price} onChange={(e) => setFin({ ...fin, warrant_price: e.target.value })} />
+            <input type="date" title="Laufzeit der Warrants bis" value={fin.warrant_expiry} onChange={(e) => setFin({ ...fin, warrant_expiry: e.target.value })} />
+          </div>
+          <div className="row">
+            <input placeholder="Zeichner" value={fin.investors} onChange={(e) => setFin({ ...fin, investors: e.target.value })} />
+            <input className="grow" placeholder="Notiz" value={fin.note} onChange={(e) => setFin({ ...fin, note: e.target.value })} />
             <button disabled={!fin.day || !fin.amount} onClick={saveFin}>Speichern</button>
           </div>
-          <p className="small muted">Kasse und Aktienzahl oben bleiben auf dem Bilanzstichtag; eine spätere Finanzierung wird dort nicht eingerechnet.</p>
+          <p className="small muted">Kasse und Aktienzahl oben bleiben auf dem Bilanzstichtag; Finanzierungen danach erscheinen unter „Abgeleitet“ als Pro-forma-Werte.</p>
         </details>
       </div>
 

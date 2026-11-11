@@ -1,7 +1,7 @@
 // Context panel for one asset: the character card first, depth on demand.
 import { useEffect, useState } from "react";
 import type { Card, Json, Metric } from "./api";
-import { CLAIM_LABEL, COMMODITY_LABEL, EPISTEMIC_LABEL, KNOWLEDGE_LABEL, METHOD_LABEL, PROVENANCE, STATUS_LABEL, TICKET_LABEL, day, get, metricText, post } from "./api";
+import { CLAIM_LABEL, COMMODITY_LABEL, EPISTEMIC_LABEL, KNOWLEDGE_LABEL, METHOD_LABEL, ORIGIN_LABEL, PROVENANCE, STATUS_LABEL, TICKET_LABEL, day, get, metricText, post } from "./api";
 import type { ViewState } from "./state";
 import { selection, viewParams } from "./state";
 
@@ -26,6 +26,7 @@ export function MetricRow({ m, onOpen, action }: { m: Metric; onOpen?: () => voi
       <td className={`n ${forecast ? "forecast" : ""}`}>
         {metricText(m)}
         {m.stale && <span title="veraltet"> ⚠</span>}
+        {m.unverified && <span className="pill unresolved" title="Aus einer importierten Analyse, noch nicht geprüft"> ungeprüft</span>}
         {action}
         {m.provenance !== "unknown" && (
           <div className="muted small">
@@ -45,6 +46,8 @@ export function Derivation({ path, thesisId, onClose, notify, onChanged }: { pat
   }, [path]);
   const link = (factId: number, stance: string) =>
     post(`/theses/${thesisId}/links`, { target_type: "fact", target_id: factId, stance }).then(() => { notify("Kennzahl der aktiven These als Evidenz zugeordnet"); onChanged(); }).catch((e) => notify(e.message));
+  const change = (url: string, text: string) =>
+    post(url).then(() => { notify(text); onChanged(); return get(path).then(setData); }).catch((e) => notify(e.message));
   if (!data) return null;
   const block = (f: Json, title: string) => (
     <div key={f.id} className="box" style={{ marginBottom: 10 }}>
@@ -54,7 +57,8 @@ export function Derivation({ path, thesisId, onClose, notify, onChanged }: { pat
         <span className="pill">{CLAIM_LABEL[f.claim_kind]}</span>
         <span className="pill">Vertrauen: {f.confidence}</span>
         {f.is_demo && <span className="demo">synthetisch</span>}
-        {f.superseded && <span className="pill">ersetzt</span>}
+        {f.retracted ? <span className="pill">storniert</span> : f.superseded && <span className="pill">ersetzt</span>}
+        {f.unverified && !f.superseded && <span className="pill unresolved">ungeprüft</span>}
       </div>
       <table>
         <tbody>
@@ -65,10 +69,17 @@ export function Derivation({ path, thesisId, onClose, notify, onChanged }: { pat
           {f.document && (
             <tr><th>Quelle</th><td>{f.document.title} ({f.document.publisher}) – <a href={f.document.url} target="_blank" rel="noreferrer">{f.document.url}</a></td></tr>
           )}
-          <tr><th>Herkunft</th><td>{{ user: "Nutzereingabe", agent: "Agent", api: "automatische Auswertung", engine: "Analyse-Engine" }[f.origin as string]}</td></tr>
+          <tr><th>Herkunft</th><td>{ORIGIN_LABEL[f.origin as string]}</td></tr>
         </tbody>
       </table>
       {f.quote && <div className="quote">„{f.quote}“</div>}
+      {!f.superseded && (f.origin === "user" || f.origin === "import") && (
+        <div className="row small">
+          {f.unverified && <button onClick={() => change(`/facts/${f.id}/confirm`, "Angabe bestätigt – gilt jetzt als deine eigene")}>Selbst bestätigen</button>}
+          <button onClick={() => change(`/facts/${f.id}/retract`, "Angabe storniert")}>Stornieren</button>
+          <span className="muted">Stornierte Angaben bleiben in der Historie sichtbar.</span>
+        </div>
+      )}
       {thesisId && !f.superseded && (
         <div className="row small">Als Evidenz der aktiven These: <button onClick={() => link(f.id, "supports")}>stützt</button><button onClick={() => link(f.id, "contradicts")}>widerspricht</button></div>
       )}

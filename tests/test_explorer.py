@@ -624,7 +624,7 @@ def test_thesis_changes_are_logged_and_evidence_is_readable(client, session):
     )
     report = client.get(f"{API}/changes").json()["changes"]
     assert [c["kind"] for c in report] == ["thesis", "thesis", "thesis"]
-    assert report[0]["new"] == "supported" and "Bericht 2025" in report[0]["summary"]
+    assert report[0]["new"] == "gestützt" and "Bericht 2025" in report[0]["summary"]
     assert len(client.get(f"{API}/changes", params={"since": "2000-01-01"}).json()["changes"]) > 10
     assert client.get(f"{API}/changes", params={"since": "gestern"}).status_code == 422
 
@@ -741,7 +741,7 @@ def test_fact_as_thesis_evidence(client, session):
     evidence = [
         x for x in client.get(f"{API}/theses").json()[0]["links"] if x["target_type"] == "fact"
     ]
-    assert evidence[0]["fact"]["display"].startswith("2.05") and evidence[0]["stance"] == "supports"
+    assert evidence[0]["fact"]["display"].startswith("2,05") and evidence[0]["stance"] == "supports"
 
 
 # --- login ----------------------------------------------------------------------------------
@@ -859,3 +859,63 @@ def test_company_view_is_honest_about_dates_duplicates_and_coverage(client, sess
     first = client.post(f"{API}/proposals", json=body).json()
     second = client.post(f"{API}/proposals", json=body).json()
     assert first["id"] == second["id"]
+
+
+def test_dalio_review_fixes_trace_dates_and_units(client, session):
+    thesis = client.post(f"{API}/theses", json={"title": "T", "statement": "S"}).json()
+    added = client.post(
+        f"{API}/theses/{thesis['id']}/assumptions",
+        json={"text": "Preis hält", "criterion": "<2,40"},
+    ).json()
+    assumption = added["assumptions"][-1]["id"]
+    path = f"{API}/assumptions/{assumption}"
+    assert client.patch(path, json={"criterion": "<3,00"}).status_code == 200
+    assert client.patch(path, json={"status": "supported", "reason": "Bericht"}).status_code == 200
+    assert client.patch(path, json={"status": "open"}).status_code == 400  # back needs a reason
+    summaries = [c["summary"] for c in client.get(f"{API}/changes").json()["changes"]]
+    assert any(s.startswith("Kriterium geändert") for s in summaries)
+    assert any("jetzt „gestützt“" in s for s in summaries)
+    bad = {"target_type": "asset", "target_id": 9999}
+    assert client.post(f"{API}/theses/{thesis['id']}/links", json=bad).status_code == 400
+    assert client.get(f"{API}/map", params={"asof": "2099-01-01"}).status_code == 422
+    gold = client.get(f"{API}/map", params={"commodity": "gold", "scenario": "gold:1500"}).json()
+    share = gold["summary"]["production_share_under_water"]
+    assert share is None or 0.01 < share <= 1  # by-product mines no longer dilute the share
+    holding = {"symbol": "DACC", "quantity": 1, "avg_price": 1, "bought_at": "2099-01-01"}
+    assert client.post(f"{API}/portfolio/holdings", json=holding).status_code == 422
+
+
+def test_rule_specs_financing_terms_pro_forma_and_own_entries(client, session):
+    junior = _company_id(session, "Demo Junior Explorers Ltd")
+    raise_ = {
+        "day": "2026-10-01", "amount": 15e6, "price": 0.2, "warrants": 37.5e6,
+        "warrant_price": 0.3, "warrant_expiry": "2028-10-01", "investors": "Fonds A",
+    }  # fmt: skip
+    created = client.post(f"{API}/companies/{junior}/financings", json=raise_).json()
+    person = {"name": "Erika Muster", "shares_held": 9e6, "prior_companies": "Alpha Mining: 4x"}
+    made = client.post(f"{API}/companies/{junior}/people", json=person).json()
+    view = client.get(f"{API}/companies/{junior}").json()
+    derived = {m["metric"]: m for m in view["derived"]}
+    assert derived["cash_pro_forma"]["value"] == 24e6
+    assert derived["shares_pro_forma"]["value"] == 180e6 + 75e6
+    assert derived["cash_empty"]["text"].startswith("am ")  # the raise moved the date forward
+    assert "study_npv_sum" in derived and "p_study_npv" in derived
+    row = next(f for f in view["financings"] if f["id"] == created["id"])
+    assert row["after_balance"] and row["warrants"] == 37.5e6 and row["own_entry"]
+    who = next(p for p in view["people"] if p["id"] == made["id"])
+    assert who["ownership"] == 0.05 and who["own_entry"]
+    assert client.delete(f"{API}/financings/{created['id']}").status_code == 204
+    assert client.delete(f"{API}/people/{made['id']}").status_code == 204
+    demo_person = next(p for p in view["people"] if not p["own_entry"])
+    assert client.delete(f"{API}/people/{demo_person['id']}").status_code == 400
+    after = client.get(f"{API}/companies/{junior}").json()
+    assert "cash_pro_forma" not in {m["metric"] for m in after["derived"]}
+
+
+def test_royalty_holder_has_a_value_and_checklist_needs_all_costs(client, session):
+    royalty = client.get(f"{API}/companies/{_company_id(session, 'Demo Royalty Partners')}").json()
+    derived = {m["metric"]: m for m in royalty["derived"]}
+    assert derived["nav_sum"]["value"] > 0 and royalty["sensitivity"]
+    pacific = client.get(f"{API}/companies/{_company_id(session, 'Demo Pacific Metals')}").json()
+    costs = next(q for q in pacific["checklist"] if q["key"] == "costs")
+    assert costs["answered"] is False  # one mine has no cost on file

@@ -82,6 +82,31 @@ des Börsenwerts, Formeltexte nennen die Royalty, Zahlen im Lagebericht ohne Exp
 | SOLL | Rechercheergebnis „nicht belegt“ statt „abgeschlossen“; Prüfkatalog strenger (Kosten aller Minen) | falsche Sicherheit |
 | KANN | Unternehmensvergleich, Zyklusindikator | |
 
+## Dritter Durchlauf (Dalio-Sicht) und Umsetzung der Rule-Liste
+
+Aus der Rule-Liste umgesetzt: Finanzierungen mit Warrants, Zeichnern und Pro-forma-Wirkung;
+Studien-NPV gegen Börsenwert; Stornieren von Kennzahlen und Löschen eigener Personen und
+Finanzierungen; Personen mit früheren Unternehmen und Aktienbesitz; Kennzahl „Genehmigungen und
+Jurisdiktion“; Wert für Royalty-Halter; Ergebnis „Abgeschlossen – nicht belegt“; Prüfkatalog verlangt
+Kosten aller produzierenden Minen.
+
+Aus dem Dalio-Durchlauf behoben: Stress-Banner zählt nur Minen mit dem gewählten Hauptrohstoff;
+Stichtag und Kaufdatum in der Zukunft werden abgelehnt; Änderungen an Kriterium, Prüfdatum und
+Evidenz stehen im Lagebericht, Status deutsch mit neuem Wert; Rückkehr auf „offen“ braucht eine
+Begründung; Verknüpfung auf nicht vorhandene Objekte wird abgelehnt; Warnhinweise bei „gestützt trotz
+Gegenevidenz“, „ohne Evidenz“ und „ohne Kriterium“; Portfolio zeigt widerlegte Annahmen und fällige
+Prüfungen je These.
+
+| Prio | Offen | Begründung |
+|---|---|---|
+| MUSS | Position direkt mit These und Ausstiegsbedingung verknüpfen; Entscheidungsprotokoll für Kauf und Verkauf | Lernen aus Fehlern |
+| MUSS | Wissensstatus, Quellen und Vorschläge am Stichtag filtern | kein späteres Wissen in der Vergangenheit |
+| SOLL | Thesenstatus aus Annahmen ableiten; fällige Prüfungen in Glocke und Lagebericht | |
+| SOLL | Preis und berechnete Grössen als Evidenz; Knopf „Objekt der These zuordnen“ | |
+| SOLL | Portfolio-Stresstest, Mehrrohstoff-Szenarien, Kosteninflation, Kostentrend | |
+| SOLL | Preishebel für Entwickler; Unternehmensvergleich | Rule |
+| KANN | Überzeugungsgrad je Annahme, Ursache-Wirkungs-Kette, Korrelation | |
+
 ## Wo die Anwendung weiterhin zu falscher Sicherheit verleiten kann
 
 * **NAV und Cashflow** lesen sich wie Bewertungen, enthalten aber weder Steuern, Royalties,

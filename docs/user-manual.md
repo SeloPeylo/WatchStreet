@@ -118,6 +118,13 @@ Eine Finanzierung braucht Datum (nicht in der Zukunft), Art und Betrag. Zusätzl
 voll verwässert und die Finanzierungslücke als Vielfaches des Börsenwerts in der Liste. Die Summe der
 Asset-NAV nennt, aus wie vielen der produzierenden Objekte sie gebildet ist.
 
+Finanzierungen nehmen auch Warrants (Stück, Ausübungspreis, Laufzeit) und Zeichner auf. Liegt eine
+Finanzierung nach dem Bilanzstichtag, erscheinen „Kasse pro forma“ und „Aktien pro forma“, und das
+Datum „Kasse rechnerisch leer“ rechnet sie ein. Für Projekte stehen der NPV laut Studien (anteilig)
+und das Verhältnis Börsenwert zu Studien-NPV in der Liste. Bei Personen lassen sich frühere
+Unternehmen und der eigene Aktienbesitz erfassen. Eigene Personen und Finanzierungen lassen sich mit
+„✕“ löschen. Ein Royalty-Halter erhält einen Wert aus seinem Umsatzanteil über die Reservenlaufzeit.
+
 ## 5. Auswahl und Vergleich
 
 „+ Zur Auswahl“ oder `Umschalt+Klick` legt ein Objekt in die Auswahlleiste (höchstens 8). Ausgewählte
@@ -264,7 +271,45 @@ erscheinen nicht in Ansichten der Vergangenheit, weil sie keinen datierten Statu
 Im Demo-Modus ist der Import gesperrt, damit synthetische und echte Daten nie in derselben Datenbank
 liegen.
 
+## 11b. Analysen importieren und nach und nach prüfen
+
+Unter „Quellen“ lässt sich eine eigene Analyse oder Liste einfügen oder als Datei hochladen (CSV, TSV,
+mit „;“ getrennt oder Markdown-Tabelle). Die Kopfzeile nennt mindestens `name`; ein neues Objekt
+braucht zusätzlich `lat`, `lon` und `commodity`. Bekannte Objekte werden über den Namen gefunden.
+
+![Analyse importieren](screenshots/21_analyse_import.png)
+
+Was der Import bewirkt:
+
+* Objekte und Kennzahlen erscheinen sofort, jede Kennzahl mit dem Hinweis **ungeprüft**.
+* Eine importierte Zahl ersetzt nie eine belegte Zahl und nie deinen eigenen Eintrag. Nennt die
+  Analyse etwas anderes, steht das als „Abweichung“ im Ergebnis.
+* Derselbe Import noch einmal ändert nichts; ein neuer Import mit geänderten Werten ersetzt den alten.
+
+![Ungeprüfte Angabe am Objekt](screenshots/22_ungeprueft_am_objekt.png)
+
+Prüfen lässt sich auf drei Wegen:
+
+1. **Selbst bestätigen** (in der Liste oder in der Herleitung der Zahl): Die Angabe gilt danach als
+   dein eigener Eintrag.
+2. **Stornieren**: Die Angabe zählt nicht mehr, bleibt aber in der Historie sichtbar. Das geht auch
+   für eigene Einträge, etwa nach einem Tippfehler.
+3. **Prüfung gegen Primärquellen vormerken**: Je Angabe entsteht ein Vorschlag im Research-Backlog.
+   Nach dem Start sucht das System die Zahl zuerst ohne Sprachmodell in den gespeicherten
+   Primärdokumenten; erst wenn das nichts ergibt, arbeitet der eingestellte Agent.
+
+Fliesstext ohne Tabelle zerlegt der Agent in einem Aufruf; jede Zeile braucht ein wörtliches Zitat aus
+dem Text. Skripte und Research-Agenten ausserhalb der Anwendung nutzen dieselbe Funktion über die
+[Import-API](import-api.md).
+
 ## 12. System
+
+Unter „Agent“ wählst du, wer Recherchen ausführt: kein Agent, die Anthropic-API oder ein
+OpenAI-kompatibler Server (ein API-Anbieter oder ein Modell auf eigener Hardware, etwa Ollama). Modell,
+Adresse und Schlüssel werden hier eingetragen; „Verbindung testen“ schickt eine kurze Anfrage. Der
+Schlüssel wird in der Datenbank des Servers gespeichert und nicht wieder angezeigt.
+
+![Agent einstellen](screenshots/23_agent_einstellung.png)
 
 Datenmodus, Marktdatenquelle, konfigurierter Agent, Zustand des Workers. „Hintergrundlauf jetzt“
 aktualisiert Preise und Ereignisse und führt die Regelprüfung aus; er startet nie einen Agenten.

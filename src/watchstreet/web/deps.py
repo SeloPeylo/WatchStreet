@@ -13,6 +13,7 @@ from watchstreet.db import session_scope
 from watchstreet.domain import View
 from watchstreet.services.viewing import build_view
 from watchstreet.services.world import ViewContext
+from watchstreet.timeutil import utcnow
 
 
 def get_container(request: Request) -> Container:
@@ -51,6 +52,8 @@ def get_view(
     view: View = View.AS_KNOWN,
     scenario: str = "",
 ) -> ViewContext:
+    if asof is not None and asof > utcnow().date():
+        raise HTTPException(status_code=422, detail="Der Stichtag liegt in der Zukunft")
     return build_view(session, container.market, asof, view, parse_scenario(scenario))
 
 

@@ -362,6 +362,7 @@ class WatchBody(BaseModel):
 def _exposure(session: Session, stock_id: int) -> dict[str, Any]:
     """The company behind a position, its assets and the theses that touch them."""
     company = session.scalars(select(Company).where(Company.stock_id == stock_id)).first()
+    today = utcnow().date()
     if company is None:
         return {"company": None, "assets": [], "theses": []}
     assets = list(
@@ -382,7 +383,18 @@ def _exposure(session: Session, stock_id: int) -> dict[str, Any]:
     return {
         "company": {"id": company.id, "name": company.name},
         "assets": [{"id": a.id, "name": a.name} for a in assets],
-        "theses": [{"id": t.id, "title": t.title} for t in linked],
+        "theses": [
+            {
+                "id": t.id,
+                "title": t.title,
+                "contradicted": sum(a.status == "contradicted" for a in t.assumptions),
+                "due": sum(
+                    a.status == "open" and a.review_by is not None and a.review_by <= today
+                    for a in t.assumptions
+                ),
+            }
+            for t in linked
+        ],
     }
 
 
@@ -427,6 +439,8 @@ def portfolio_view(session: SessionDep, container: ContainerDep) -> dict[str, An
 
 @router.post(f"{API}/portfolio/holdings")
 def add_holding(body: HoldingBody, session: SessionDep, container: ContainerDep) -> dict[str, int]:
+    if body.bought_at is not None and body.bought_at > utcnow().date():
+        raise HTTPException(status_code=422, detail="Das Kaufdatum liegt in der Zukunft")
     holding = portfolio.add_holding(
         session,
         container.market,

@@ -1,5 +1,7 @@
 """Company-level ratios (pure). Missing inputs yield ``None``, never a guess."""
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import date, timedelta
 
 MONTHS_PER_QUARTER = 3.0
@@ -40,6 +42,32 @@ def funding_gap(capex: float | None, cash: float | None) -> float | None:
     if capex is None or cash is None:
         return None
     return max(capex - cash, 0.0)
+
+
+@dataclass(frozen=True)
+class Raise:
+    """One financing after the balance sheet date."""
+
+    amount: float
+    is_equity: bool = True
+    price: float | None = None
+    shares: float | None = None
+    warrants: float | None = None
+
+
+def new_shares(raises: Sequence[Raise]) -> float:
+    """Shares issued by the raises: as stated, else amount / price for equity."""
+    total = 0.0
+    for r in raises:
+        if r.shares:
+            total += r.shares
+        elif r.is_equity and r.price:
+            total += r.amount / r.price
+    return total
+
+
+def pro_forma_cash(cash: float | None, raises: Sequence[Raise]) -> float | None:
+    return None if cash is None else cash + sum(r.amount for r in raises)
 
 
 def cash_empty_on(as_at: date | None, months: float | None) -> date | None:

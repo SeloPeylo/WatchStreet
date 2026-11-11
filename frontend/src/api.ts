@@ -16,6 +16,7 @@ export interface Metric {
   stale?: boolean;
   formula?: string;
   origin?: string;
+  unverified?: boolean;
   is_demo?: boolean;
 }
 
@@ -76,6 +77,7 @@ export const get = (path: string, params: Record<string, string | undefined> = {
   return request("GET", query ? `${path}?${query}` : path);
 };
 export const post = (path: string, body: unknown = {}): Promise<Json> => request("POST", path, body);
+export const put = (path: string, body: unknown): Promise<Json> => request("PUT", path, body);
 export const patch = (path: string, body: unknown): Promise<Json> => request("PATCH", path, body);
 export const del = (path: string): Promise<Json> => request("DELETE", path);
 
@@ -121,6 +123,10 @@ export const EPISTEMIC_LABEL: Record<string, string> = {
   hypothesis: "Begründete Hypothese",
   evidenced: "Belegt",
 };
+export const ORIGIN_LABEL: Record<string, string> = { user: "Nutzereingabe", agent: "Agent", api: "automatische Auswertung", engine: "Analyse-Engine", import: "importierte Analyse (ungeprüft)" };
+// A finished search that proved nothing must not read like a result.
+export const ticketLabel = (t: Json): string =>
+  t.status === "done" && t.unproven ? "Abgeschlossen – nicht belegt" : TICKET_LABEL[t.status];
 export const COMMODITY_LABEL: Record<string, string> = { gold: "Gold", silver: "Silber", copper: "Kupfer", uranium: "Uran" };
 export const METHOD_LABEL: Record<string, string> = {
   open_pit: "Tagebau",

@@ -70,6 +70,7 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; } td.n { text-align
 .cardlist > div { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
 .pill { font-size: 11px; padding: 1px 7px; border-radius: 9px; background: var(--chip); border: 1px solid var(--line); }
 .pill.done, .pill.evidenced, .pill.supported { color: var(--ok); border-color: var(--ok); } .pill.failed, .pill.contradicted { color: var(--bad); border-color: var(--bad); }
+.pill.unresolved { color: var(--bad); border-color: var(--bad); }
 .pill.running, .pill.queued { color: var(--accent); border-color: var(--accent); }
 
 .modal { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / .45); display: grid; place-items: center; }

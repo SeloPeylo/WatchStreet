@@ -1,7 +1,7 @@
 // Research workspace: thesis board, backlog with deliberate start, tickets, situation report.
 import { useEffect, useState } from "react";
 import type { Json } from "./api";
-import { EPISTEMIC_LABEL, TICKET_LABEL, day, get, patch, post } from "./api";
+import { EPISTEMIC_LABEL, ticketLabel, day, get, patch, post } from "./api";
 import type { ViewState } from "./state";
 
 const PARTS: Record<string, string> = { insight: "Erkenntnisgewinn", relevance: "Relevanz", novelty: "Neuartigkeit", data: "Datenlage", investment: "Investmentnutzen" };
@@ -30,7 +30,7 @@ function TicketResult({ id, onClose, update }: { id: number; onClose: () => void
       <div onClick={(e) => e.stopPropagation()} data-testid="ticket-result">
         <div className="row"><h2>{ticket.title}</h2><button className="right" onClick={onClose}>Schliessen</button></div>
         <div className="row">
-          <span className={`pill ${ticket.status}`}>{TICKET_LABEL[ticket.status]}</span>
+          <span className={`pill ${ticket.status}`}>{ticketLabel(ticket)}</span>
           <span className="muted small">{ticket.subject_name} · Agent: {ticket.runner || "–"}{result.agent_used === false ? " (nur deterministische Schritte)" : ""}</span>
           {ticket.subject_type === "asset" && <button className="link" onClick={() => update({ path: "/", a: String(ticket.subject_id) })}>Auf der Karte zeigen</button>}
         </div>
@@ -72,8 +72,8 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
   const thesis = theses.find((t) => t.id === thesisId) ?? theses[0];
   // A judgement needs a reason, so it can be checked against reality later.
   const judge = (a: Json, status: string) => {
-    const reason = status === "open" ? "" : window.prompt(`Begründung für „${ASSUMPTION[status]}“:`, "") ?? "";
-    if (status !== "open" && !reason.trim()) return notify("Ohne Begründung wird der Status nicht geändert");
+    const reason = window.prompt(`Begründung für „${ASSUMPTION[status]}“:`, "") ?? "";
+    if (!reason.trim()) return notify("Ohne Begründung wird der Status nicht geändert");
     return act(() => patch(`/assumptions/${a.id}`, { status, reason }), "Annahme eingeordnet");
   };
   const retest = (a: Json) => {
@@ -107,6 +107,9 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
                   Widerlegt, wenn: {a.criterion || <i>kein Kriterium – so ist die Annahme nicht prüfbar</i>}
                   {a.review_by && <> · prüfen bis {day(a.review_by)}{a.review_due && <b style={{ color: "var(--warn)" }}> (fällig)</b>}</>}
                   {" · "}Evidenz: {a.supports} stützend, {a.contradicts} widersprechend{a.contradicts === 0 && a.status === "supported" ? " – kein Gegenargument geprüft" : ""}
+                  {a.contradicts > 0 && a.status === "supported" && <b> · ⚠ gestützt trotz Gegenevidenz</b>}
+                  {a.status !== "open" && a.supports + a.contradicts === 0 && <b> · ⚠ eingeordnet ohne Evidenz</b>}
+                  {a.status !== "open" && !a.criterion && <b> · ⚠ kein Kriterium</b>}
                   {a.status_reason && <> · Begründung: {a.status_reason}</>}
                   {" "}<button className="link" onClick={() => retest(a)}>Kriterium ändern</button>
                 </div>
@@ -179,7 +182,7 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
           <table><tbody>
             {tickets.map((t) => (
               <tr key={t.id}>
-                <td><span className={`pill ${t.status}`}>{TICKET_LABEL[t.status]}</span></td>
+                <td><span className={`pill ${t.status}`}>{ticketLabel(t)}</span></td>
                 <td><button className="link" onClick={() => setOpen(t.id)}>{t.title}</button><div className="small muted">{t.subject_name} · {t.summary.slice(0, 120)}</div></td>
                 <td>{t.status === "failed" && <button onClick={() => act(() => post(`/tickets/${t.id}/retry`), "Erneut eingereiht")}>Wiederholen</button>}
                   {t.status === "queued" && <button onClick={() => act(() => post(`/tickets/${t.id}/cancel`), "Abgebrochen")}>Abbrechen</button>}</td>
