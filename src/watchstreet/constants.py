@@ -31,6 +31,7 @@ DEFAULT_OWNERSHIP = 1.0
 DEFAULT_REPORTING_CURRENCY = "USD"
 PROVISIONAL_NOTE = "vorläufig"
 STUCK_TICKET_TIMEOUT = timedelta(minutes=30)
+STARTUP_LOCK_ID = 7_352_002  # serialises migration + seeding of web and worker starting together
 MIGRATION_LOCK_ID = 7_352_001  # PostgreSQL advisory lock key serialising schema upgrades
 CLAIM_ATTEMPTS = 3  # tries to claim a ticket before giving up when other workers win the race
 DEFAULT_PRIORITY = 50

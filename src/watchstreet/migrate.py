@@ -9,13 +9,20 @@ run concurrently and repeatedly:
   with the baseline revision first, so existing installations adopt migrations without data loss.
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import Connection, Engine, inspect, text
 
-from watchstreet.constants import MIGRATION_LOCK_ID
+from watchstreet.constants import MIGRATION_LOCK_ID, STARTUP_LOCK_ID
+
+try:  # POSIX only; without it SQLite starts are simply not serialised
+    import fcntl
+except ImportError:  # pragma: no cover - Windows
+    fcntl = None  # type: ignore[assignment]
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 BASELINE_REVISION = "0001"
@@ -34,6 +41,35 @@ def alembic_config(connection: Connection | None = None) -> Config:
 def _is_legacy(connection: Connection) -> bool:
     tables = set(inspect(connection).get_table_names())
     return LEGACY_MARKER_TABLE in tables and VERSION_TABLE not in tables
+
+
+@contextmanager
+def startup_lock(engine: Engine) -> Iterator[None]:
+    """Only one process at a time may migrate and seed a database.
+
+    Web and worker start together; without this both would create the same tables (SQLite) or
+    insert the same demo rows. PostgreSQL uses a session advisory lock, SQLite a lock file.
+    """
+    database = engine.url.database
+    if engine.dialect.name == "postgresql":
+        with engine.connect() as connection:
+            connection.execute(text("SELECT pg_advisory_lock(:key)"), {"key": STARTUP_LOCK_ID})
+            try:
+                yield
+            finally:
+                connection.execute(
+                    text("SELECT pg_advisory_unlock(:key)"), {"key": STARTUP_LOCK_ID}
+                )
+        return
+    if fcntl is None or not database or database == ":memory:":
+        yield
+        return
+    with Path(f"{database}.startup.lock").open("w") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def upgrade_to_head(engine: Engine) -> None:

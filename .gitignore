@@ -20,3 +20,4 @@ models/*
 .claude/
 src/watchstreet/web/static/app/
 frontend/dist/
+*.startup.lock

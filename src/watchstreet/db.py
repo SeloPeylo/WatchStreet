@@ -3,9 +3,10 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
-from sqlalchemy import DateTime, Engine, create_engine, event
+from sqlalchemy import DateTime, Engine, create_engine, event, make_url
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -37,6 +38,9 @@ def make_engine(url: str) -> Engine:
     kwargs: dict[str, Any] = {}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
+        database = make_url(url).database
+        if database and database != ":memory:":  # a fresh checkout has no data directory yet
+            Path(database).parent.mkdir(parents=True, exist_ok=True)
         if ":memory:" in url:
             kwargs["poolclass"] = StaticPool
     if not url.startswith("sqlite"):

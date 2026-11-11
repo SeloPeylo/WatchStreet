@@ -1,5 +1,8 @@
 """Alembic migrations: fresh install, adoption of pre-migration databases, drift against models."""
 
+import subprocess
+import sys
+
 import pytest
 from alembic import command
 from alembic.autogenerate import compare_metadata
@@ -73,3 +76,23 @@ def test_downgrade_below_the_explorer_schema_is_refused(engine):
     upgrade_to_head(engine)
     with engine.begin() as connection, pytest.raises(NotImplementedError):
         command.downgrade(alembic_config(connection), OLD_REVISION)
+
+
+def test_web_and_worker_starting_together_do_not_collide(tmp_path):
+    """Two processes building a container on the same fresh database, as `make demo` does."""
+    url = f"sqlite:///{tmp_path / 'fresh' / 'race.db'}"  # the directory does not exist yet
+    code = (
+        "from watchstreet.config import Settings; from watchstreet.container import build_container;"
+        f"c = build_container(Settings(database_url={url!r}, market_provider='demo'));"
+        "from sqlalchemy import text;"
+        "print(c.engine.connect().execute(text('select count(*) from assets')).scalar())"
+    )
+    runs = [
+        subprocess.Popen(
+            [sys.executable, "-c", code], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        for _ in range(3)
+    ]
+    results = [run.communicate(timeout=120) for run in runs]
+    assert [run.returncode for run in runs] == [0, 0, 0], results
+    assert {out.decode().strip() for out, _ in results} == {"19"}

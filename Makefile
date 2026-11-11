@@ -44,7 +44,8 @@ frontend:
 demo: frontend
 	WATCHSTREET_MARKET_PROVIDER=demo WATCHSTREET_AGENT_RUNNER=offline \
 	WATCHSTREET_DATABASE_URL=sqlite:///./data/demo.db \
-	sh -c '$(PY) -m watchstreet.worker & uvicorn watchstreet.web.app:app_factory --factory --port 8000'
+	sh -c '$(PY) -m watchstreet.worker & worker=$$!; trap "kill $$worker 2>/dev/null" EXIT INT TERM; \
+	uvicorn watchstreet.web.app:app_factory --factory --port 8000'
 
 # Needs the sonarqube service (docker compose --profile quality up -d sonarqube)
 sonar: test

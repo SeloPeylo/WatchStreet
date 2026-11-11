@@ -13,7 +13,7 @@ from watchstreet.intel.connectors.edgar import EdgarClient
 from watchstreet.intel.demo import demo_client, demo_resolver
 from watchstreet.intel.fetch import Fetcher
 from watchstreet.market.service import MarketService, build_provider
-from watchstreet.migrate import upgrade_to_head
+from watchstreet.migrate import startup_lock, upgrade_to_head
 from watchstreet.services.demo import seed_demo
 
 SEC_MIN_INTERVAL_S = 0.15  # SEC allows 10 requests per second; stay well below
@@ -50,12 +50,13 @@ def build_container(
         min_interval_s=SEC_MIN_INTERVAL_S,
     )
     engine = make_engine(settings.database_url)
-    upgrade_to_head(engine)
     factory = make_session_factory(engine)
     market = market or MarketService(build_provider(settings))
-    if settings.market_provider == "demo":
-        with session_scope(factory) as session:
-            seed_demo(session, market)
+    with startup_lock(engine):
+        upgrade_to_head(engine)
+        if settings.market_provider == "demo":
+            with session_scope(factory) as session:
+                seed_demo(session, market)
     return Container(
         settings=settings,
         engine=engine,
