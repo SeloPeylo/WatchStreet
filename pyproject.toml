@@ -1,0 +1,188 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "watchstreet"
+version = "0.1.0"
+description = "Ticket-driven stock portfolio tracker with an agent harness"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+dependencies = [
+    "fastapi>=0.115",
+    "alembic>=1.13",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy>=2.0",
+    "httpx>=0.27",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "markdown>=3.6",
+    "pydantic>=2.7",
+    "pypdf>=5.0",
+    "defusedxml>=0.7",
+    "psycopg[binary]>=3.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pytest>=8",
+    "pytest-cov>=5",
+    "bandit>=1.7",
+    "import-linter>=2.0",
+    "types-Markdown",
+    "types-defusedxml",
+    "pre-commit>=3.7",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+watchstreet = ["migrations/script.py.mako", "web/static/vendor/*", "web/static/app/*", "web/static/app/assets/*", "data/*.json"]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "A", "C4", "C90", "SIM", "PL", "RUF",
+    "S", "ANN", "T20", "PTH", "ERA", "TID", "DTZ", "PERF", "RET", "ARG", "TRY",
+    "FBT", "PIE", "RSE", "SLF", "TCH", "LOG", "G",
+]
+allowed-confusables = ["–", "\u202f", "×", "−"]  # typographic dash / narrow space in German UI text
+ignore = [
+    "TRY003",  # long messages in exceptions are fine
+    "ANN401",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+# PLR2004 (magic values) is enabled via "PL" and is intentionally NOT relaxed in src/.
+max-args = 6
+max-branches = 10
+max-statements = 40
+max-returns = 5
+
+[tool.ruff.lint.per-file-ignores]
+"src/watchstreet/services/demo.py" = ["E501"]  # one demo asset per line reads as a table
+"src/watchstreet/workflows/research.py" = ["E501"]  # German prompt and result sentences
+"tests/**" = ["S101", "S603", "S608", "PLR2004", "PLR0133", "PLR0911", "ANN", "SLF001", "ARG", "FBT", "E501"]
+"scripts/**" = ["T201", "ANN", "PLR2004", "E501"]
+"src/watchstreet/migrations/**" = ["PLR0915"]  # one statement per table in the baseline
+"src/watchstreet/intel/demo.py" = ["E501"]  # fixture text
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src"]
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --cov=watchstreet --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
+filterwarnings = ["error::DeprecationWarning:watchstreet"]
+
+[tool.coverage.run]
+branch = true
+source = ["watchstreet"]
+# Alembic loads the revision scripts itself; tests/test_migrations.py runs and verifies them.
+omit = ["*/watchstreet/migrations/*"]
+
+# ---------------------------------------------------------------- bandit
+[tool.bandit]
+exclude_dirs = ["tests"]
+
+# ---------------------------------------------------------------- import-linter
+[tool.importlinter]
+root_package = "watchstreet"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layers: web/worker > harness > container > workflows > services/agents > pure logic > adapters > models > db"
+type = "layers"
+layers = [
+    "watchstreet.web | watchstreet.worker",
+    "watchstreet.harness",
+    "watchstreet.container",
+    "watchstreet.workflows",
+    "watchstreet.services | watchstreet.agents",
+    "watchstreet.economics | watchstreet.analysis | watchstreet.temporal",
+    "watchstreet.market | watchstreet.intel | watchstreet.geo | watchstreet.commodities | watchstreet.metrics",
+    "watchstreet.models | watchstreet.migrate",
+    "watchstreet.db",
+    "watchstreet.config",
+    "watchstreet.domain | watchstreet.constants | watchstreet.timeutil | watchstreet.errors",
+]
+
+[[tool.importlinter.contracts]]
+name = "Web internals: app > API routers > payloads/deps/security (routers never import each other)"
+type = "layers"
+layers = [
+    "watchstreet.web.app",
+    "watchstreet.web.api_explorer | watchstreet.web.api_research | watchstreet.web.api_system",
+    "watchstreet.web.payloads | watchstreet.web.deps | watchstreet.web.security",
+]
+
+[[tool.importlinter.contracts]]
+name = "Web frameworks stay in the web package"
+type = "forbidden"
+source_modules = [
+    "watchstreet.agents", "watchstreet.analysis", "watchstreet.commodities", "watchstreet.config",
+    "watchstreet.constants", "watchstreet.container", "watchstreet.db", "watchstreet.domain",
+    "watchstreet.economics", "watchstreet.errors", "watchstreet.geo", "watchstreet.harness",
+    "watchstreet.intel", "watchstreet.market", "watchstreet.metrics", "watchstreet.models",
+    "watchstreet.services", "watchstreet.temporal", "watchstreet.timeutil", "watchstreet.worker",
+    "watchstreet.workflows",
+]
+forbidden_modules = ["fastapi", "starlette", "jinja2", "markdown"]
+
+[[tool.importlinter.contracts]]
+name = "Outbound HTTP only through the adapters (fetcher, market provider, LLM runners)"
+type = "forbidden"
+source_modules = ["watchstreet"]
+forbidden_modules = ["httpx"]
+ignore_imports = [
+    "watchstreet.intel.fetch -> httpx",
+    "watchstreet.intel.demo -> httpx",
+    "watchstreet.market.yahoo -> httpx",
+    "watchstreet.agents.http_runners -> httpx",
+]
+
+[[tool.importlinter.contracts]]
+name = "Pure core (economics, analysis, temporal, market, agents, catalogs) knows no database or services"
+type = "forbidden"
+source_modules = [
+    "watchstreet.economics", "watchstreet.analysis", "watchstreet.temporal", "watchstreet.market",
+    "watchstreet.agents", "watchstreet.geo", "watchstreet.commodities", "watchstreet.metrics",
+]
+forbidden_modules = [
+    "sqlalchemy", "watchstreet.models", "watchstreet.db", "watchstreet.services",
+    "watchstreet.workflows", "watchstreet.harness", "watchstreet.container",
+]
+
+[[tool.importlinter.contracts]]
+name = "Foundation modules depend on nothing but each other"
+type = "forbidden"
+source_modules = [
+    "watchstreet.domain", "watchstreet.constants", "watchstreet.timeutil", "watchstreet.errors",
+    "watchstreet.config",
+]
+forbidden_modules = [
+    "sqlalchemy", "httpx", "fastapi", "watchstreet.models", "watchstreet.db",
+    "watchstreet.services", "watchstreet.workflows", "watchstreet.harness",
+    "watchstreet.container", "watchstreet.market", "watchstreet.intel", "watchstreet.agents",
+    "watchstreet.web",
+]
