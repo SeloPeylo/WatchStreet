@@ -1,0 +1,232 @@
+"""Explorer API: commodities, map, asset cards, derivations, comparison, companies, search."""
+
+from datetime import date
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
+from watchstreet.commodities import BY_KEY, COMMODITIES
+from watchstreet.constants import DAYS_PER_YEAR, MAP_RECENT_DAYS, MAX_SELECTION, RECENT_LIMIT
+from watchstreet.domain import DataOrigin, Provenance, SubjectType
+from watchstreet.metrics import METRICS
+from watchstreet.models import Asset, Company, Event, Fact, Finding, Proposal, Stake, Thesis, Ticket
+from watchstreet.services import prices
+from watchstreet.services.facts import FactInput, fact_history, record_fact
+from watchstreet.services.world import card, existed_on, load_bundle, map_feature
+from watchstreet.timeutil import utcnow
+from watchstreet.web import payloads
+from watchstreet.web.deps import ContainerDep, SessionDep, ViewDep, get_or_404
+from watchstreet.workflows.research import linked_documents
+
+router = APIRouter(prefix="/api/v1", tags=["explorer"])
+COLOR_MODES = ("status", "margin", "delta", "knowledge", "quality")
+ASSET = SubjectType.ASSET
+
+
+@router.get("/commodities")
+def commodities(container: ContainerDep) -> list[dict[str, Any]]:
+    quotes = {q.key: q for q in prices.current_quotes(container.market)}
+    return [
+        {
+            "key": c.key,
+            "label": c.label,
+            "unit": c.unit,
+            "price_unit": c.price_unit,
+            "color": c.color,
+            "price": quotes[c.key].price,
+            "change_pct": quotes[c.key].change_pct,
+        }
+        for c in COMMODITIES
+    ]
+
+
+@router.get("/commodities/{key}/prices")
+def price_history(key: str, session: SessionDep) -> list[dict[str, Any]]:
+    if key not in BY_KEY:
+        raise HTTPException(status_code=404, detail="Unbekannter Rohstoff")
+    return [{"day": p.day.isoformat(), "close": p.close} for p in prices.history(session, key)]
+
+
+@router.get("/map")
+def world_map(
+    session: SessionDep, ctx: ViewDep, commodity: str = "", color: str = "status"
+) -> dict[str, Any]:
+    """GeoJSON of all assets that existed at the reference date, plus recent events."""
+    if color not in COLOR_MODES:
+        raise HTTPException(status_code=422, detail="Unbekannter Farbmodus")
+    bundle = load_bundle(session)
+    features = [
+        map_feature(asset, bundle, ctx, color)
+        for asset in bundle.assets
+        if existed_on(asset, ctx.reference)
+        and (not commodity or commodity in {c.commodity for c in asset.commodities})
+    ]
+    events = session.scalars(
+        select(Event).options(selectinload(Event.links)).order_by(Event.occurred_at.desc())
+    )
+    recent = [e for e in events if (utcnow() - e.occurred_at).days <= MAP_RECENT_DAYS]
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+        "events": [payloads.event(e) for e in recent],
+        "prices": dict(ctx.prices),
+        "reference": ctx.reference.isoformat(),
+    }
+
+
+@router.get("/cards")
+def cards(session: SessionDep, ctx: ViewDep, ids: str) -> list[dict[str, Any]]:
+    wanted = [int(part) for part in ids.split(",") if part.isdigit()][:MAX_SELECTION]
+    bundle = load_bundle(session, wanted)
+    by_id = {a.id: a for a in bundle.assets}
+    return [card(by_id[i], bundle, ctx) for i in wanted if i in by_id]
+
+
+@router.get("/assets/{asset_id}")
+def asset_detail(asset_id: int, session: SessionDep, ctx: ViewDep) -> dict[str, Any]:
+    asset = get_or_404(session, Asset, asset_id)
+    bundle = load_bundle(session, [asset_id])
+    where_subject = (Finding.subject_type == ASSET, Finding.subject_id == asset_id)
+    findings = session.scalars(select(Finding).where(*where_subject).order_by(Finding.id.desc()))
+    tickets = session.scalars(
+        select(Ticket)
+        .where(Ticket.subject_type == ASSET, Ticket.subject_id == asset_id)
+        .order_by(Ticket.id.desc())
+        .limit(RECENT_LIMIT)
+    )
+    proposals = session.scalars(
+        select(Proposal).where(Proposal.subject_type == ASSET, Proposal.subject_id == asset_id)
+    )
+    return {
+        "card": card(bundle.assets[0], bundle, ctx),
+        "milestones": [payloads.milestone(m) for m in asset.milestones],
+        "statuses": [
+            {"status": p.status, "from": p.valid_from.isoformat()} for p in asset.statuses
+        ],
+        "findings": [payloads.finding(f) for f in findings],
+        "tickets": [payloads.ticket(t) for t in tickets],
+        "proposals": [payloads.proposal(p) for p in proposals if p.state == "draft"],
+        "documents": [payloads.document(d) for d in linked_documents(session, ASSET, asset_id)],
+    }
+
+
+@router.get("/assets/{asset_id}/facts/{metric}")
+def fact_derivation(asset_id: int, metric: str, session: SessionDep) -> dict[str, Any]:
+    """Everything behind one figure: every stored value with source, quote and definition."""
+    if metric not in METRICS:
+        raise HTTPException(status_code=404, detail="Unbekannte Kennzahl")
+    history = fact_history(session, ASSET, asset_id, metric)
+    input_ids = {i for f in history for i in f.inputs.get("fact_ids", [])}
+    inputs = list(session.scalars(select(Fact).where(Fact.id.in_(input_ids)))) if input_ids else []
+    return {
+        "metric": metric,
+        "label": METRICS[metric].label,
+        "history": [payloads.fact_detail(f) for f in history],
+        "inputs": [payloads.fact_detail(f) for f in inputs],
+    }
+
+
+class FactBody(BaseModel):
+    subject_id: int
+    metric: str
+    value: float | None = None
+    low: float | None = None
+    high: float | None = None
+    text: str = ""
+    unit: str = ""
+    basis: str = ""
+    period_end: date | None = None
+    published_at: date | None = None
+    provenance: str = Provenance.REPORTED
+
+
+@router.post("/facts")
+def add_fact(body: FactBody, session: SessionDep, container: ContainerDep) -> dict[str, Any]:
+    """A figure entered by the user; it outranks agent and API values for the same period."""
+    get_or_404(session, Asset, body.subject_id)
+    fact = record_fact(
+        session,
+        FactInput(
+            ASSET,
+            body.subject_id,
+            body.metric,
+            value=body.value,
+            low=body.low,
+            high=body.high,
+            text=body.text,
+            unit=body.unit,
+            basis=body.basis,
+            period_end=body.period_end,
+            published_at=body.published_at,
+            provenance=body.provenance,
+            origin=DataOrigin.USER,
+            is_demo=container.is_demo,
+        ),
+    )
+    return payloads.fact_detail(fact)
+
+
+@router.get("/compare")
+def compare(
+    session: SessionDep, ctx: ViewDep, ids: str, anchor: str = "discovery"
+) -> dict[str, Any]:
+    """Cards side by side plus each life line relative to a shared anchor milestone (year 0)."""
+    wanted = [int(part) for part in ids.split(",") if part.isdigit()][:MAX_SELECTION]
+    bundle = load_bundle(session, wanted)
+    lanes = []
+    for asset in bundle.assets:
+        milestones = session.get(Asset, asset.id).milestones  # type: ignore[union-attr]
+        zero = next((m.day for m in milestones if m.kind == anchor), None)
+        lanes.append(
+            {
+                "asset_id": asset.id,
+                "anchor_day": zero.isoformat() if zero else None,
+                "milestones": [
+                    {
+                        **payloads.milestone(m),
+                        "years": round((m.day - zero).days / DAYS_PER_YEAR, 1) if zero else None,
+                    }
+                    for m in milestones
+                ],
+            }
+        )
+    return {
+        "cards": [card(a, bundle, ctx) for a in bundle.assets],
+        "lanes": lanes,
+        "anchor": anchor,
+    }
+
+
+@router.get("/companies/{company_id}")
+def company_detail(company_id: int, session: SessionDep, ctx: ViewDep) -> dict[str, Any]:
+    company = get_or_404(session, Company, company_id)
+    asset_ids = set(session.scalars(select(Stake.asset_id).where(Stake.company_id == company_id)))
+    bundle = load_bundle(session, asset_ids)
+    return {
+        "id": company.id,
+        "name": company.name,
+        "country": company.country,
+        "is_demo": company.is_demo,
+        "symbol": company.stock.symbol if company.stock else None,
+        "assets": [card(a, bundle, ctx) for a in bundle.assets],
+    }
+
+
+@router.get("/search")
+def search(session: SessionDep, q: str) -> list[dict[str, Any]]:
+    needle = f"%{q.strip()}%"
+    if len(q.strip()) < 2:  # noqa: PLR2004 - a single letter matches everything
+        return []
+    hits: list[dict[str, Any]] = []
+    sources: tuple[tuple[str, Any, Any], ...] = (
+        ("asset", Asset, Asset.name),
+        ("company", Company, Company.name),
+        ("thesis", Thesis, Thesis.title),
+    )
+    for kind, model, column in sources:
+        rows = session.scalars(select(model).where(column.ilike(needle)).limit(RECENT_LIMIT))
+        hits.extend({"type": kind, "id": r.id, "label": getattr(r, column.key)} for r in rows)
+    return hits

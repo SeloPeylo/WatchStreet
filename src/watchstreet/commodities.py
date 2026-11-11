@@ -1,4 +1,4 @@
-"""Catalog of commodities and macro series that are tracked (data, not logic)."""
+"""Catalog of tracked commodities (data, not logic)."""
 
 from dataclasses import dataclass
 
@@ -8,26 +8,18 @@ class Commodity:
     key: str
     label: str
     symbol: str  # Yahoo Finance futures symbol
-    unit: str
+    unit: str  # unit of production and of the price denominator
+    color: str
+
+    @property
+    def price_unit(self) -> str:
+        return f"USD/{self.unit}"
 
 
 COMMODITIES: tuple[Commodity, ...] = (
-    Commodity("gold", "Gold", "GC=F", "USD/oz"),
-    Commodity("silver", "Silber", "SI=F", "USD/oz"),
-    Commodity("platinum", "Platin", "PL=F", "USD/oz"),
-    Commodity("palladium", "Palladium", "PA=F", "USD/oz"),
-    Commodity("copper", "Kupfer", "HG=F", "USD/lb"),
-    Commodity("aluminium", "Aluminium", "ALI=F", "USD/t"),
-    Commodity("wti", "Rohöl WTI", "CL=F", "USD/bbl"),
-    Commodity("brent", "Rohöl Brent", "BZ=F", "USD/bbl"),
-    Commodity("natgas", "Erdgas", "NG=F", "USD/MMBtu"),
+    Commodity("gold", "Gold", "GC=F", "oz", "#c9a227"),
+    Commodity("silver", "Silber", "SI=F", "oz", "#8d99ae"),
+    Commodity("copper", "Kupfer", "HG=F", "lb", "#b5651d"),
+    Commodity("uranium", "Uran", "UX=F", "lb", "#5a9367"),
 )
-MACRO: tuple[Commodity, ...] = (
-    Commodity("dxy", "US-Dollar-Index", "DX-Y.NYB", "Punkte"),
-    Commodity("us10y", "US-10J-Rendite", "^TNX", "%"),
-    Commodity("vix", "VIX", "^VIX", "Punkte"),
-    Commodity("spx", "S&P 500", "^GSPC", "Punkte"),
-)
-BY_SYMBOL = {c.symbol: c for c in COMMODITIES}
-BY_KEY = {c.key: c for c in (*COMMODITIES, *MACRO)}
-COPPER_GOLD_FACTOR = 1000.0  # conventional scaling of the copper/gold ratio
+BY_KEY = {c.key: c for c in COMMODITIES}

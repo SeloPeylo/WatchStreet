@@ -13,7 +13,7 @@ from watchstreet.constants import WORKER_HEARTBEAT_KEY
 from watchstreet.container import Container, build_container
 from watchstreet.db import session_scope
 from watchstreet.harness.executor import execute_ticket
-from watchstreet.harness.scheduler import run_scan, scan_due
+from watchstreet.harness.scan import run_scan, scan_due
 from watchstreet.services.state import touch
 from watchstreet.services.tickets import claim_next, requeue_stuck
 
@@ -39,7 +39,7 @@ def tick(container: Container, *, force_scan: bool = False) -> int:
     with session_scope(container.session_factory) as session:
         touch(session, WORKER_HEARTBEAT_KEY)
     if force_scan or scan_due(container):
-        logger.info("Scan created %s ticket(s)", run_scan(container))
+        logger.info("Scan: %s", run_scan(container))
     return drain_queue(container)
 
 
@@ -52,7 +52,10 @@ def run_forever(container: Container, stop: threading.Event) -> None:
         container.runner.name,
     )
     while not stop.is_set():
-        tick(container)
+        try:
+            tick(container)
+        except Exception:  # a broken database or source must not end the worker
+            logger.exception("Worker iteration failed; retrying")
         stop.wait(container.settings.worker_poll_s)
 
 

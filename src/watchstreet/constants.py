@@ -25,7 +25,6 @@ BRIEFING_PRIORITY = 10
 MAX_BRIEFING_BULLETS = 4
 
 # --- Profiles / valuation inputs ----------------------------------------
-DEFAULT_PROFILE = "generic"
 DEFAULT_DISCOUNT_RATE = 0.08
 MAX_MINE_LIFE_YEARS = 30.0
 DEFAULT_OWNERSHIP = 1.0
@@ -47,12 +46,6 @@ SCAN_REQUEST_KEY = "scan_requested"
 HEARTBEAT_STALE_AFTER = timedelta(minutes=2)
 MAX_EVENTS_PER_REVIEW = 10
 MAX_NEWS_PER_STOCK = 10
-REFRESH_INTERVALS: dict[str, timedelta] = {
-    "technical_snapshot": timedelta(days=1),
-    "valuation_score": timedelta(days=7),
-    "thesis_check": timedelta(days=7),
-    "sec_sync": timedelta(days=1),
-}
 
 # --- Market data --------------------------------------------------------
 QUOTE_CACHE_TTL_S = 900
@@ -178,3 +171,29 @@ SEC_FORMS_ALERT = ("8-K", "6-K")
 SCENARIO_SHOCKS = (-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3)
 DEFAULT_RELATION_STRENGTH = 0.1  # used for exposure when a relation carries no share
 COMMODITY_SYMBOL_KEY = "commodity_symbol"
+
+# --- World explorer ---------------------------------------------------------
+STALE_FACT_AFTER = timedelta(days=456)  # about 15 months: a yearly figure missed one cycle
+NEIGHBOUR_RADIUS_KM = 60.0
+MIN_PEER_GROUP = 3  # fewer comparable assets give no outlier test and no estimate
+OUTLIER_MAD_FACTOR = 3.0
+MAD_TO_SIGMA = 1.4826
+LOWER_QUARTILE = 0.25
+UPPER_QUARTILE = 0.75
+MAX_OPEN_PROPOSALS_PER_SUBJECT = 6
+MAX_SELECTION = 8
+CHANGES_LIMIT = 200
+PRICE_HISTORY_INTERVAL = "1wk"
+SCAN_LEASE_KEY = "scan_lease"
+LAST_VISIT_KEY = "last_visit"
+MAX_AGENT_FACTS = 20
+MAX_CONTEXT_SNIPPETS = 8
+DAYS_PER_YEAR = 365.25
+# weights of the proposal value score; they sum to 1
+VALUE_WEIGHTS: dict[str, float] = {
+    "insight": 0.30,
+    "relevance": 0.25,
+    "novelty": 0.20,
+    "data": 0.15,
+    "investment": 0.10,
+}

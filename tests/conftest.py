@@ -8,7 +8,7 @@ from watchstreet.config import Settings
 from watchstreet.container import build_container
 from watchstreet.migrate import upgrade_to_head
 from watchstreet.models import Base
-from watchstreet.services.feeds import seed_feeds
+from watchstreet.services.demo import seed_demo
 from watchstreet.web.app import create_app
 
 
@@ -34,7 +34,7 @@ def container(tmp_path):
             connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
         upgrade_to_head(built.engine)
         with built.session_factory() as session:
-            seed_feeds(session)
+            seed_demo(session, built.market)
             session.commit()
     yield built
     built.engine.dispose()

@@ -1,4 +1,3 @@
-import json
 import sys
 
 import httpx
@@ -10,38 +9,12 @@ from watchstreet.agents.factory import build_runner
 from watchstreet.agents.http_runners import AnthropicRunner, OpenAICompatibleRunner
 from watchstreet.agents.offline import OfflineRunner
 from watchstreet.config import Settings
-from watchstreet.workflows.analysis import parse_analysis
 
 REQ = AgentRequest("topic_analysis", "sys", "prompt")
 
 
-def test_parse_analysis_accepts_fenced_json_and_rejects_garbage():
-    parsed = parse_analysis('```json\n{"summary": "ok", "insights": [{"text": "x"}]}\n```')
-    assert parsed.summary == "ok" and parsed.insights[0].category == "note"
-    with pytest.raises(AgentError):
-        parse_analysis("no json here")
-    with pytest.raises(AgentError):
-        parse_analysis('{"nope": 1}')
-
-
-def test_offline_runner_event_review_flags_negative_news():
-    facts = {"symbol": "X", "name": "X", "events": ["X faces lawsuit", "X announces buyback"]}
-    out = json.loads(OfflineRunner().complete(AgentRequest("event_review", "", "", facts=facts)))
-    categories = {i["category"] for i in out["insights"]}
-    assert categories == {"risk", "catalyst"}
-    assert out["followups"][0]["workflow"] == "thesis_check"
-
-
-def test_offline_thesis_check_status_follows_score_delta():
-    facts = {
-        "symbol": "X",
-        "name": "X",
-        "thesis": {"text": "T", "status": "active"},
-        "scores": {"valuation_v1": {"value": 40.0}},
-        "previous_scores": {"valuation_v1": 70.0},
-    }
-    out = json.loads(OfflineRunner().complete(AgentRequest("thesis_check", "", "", facts=facts)))
-    assert out["thesis_status"] == "weakened"
+def test_offline_runner_never_invents_an_answer():
+    assert OfflineRunner().complete(REQ) == "" and OfflineRunner.name == "offline"
 
 
 def test_anthropic_runner_parses_text_blocks(monkeypatch):

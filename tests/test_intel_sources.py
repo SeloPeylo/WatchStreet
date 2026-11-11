@@ -7,8 +7,6 @@ from watchstreet.intel.connectors.edgar import EdgarClient, extract_facts
 from watchstreet.intel.connectors.rss import parse_feed
 from watchstreet.intel.demo import DEMO_CIKS, DemoTransport, demo_resolver
 from watchstreet.intel.fetch import Fetcher, FetchError, assert_public, html_to_text, pdf_to_text
-from watchstreet.intel.triage import WatchTerm, core_name, relevant_stocks, score_document
-from watchstreet.models import Document
 
 HOSTS = {
     "public.example": ["93.184.216.34"],
@@ -208,25 +206,3 @@ def test_bad_json_from_connector_is_a_fetch_error():
     ):
         with pytest.raises(FetchError):
             call()
-
-
-# ------------------------------------------------------------------ triage
-def test_core_name_and_scoring():
-    assert core_name("Newmont Corporation") == "Newmont" and core_name("Apple Inc.") == "Apple"
-    terms = [
-        WatchTerm("Newmont", 1, 2.0),
-        WatchTerm("Carlin", 1, 1.5),
-        WatchTerm("Apple", 2, 2.0),
-        WatchTerm("NEM", 1, 1.0),
-    ]
-    title_hit = Document(
-        title="Strike hits Carlin mine", text="Workers at Carlin walked out.", url="u", kind="news"
-    )
-    body_only = Document(
-        title="Mining news", text="Newmont said production was stable.", url="u2", kind="news"
-    )
-    noise = Document(title="Weather", text="Newmontage is not a word match", url="u3", kind="news")
-    s1, s2, s3 = (score_document(d, terms) for d in (title_hit, body_only, noise))
-    assert s1 == {1: 3.0} and relevant_stocks(s1) == [1]  # title counts double
-    assert s2 == {1: 2.0} and relevant_stocks(s2) == [1]
-    assert s3 == {} and relevant_stocks({1: 1.9}) == []

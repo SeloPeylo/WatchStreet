@@ -32,6 +32,8 @@ DEMO_HEADLINES = (
     "{name}: Management kündigt neues Aktienrückkaufprogramm an",
 )
 HASH_BYTES = 8
+# plausible price levels so that mine economics look sensible in the demo
+DEMO_COMMODITY_PRICES: dict[str, float] = {"GC=F": 2600.0, "SI=F": 31.0, "HG=F": 4.3, "UX=F": 78.0}
 # Demo only: fixed sectors for well-known symbols so every profile can be shown offline.
 DEMO_COMPANIES: dict[str, CompanyInfo] = {
     "AAPL": CompanyInfo("Technology", "Consumer Electronics"),
@@ -76,7 +78,8 @@ class DemoProvider:
     def candles(self, symbol: str, interval: str) -> list[Candle]:
         step = INTERVAL_SECONDS[interval]
         rng = _rng(symbol, "candles")
-        price = DEMO_BASE_PRICE_MIN + rng.random() * DEMO_BASE_PRICE_SPAN
+        random_base = DEMO_BASE_PRICE_MIN + rng.random() * DEMO_BASE_PRICE_SPAN
+        price = DEMO_COMMODITY_PRICES.get(symbol.upper(), random_base)
         drift = DEMO_DRIFT * (rng.random() * 2 - 1) * 2
         now = datetime.now(UTC)
         end = now - timedelta(seconds=now.timestamp() % step)

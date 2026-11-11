@@ -7,7 +7,7 @@ from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, select, text
 
-from watchstreet.migrate import BASELINE_REVISION, alembic_config, upgrade_to_head
+from watchstreet.migrate import alembic_config, upgrade_to_head
 from watchstreet.models import Base, Stock
 
 
@@ -18,7 +18,7 @@ def engine(tmp_path):
     built.dispose()
 
 
-NEW_INDEXES = ("ix_tickets_claim", "ix_documents_triaged", "ix_intel_items_published_at")
+OLD_REVISION = "0002"
 
 
 def _head() -> str:
@@ -32,11 +32,6 @@ def _version(engine) -> str:
         return connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
 
-def _index_names(engine) -> set[str]:
-    inspector = inspect(engine)
-    return {i["name"] for t in inspector.get_table_names() for i in inspector.get_indexes(t)}
-
-
 def test_container_schema_comes_from_migrations_and_matches_models(container):
     assert _version(container.engine) == _head()
     with container.engine.connect() as connection:
@@ -48,41 +43,33 @@ def test_upgrade_is_idempotent(engine):
     upgrade_to_head(engine)
     upgrade_to_head(engine)
     assert _version(engine) == _head()
-    assert set(NEW_INDEXES) <= _index_names(engine)
 
 
-def test_database_created_by_create_all_is_adopted_without_data_loss(engine):
-    Base.metadata.create_all(engine)  # how installations were created before migrations
+def test_dashboard_database_is_upgraded_keeping_the_portfolio(engine):
     with engine.begin() as connection:
-        for name in NEW_INDEXES:  # a pre-migration schema did not have these yet
-            connection.execute(text(f"DROP INDEX {name}"))
+        command.upgrade(alembic_config(connection), OLD_REVISION)
         connection.execute(
             text(
-                "INSERT INTO stocks (symbol, name, currency, exchange, sector, "
-                "industry, profile, profile_source, created_at) VALUES "
-                "('OLD', 'Old Co', 'USD', '', '', '', 'general', 'none', "
-                "'2026-01-01 00:00:00')"
+                "INSERT INTO stocks (id, symbol, name, currency, exchange, sector, industry, "
+                "profile, profile_source, created_at) VALUES (1, 'OLD', 'Old Co', 'USD', '', '', "
+                "'', 'generic', 'none', '2026-01-01 00:00:00')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO tickets (stock_id, workflow, title, status, origin, priority, depth, "
+                "params, result, summary, error, runner, created_at) VALUES (1, 'briefing', 't', "
+                "'done', 'user', 50, 0, '{}', '{}', '', '', '', '2026-01-01 00:00:00')"
             )
         )
     upgrade_to_head(engine)
-    assert _version(engine) == _head()
-    assert set(NEW_INDEXES) <= _index_names(engine)
+    tables = set(inspect(engine).get_table_names())
+    assert {"assets", "facts", "research_tickets"} <= tables and "tickets" not in tables
     with engine.connect() as connection:
         assert connection.execute(select(Stock.symbol)).scalars().all() == ["OLD"]
 
 
-def test_database_from_create_all_with_all_indexes_is_adopted(engine):
-    Base.metadata.create_all(engine)
+def test_downgrade_below_the_explorer_schema_is_refused(engine):
     upgrade_to_head(engine)
-    assert _version(engine) == _head()
-
-
-def test_downgrade_to_baseline_and_back(engine):
-    upgrade_to_head(engine)
-    with engine.begin() as connection:
-        config = alembic_config(connection)
-        command.downgrade(config, BASELINE_REVISION)
-    assert _version(engine) == BASELINE_REVISION
-    assert not set(NEW_INDEXES) & _index_names(engine)
-    upgrade_to_head(engine)
-    assert _version(engine) == _head()
+    with engine.begin() as connection, pytest.raises(NotImplementedError):
+        command.downgrade(alembic_config(connection), OLD_REVISION)

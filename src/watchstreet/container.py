@@ -14,7 +14,7 @@ from watchstreet.intel.demo import demo_client, demo_resolver
 from watchstreet.intel.fetch import Fetcher
 from watchstreet.market.service import MarketService, build_provider
 from watchstreet.migrate import upgrade_to_head
-from watchstreet.services.feeds import seed_feeds
+from watchstreet.services.demo import seed_demo
 
 SEC_MIN_INTERVAL_S = 0.15  # SEC allows 10 requests per second; stay well below
 
@@ -28,6 +28,10 @@ class Container:
     runner: AgentRunner
     fetcher: Fetcher
     edgar: EdgarClient
+
+    @property
+    def is_demo(self) -> bool:
+        return self.settings.market_provider == "demo"
 
 
 def build_container(
@@ -48,13 +52,15 @@ def build_container(
     engine = make_engine(settings.database_url)
     upgrade_to_head(engine)
     factory = make_session_factory(engine)
-    with session_scope(factory) as session:
-        seed_feeds(session)
+    market = market or MarketService(build_provider(settings))
+    if settings.market_provider == "demo":
+        with session_scope(factory) as session:
+            seed_demo(session, market)
     return Container(
         settings=settings,
         engine=engine,
         session_factory=factory,
-        market=market or MarketService(build_provider(settings)),
+        market=market,
         runner=runner or build_runner(settings),
         fetcher=fetcher,
         edgar=EdgarClient(sec_fetcher),

@@ -1,0 +1,192 @@
+"""Portfolio, sources, system status and the manual."""
+
+from datetime import date
+from pathlib import Path
+from typing import Any
+
+import markdown
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import func, select, text
+
+from watchstreet.constants import (
+    HEARTBEAT_STALE_AFTER,
+    LAST_SCAN_KEY,
+    SCAN_REQUEST_KEY,
+    WORKER_HEARTBEAT_KEY,
+)
+from watchstreet.domain import SubjectType, TicketStatus
+from watchstreet.models import Asset, Document, Holding, Ticket, WatchEntry
+from watchstreet.services import portfolio, proposals
+from watchstreet.services.state import touch, updated_at
+from watchstreet.timeutil import utcnow
+from watchstreet.web import payloads
+from watchstreet.web.deps import ContainerDep, SessionDep, get_or_404
+
+router = APIRouter(tags=["system"])
+API = "/api/v1"
+MANUAL_FILE = "user-manual.md"
+
+
+@router.get("/healthz")
+def healthz(session: SessionDep) -> dict[str, str]:
+    """Deep check: the database must answer."""
+    session.execute(text("SELECT 1"))
+    return {"status": "ok"}
+
+
+@router.get(f"{API}/system")
+def system(session: SessionDep, container: ContainerDep) -> dict[str, Any]:
+    heartbeat = updated_at(session, WORKER_HEARTBEAT_KEY)
+    scan = updated_at(session, LAST_SCAN_KEY)
+    counts = dict(
+        session.execute(select(Ticket.status, func.count()).group_by(Ticket.status)).all()
+    )
+    return {
+        "is_demo": container.is_demo,
+        "market": container.market.name,
+        "runner": container.runner.name,
+        "agent_available": container.runner.name != "offline",
+        "worker_alive": heartbeat is not None and utcnow() - heartbeat < HEARTBEAT_STALE_AFTER,
+        "worker_heartbeat": heartbeat.isoformat() if heartbeat else None,
+        "last_scan": scan.isoformat() if scan else None,
+        "tickets": {status: counts.get(status, 0) for status in TicketStatus},
+        "assets": session.scalar(select(func.count()).select_from(Asset)),
+        "documents": session.scalar(select(func.count()).select_from(Document)),
+    }
+
+
+@router.post(f"{API}/system/scan")
+def request_scan(session: SessionDep) -> dict[str, str]:
+    """Ask the worker to run the background scan (prices, events, engine) now."""
+    touch(session, SCAN_REQUEST_KEY)
+    return {"status": "requested"}
+
+
+@router.get(f"{API}/manual")
+def manual(container: ContainerDep) -> dict[str, str]:
+    path = Path(container.settings.docs_dir) / MANUAL_FILE
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Handbuch nicht gefunden")
+    source = path.read_text(encoding="utf-8").replace("](screenshots/", "](/manual-assets/")
+    return {"html": markdown.markdown(source, extensions=["tables", "toc", "fenced_code"])}
+
+
+# --- sources -------------------------------------------------------------------------
+
+
+@router.get(f"{API}/documents")
+def documents(session: SessionDep) -> list[dict[str, Any]]:
+    rows = session.scalars(select(Document).order_by(Document.id.desc()))
+    return [payloads.document(d) for d in rows]
+
+
+@router.get(f"{API}/documents/{{document_id}}")
+def document(document_id: int, session: SessionDep) -> dict[str, Any]:
+    return payloads.document(get_or_404(session, Document, document_id), with_text=True)
+
+
+class DocumentBody(BaseModel):
+    asset_id: int
+    url: str
+    title: str = ""
+
+
+@router.post(f"{API}/documents")
+def add_document(body: DocumentBody, session: SessionDep) -> dict[str, Any]:
+    """Queue fetching and reading a source by URL; the user asking for it is the approval."""
+    if not body.url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=422, detail="Nur http(s)-Adressen sind erlaubt")
+    proposal = proposals.create_proposal(
+        session,
+        SubjectType.ASSET,
+        body.asset_id,
+        "read_document",
+        params={"url": body.url, "title": body.title or body.url},
+    )
+    if proposal is None:
+        raise HTTPException(status_code=400, detail="Vorschlag konnte nicht angelegt werden")
+    return payloads.ticket(proposals.start(session, proposal))
+
+
+# --- portfolio -----------------------------------------------------------------------
+
+
+class HoldingBody(BaseModel):
+    symbol: str
+    quantity: float
+    avg_price: float
+    bought_at: date | None = None
+    intent: str = ""
+
+
+class WatchBody(BaseModel):
+    symbol: str
+    note: str = ""
+
+
+@router.get(f"{API}/portfolio")
+def portfolio_view(session: SessionDep, container: ContainerDep) -> dict[str, Any]:
+    rows = portfolio.holding_rows(session, container.market)
+    watch = portfolio.watch_entries(session)
+    return {
+        "holdings": [
+            {
+                "id": r.holding.id,
+                "symbol": r.holding.stock.symbol,
+                "name": r.holding.stock.name,
+                "currency": r.holding.stock.currency,
+                "quantity": r.holding.quantity,
+                "avg_price": r.holding.avg_price,
+                "bought_at": r.holding.bought_at.isoformat() if r.holding.bought_at else None,
+                "intent": r.holding.intent,
+                "price": r.price,
+                "market_value": r.market_value,
+                "pnl_abs": r.pnl_abs,
+                "pnl_pct": r.pnl_pct,
+                "day_change_pct": r.day_change_pct,
+            }
+            for r in rows
+        ],
+        "watchlist": [
+            {
+                "id": w.id,
+                "symbol": w.stock.symbol,
+                "name": w.stock.name,
+                "note": w.note,
+                "price": quote.price
+                if (quote := container.market.try_quote(w.stock.symbol))
+                else None,
+            }
+            for w in watch
+        ],
+    }
+
+
+@router.post(f"{API}/portfolio/holdings")
+def add_holding(body: HoldingBody, session: SessionDep, container: ContainerDep) -> dict[str, int]:
+    holding = portfolio.add_holding(
+        session,
+        container.market,
+        portfolio.NewHolding(
+            body.symbol, body.quantity, body.avg_price, body.bought_at, body.intent
+        ),
+    )
+    return {"id": holding.id}
+
+
+@router.delete(f"{API}/portfolio/holdings/{{holding_id}}")
+def remove_holding(holding_id: int, session: SessionDep) -> dict[str, str]:
+    session.delete(get_or_404(session, Holding, holding_id))
+    return {"status": "deleted"}
+
+
+@router.post(f"{API}/portfolio/watch")
+def add_watch(body: WatchBody, session: SessionDep, container: ContainerDep) -> dict[str, int]:
+    return {"id": portfolio.add_watch(session, container.market, body.symbol, body.note).id}
+
+
+@router.delete(f"{API}/portfolio/watch/{{entry_id}}")
+def remove_watch(entry_id: int, session: SessionDep) -> dict[str, str]:
+    session.delete(get_or_404(session, WatchEntry, entry_id))
+    return {"status": "deleted"}

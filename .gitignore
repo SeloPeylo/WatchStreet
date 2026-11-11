@@ -18,3 +18,5 @@ node_modules/
 models/*
 !models/README.md
 .claude/
+src/watchstreet/web/static/app/
+frontend/dist/

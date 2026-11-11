@@ -5,76 +5,42 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from watchstreet.constants import (
-    CLAIM_ATTEMPTS,
-    DEFAULT_PRIORITY,
-    LIST_LIMIT,
-    STUCK_TICKET_TIMEOUT,
-)
-from watchstreet.domain import OPEN_STATUSES, TicketOrigin, TicketStatus, WorkflowKey
-from watchstreet.models import Stock, Ticket
+from watchstreet.constants import CLAIM_ATTEMPTS, DEFAULT_PRIORITY, LIST_LIMIT, STUCK_TICKET_TIMEOUT
+from watchstreet.domain import TicketStatus
+from watchstreet.models import Ticket
 from watchstreet.timeutil import utcnow
-from watchstreet.workflow_specs import get_spec
 
 
 def create_ticket(  # noqa: PLR0913
     session: Session,
-    stock: Stock,
-    workflow: WorkflowKey | str,
+    subject_type: str,
+    subject_id: int,
+    workflow: str,
+    title: str,
     *,
-    topic: str = "",
-    origin: TicketOrigin = TicketOrigin.USER,
-    parent: Ticket | None = None,
-    priority: int = DEFAULT_PRIORITY,
     params: dict[str, Any] | None = None,
-    title: str = "",
+    proposal_id: int | None = None,
+    priority: int = DEFAULT_PRIORITY,
 ) -> Ticket:
-    definition = get_spec(workflow)
-    merged = dict(params or {})
-    if topic:
-        merged["topic"] = topic
     ticket = Ticket(
-        stock_id=stock.id,
-        workflow=definition.key,
-        title=title or definition.default_title(stock.symbol, topic),
-        origin=origin,
+        subject_type=subject_type,
+        subject_id=subject_id,
+        workflow=workflow,
+        title=title,
+        params=dict(params or {}),
+        proposal_id=proposal_id,
         priority=priority,
-        depth=(parent.depth + 1) if parent else 0,
-        parent_id=parent.id if parent else None,
-        params=merged,
     )
     session.add(ticket)
     session.flush()
     return ticket
 
 
-def ensure_open(
-    session: Session,
-    stock: Stock,
-    workflow: WorkflowKey,
-    *,
-    origin: TicketOrigin,
-    priority: int = DEFAULT_PRIORITY,
-) -> Ticket:
-    """Return the queued/running ticket of this workflow for the stock, creating one if absent."""
-    existing = session.scalars(
-        select(Ticket).where(
-            Ticket.stock_id == stock.id,
-            Ticket.workflow == workflow,
-            Ticket.status.in_(OPEN_STATUSES),
-        ),
-    ).first()
-    if existing:
-        return existing
-    return create_ticket(session, stock, workflow, origin=origin, priority=priority)
-
-
 def claim_next(session: Session) -> Ticket | None:
     """Move the best queued ticket to running; ``None`` if nothing is queued.
 
     The claim is a conditional ``UPDATE ... WHERE status = 'queued'``, so concurrent workers can
-    never both win the same ticket; the loser simply tries the next candidate. The caller owns the
-    transaction: the claim becomes visible to other workers when the caller commits.
+    never both win the same ticket. The caller owns the transaction.
     """
     for _ in range(CLAIM_ATTEMPTS):
         candidate = session.scalars(
@@ -123,27 +89,8 @@ def cancel(session: Session, ticket: Ticket) -> None:
         session.flush()
 
 
-def list_tickets(
-    session: Session,
-    status: str | None = None,
-    stock_id: int | None = None,
-) -> list[Ticket]:
+def list_tickets(session: Session, status: str | None = None) -> list[Ticket]:
     query = select(Ticket).order_by(Ticket.id.desc()).limit(LIST_LIMIT)
     if status:
         query = query.where(Ticket.status == status)
-    if stock_id:
-        query = query.where(Ticket.stock_id == stock_id)
     return list(session.scalars(query))
-
-
-def count_open(session: Session, stock_id: int) -> int:
-    return len(
-        list(
-            session.scalars(
-                select(Ticket.id).where(
-                    Ticket.stock_id == stock_id,
-                    Ticket.status.in_(OPEN_STATUSES),
-                ),
-            ),
-        ),
-    )

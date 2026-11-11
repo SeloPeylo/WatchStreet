@@ -41,7 +41,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-watchstreet = ["migrations/script.py.mako", "web/templates/*.html", "web/templates/panels/*.html", "web/static/*", "web/static/vendor/*", "data/*.json"]
+watchstreet = ["migrations/script.py.mako", "web/static/*", "web/static/vendor/*", "data/*.json"]
 
 # ---------------------------------------------------------------- ruff
 [tool.ruff]
@@ -55,7 +55,7 @@ select = [
     "S", "ANN", "T20", "PTH", "ERA", "TID", "DTZ", "PERF", "RET", "ARG", "TRY",
     "FBT", "PIE", "RSE", "SLF", "TCH", "LOG", "G",
 ]
-allowed-confusables = ["–", "\u202f", "×"]  # typographic dash / narrow space in German UI text
+allowed-confusables = ["–", "\u202f", "×", "−"]  # typographic dash / narrow space in German UI text
 ignore = [
     "TRY003",  # long messages in exceptions are fine
     "ANN401",
@@ -72,6 +72,8 @@ max-statements = 40
 max-returns = 5
 
 [tool.ruff.lint.per-file-ignores]
+"src/watchstreet/services/demo.py" = ["E501"]  # one demo asset per line reads as a table
+"src/watchstreet/workflows/research.py" = ["E501"]  # German prompt and result sentences
 "tests/**" = ["S101", "PLR2004", "PLR0133", "PLR0911", "ANN", "SLF001", "ARG", "FBT", "E501"]
 "scripts/**" = ["T201", "ANN", "PLR2004", "E501"]
 "src/watchstreet/migrations/**" = ["PLR0915"]  # one statement per table in the baseline
@@ -109,7 +111,7 @@ root_package = "watchstreet"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "Layers: web/worker > harness > container > workflows > services/agents > profiles > market/intel > models > db"
+name = "Layers: web/worker > harness > container > workflows > services/agents > pure logic > adapters > models > db"
 type = "layers"
 layers = [
     "watchstreet.web | watchstreet.worker",
@@ -117,34 +119,33 @@ layers = [
     "watchstreet.container",
     "watchstreet.workflows",
     "watchstreet.services | watchstreet.agents",
-    "watchstreet.profiles",
-    "watchstreet.market | watchstreet.intel | watchstreet.geo | watchstreet.commodities",
+    "watchstreet.economics | watchstreet.analysis | watchstreet.temporal",
+    "watchstreet.market | watchstreet.intel | watchstreet.geo | watchstreet.commodities | watchstreet.metrics",
     "watchstreet.models | watchstreet.migrate",
     "watchstreet.db",
-    "watchstreet.workflow_specs | watchstreet.drafts | watchstreet.config",
+    "watchstreet.config",
     "watchstreet.domain | watchstreet.constants | watchstreet.timeutil | watchstreet.errors",
 ]
 
 [[tool.importlinter.contracts]]
-name = "Web internals: app > routes > shared helpers/deps > formatting (routes never import each other)"
+name = "Web internals: app > API routers > payloads/deps/security (routers never import each other)"
 type = "layers"
 layers = [
     "watchstreet.web.app",
-    "watchstreet.web.routes_portfolio | watchstreet.web.routes_stocks | watchstreet.web.routes_tickets | watchstreet.web.routes_intel | watchstreet.web.routes_system",
-    "watchstreet.web.helpers | watchstreet.web.deps",
-    "watchstreet.web.formatting",
+    "watchstreet.web.api_explorer | watchstreet.web.api_research | watchstreet.web.api_system",
+    "watchstreet.web.payloads | watchstreet.web.deps | watchstreet.web.security",
 ]
 
 [[tool.importlinter.contracts]]
 name = "Web frameworks stay in the web package"
 type = "forbidden"
 source_modules = [
-    "watchstreet.agents", "watchstreet.commodities", "watchstreet.config", "watchstreet.constants",
-    "watchstreet.container", "watchstreet.db", "watchstreet.domain", "watchstreet.drafts",
-    "watchstreet.errors",
-    "watchstreet.geo", "watchstreet.harness", "watchstreet.intel", "watchstreet.market",
-    "watchstreet.models", "watchstreet.profiles", "watchstreet.services", "watchstreet.timeutil",
-    "watchstreet.worker", "watchstreet.workflow_specs", "watchstreet.workflows",
+    "watchstreet.agents", "watchstreet.analysis", "watchstreet.commodities", "watchstreet.config",
+    "watchstreet.constants", "watchstreet.container", "watchstreet.db", "watchstreet.domain",
+    "watchstreet.economics", "watchstreet.errors", "watchstreet.geo", "watchstreet.harness",
+    "watchstreet.intel", "watchstreet.market", "watchstreet.metrics", "watchstreet.models",
+    "watchstreet.services", "watchstreet.temporal", "watchstreet.timeutil", "watchstreet.worker",
+    "watchstreet.workflows",
 ]
 forbidden_modules = ["fastapi", "starlette", "jinja2", "markdown"]
 
@@ -161,11 +162,11 @@ ignore_imports = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "Pure core (profiles, market, agents, geo, commodities) knows no database or services"
+name = "Pure core (economics, analysis, temporal, market, agents, catalogs) knows no database or services"
 type = "forbidden"
 source_modules = [
-    "watchstreet.profiles", "watchstreet.market", "watchstreet.agents", "watchstreet.geo",
-    "watchstreet.commodities",
+    "watchstreet.economics", "watchstreet.analysis", "watchstreet.temporal", "watchstreet.market",
+    "watchstreet.agents", "watchstreet.geo", "watchstreet.commodities", "watchstreet.metrics",
 ]
 forbidden_modules = [
     "sqlalchemy", "watchstreet.models", "watchstreet.db", "watchstreet.services",
@@ -177,12 +178,11 @@ name = "Foundation modules depend on nothing but each other"
 type = "forbidden"
 source_modules = [
     "watchstreet.domain", "watchstreet.constants", "watchstreet.timeutil", "watchstreet.errors",
-    "watchstreet.drafts",
-    "watchstreet.workflow_specs", "watchstreet.config",
+    "watchstreet.config",
 ]
 forbidden_modules = [
     "sqlalchemy", "httpx", "fastapi", "watchstreet.models", "watchstreet.db",
     "watchstreet.services", "watchstreet.workflows", "watchstreet.harness",
-    "watchstreet.container", "watchstreet.market", "watchstreet.intel", "watchstreet.profiles",
-    "watchstreet.agents", "watchstreet.web",
+    "watchstreet.container", "watchstreet.market", "watchstreet.intel", "watchstreet.agents",
+    "watchstreet.web",
 ]
