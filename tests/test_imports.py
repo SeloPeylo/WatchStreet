@@ -202,3 +202,18 @@ def test_import_rejects_implausible_values_keeps_conflicts_and_retract_restores(
     assert client.get(f"{API}/imports/unverified").json()[0]["fact_id"] == first["fact_ids"][0]
     stress = client.get(f"{API}/map", params={"commodity": "copper"}).json()["summary"]
     assert stress["unverified"] == 0
+
+
+def test_proven_only_view_leaves_imported_figures_out(client, session):
+    _import(client, text=TABLE)
+    new = session.scalars(select_asset("Mina Prueba Norte")).one()
+    usual = client.get(f"{API}/assets/{new.id}").json()["card"]
+    strict = client.get(f"{API}/assets/{new.id}", params={"proven": "true"}).json()["card"]
+    assert {m["metric"]: m for m in usual["metrics"]}["aisc"]["value"] == 1.85
+    assert {m["metric"]: m for m in strict["metrics"]}["aisc"]["provenance"] == "unknown"
+    assert strict["economics"] == [] or all(
+        m["provenance"] == "unknown" for m in strict["economics"]
+    )
+    features = client.get(f"{API}/map", params={"commodity": "copper", "proven": "true"}).json()
+    mine = next(f for f in features["features"] if f["properties"]["name"] == "Mina Prueba Norte")
+    assert mine["properties"]["unit_cost"] is None and features["summary"]["unverified"] == 0

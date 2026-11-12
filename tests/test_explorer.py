@@ -654,7 +654,8 @@ def test_company_view_shows_runway_dilution_people_and_checklist(client, session
         f"{API}/companies/{_company_id(session, 'Demo Junior Explorers Ltd')}"
     ).json()
     derived = {m["metric"]: m for m in junior["derived"]}
-    assert round(derived["runway_months"]["value"], 1) == 7.7
+    # nine million at year end 2025, burning 3.5 a quarter: used up before today
+    assert derived["cash_today"]["value"] == 0.0 and derived["runway_months"]["value"] == 0.0
     assert (
         derived["runway_months"]["provenance"] == "derived" and derived["runway_months"]["formula"]
     )
@@ -709,7 +710,9 @@ def test_company_research_finds_debt_with_scale_and_engine_flags_short_runway(
     after = client.get(f"{API}/companies/{junior}").json()
     debt = next(m for m in after["metrics"] if m["metric"] == "debt")
     assert debt["value"] == 500_000 and debt["provenance"] == "reported"  # 'US$0.5 million'
-    assert {m["metric"]: m for m in after["derived"]}["net_cash"]["value"] == 8_500_000
+    assert {m["metric"]: m for m in after["derived"]}["net_cash"][
+        "value"
+    ] == -500_000  # cash is used up by today, the debt remains
     question = {
         "subject_type": "company",
         "subject_id": junior,
@@ -836,7 +839,10 @@ def test_funding_gap_ev_and_user_entries_for_people_and_financings(client, sessi
     junior = _company_id(session, "Demo Junior Explorers Ltd")
     derived = {m["metric"]: m for m in client.get(f"{API}/companies/{junior}").json()["derived"]}
     assert derived["open_capex"]["value"] > 0
-    assert derived["funding_gap"]["value"] == derived["open_capex"]["value"] - _cash(client, junior)
+    assert derived["funding_gap"]["value"] == (
+        derived["open_capex"]["value"] - derived["cash_today"]["value"]
+    )
+    assert _cash(client, junior) == 9e6  # the reported figure itself is untouched
     assert "enterprise_value" in derived
     before = client.get(f"{API}/companies/{junior}").json()
     person = {"name": "Erika Muster", "role": "CFO", "track_record": "Zwei Minen finanziert"}
@@ -912,20 +918,24 @@ def test_rule_specs_financing_terms_pro_forma_and_own_entries(client, session):
     made = client.post(f"{API}/companies/{junior}/people", json=person).json()
     view = client.get(f"{API}/companies/{junior}").json()
     derived = {m["metric"]: m for m in view["derived"]}
-    assert derived["cash_pro_forma"]["value"] == 24e6
+    assert 0 < derived["cash_today"]["value"] < 24e6  # the raise, less the burn since
+    assert derived["market_cap"]["value"] == view["price"] * (180e6 + 75e6)  # same share basis
+    assert round(derived["dilution_overhang"]["value"], 3) == round(
+        (242e6 + 75e6 + 37.5e6) / 255e6 - 1, 3
+    )
     assert derived["shares_pro_forma"]["value"] == 180e6 + 75e6
     assert derived["cash_empty"]["text"].startswith("am ")  # the raise moved the date forward
     assert "study_npv_sum" in derived and "p_study_npv" in derived
     row = next(f for f in view["financings"] if f["id"] == created["id"])
     assert row["after_balance"] and row["warrants"] == 37.5e6 and row["own_entry"]
     who = next(p for p in view["people"] if p["id"] == made["id"])
-    assert who["ownership"] == 0.05 and who["own_entry"]
+    assert round(who["ownership"], 4) == round(9e6 / 255e6, 4) and who["own_entry"]
     assert client.delete(f"{API}/financings/{created['id']}").status_code == 204
     assert client.delete(f"{API}/people/{made['id']}").status_code == 204
     demo_person = next(p for p in view["people"] if not p["own_entry"])
     assert client.delete(f"{API}/people/{demo_person['id']}").status_code == 400
     after = client.get(f"{API}/companies/{junior}").json()
-    assert "cash_pro_forma" not in {m["metric"] for m in after["derived"]}
+    assert "shares_pro_forma" not in {m["metric"] for m in after["derived"]}
 
 
 def test_royalty_holder_has_a_value_and_checklist_needs_all_costs(client, session):

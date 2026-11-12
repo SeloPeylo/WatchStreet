@@ -170,7 +170,7 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
   const active = state.a ? Number(state.a) : null;
   useEffect(() => {
     get("/map", { commodity: state.c || undefined, color: mode, ...viewParams(state) }).then(setWorld).catch((e) => notify(e.message));
-  }, [state.c, mode, state.asof, state.view, state.sc, tick]);
+  }, [state.c, mode, state.asof, state.view, state.sc, state.pv, tick]);
   useEffect(() => {
     if (active) get(`/assets/${active}`).then((d) => setMilestones(d.milestones)).catch(() => setMilestones([]));
     else setMilestones([]);
@@ -215,6 +215,7 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
             <label key={layer} className="small"><input type="checkbox" checked={!hidden.includes(layer)} onChange={() => setHidden(hidden.includes(layer) ? hidden.filter((h) => h !== layer) : [...hidden, layer])} /> {SHAPE_SIGN[SHAPES[layer]]} {STATUS_LABEL[layer]}</label>
           ))}
           <label className="small"><input type="checkbox" checked={showEvents} onChange={() => setShowEvents(!showEvents)} /> ◯ Ereignisse</label>
+          <label className="small" title="Blendet importierte und nur selbst bestätigte Zahlen aus – in Karte, Rangliste, Marge, NAV und Unternehmenssummen"><input type="checkbox" checked={!!state.pv} onChange={() => update({ pv: state.pv ? "" : "1" })} data-testid="proven-only" /> nur Belegtes</label>
           {state.co && <button onClick={() => update({ co: "" })}>Hervorhebung aufheben</button>}
           {thesis && <div className="small">These: <b>{thesis.title}</b> <button className="link" onClick={() => update({ th: "" })}>lösen</button></div>}
           <div className="muted small">{features.length} Objekte · Umschalt+Klick wählt mehrere</div>

@@ -119,7 +119,7 @@ export function AssetPanel({ id, state, update, tick, templates, thesisTitle, on
   const [url, setUrl] = useState("");
   useEffect(() => {
     get(`/assets/${id}`, viewParams(state)).then(setData).catch(() => setData(null));
-  }, [id, state.asof, state.view, state.sc, tick]);
+  }, [id, state.asof, state.view, state.sc, state.pv, tick]);
   if (!data) return <p className="muted">Lädt …</p>;
   const card: Card = data.card;
   const selected = selection(state);
@@ -218,7 +218,7 @@ export function AssetPanel({ id, state, update, tick, templates, thesisTitle, on
           <div className="cardlist" style={{ marginTop: 8 }}>
             {data.proposals.map((p: Json) => (
               <div key={p.id}>
-                <div className="small muted">{p.template_label} · Nutzen {p.value_score.toFixed(2)}</div>
+                <div className="small muted">{p.template_label}</div>
                 {p.question}
                 <div className="row" style={{ marginTop: 4 }}>
                   <button className="primary" onClick={() => act(() => post("/proposals/start", { ids: [p.id] }), "Recherche gestartet")}>Starten</button>

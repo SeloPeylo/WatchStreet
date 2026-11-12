@@ -70,6 +70,18 @@ def pro_forma_cash(cash: float | None, raises: Sequence[Raise]) -> float | None:
     return None if cash is None else cash + sum(r.amount for r in raises)
 
 
+def cash_today(
+    cash: float | None, raised: float, burn_per_quarter: float | None, days: int | None
+) -> float | None:
+    """Reported cash plus later raises minus the burn since the balance sheet date (not below 0)."""
+    if cash is None:
+        return None
+    spent = 0.0
+    if burn_per_quarter and burn_per_quarter > 0 and days and days > 0:
+        spent = burn_per_quarter * days / (DAYS_PER_MONTH * MONTHS_PER_QUARTER)
+    return max(cash + raised - spent, 0.0)
+
+
 def cash_empty_on(as_at: date | None, months: float | None) -> date | None:
     """The day the cash runs out if the burn continues from the balance sheet date."""
     if as_at is None or months is None:

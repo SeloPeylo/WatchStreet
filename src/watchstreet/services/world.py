@@ -55,6 +55,7 @@ class ViewContext:
     as_of: date | None = None
     view: View = View.AS_KNOWN
     scenario: Mapping[str, float] = field(default_factory=dict)
+    proven_only: bool = False  # leave out imported and merely self-confirmed figures
 
     @property
     def reference(self) -> date:
@@ -159,6 +160,13 @@ def primary_commodity(asset: Asset) -> str:
 def is_unproven(fact: Fact) -> bool:
     """No primary source stands behind it: imported, or imported and merely vouched for."""
     return fact.origin == DataOrigin.IMPORT or fact.formula_key == USER_CONFIRMED
+
+
+def view_facts(rows: Iterable[Fact], ctx: ViewContext) -> dict[str, Fact]:
+    """The newest figure per metric this view may use."""
+    if ctx.proven_only:
+        rows = [f for f in rows if not is_unproven(f)]
+    return latest_per_metric(rows, ctx.as_of, ctx.view)
 
 
 def metric_unit(subject: Asset | Company, metric_key: str) -> str:
@@ -388,7 +396,7 @@ def card(asset: Asset, bundle: Bundle, ctx: ViewContext) -> dict[str, Any]:
     """The compact 'character card' of one asset for the given view."""
     period = status_on(asset, ctx.reference)
     status = period.status if period else "unknown"
-    facts = latest_per_metric(bundle.facts.get(asset.id, []), ctx.as_of, ctx.view)
+    facts = view_facts(bundle.facts.get(asset.id, []), ctx)
     commodity = primary_commodity(asset)
     econ = asset_economics(asset, facts, status, ctx)
     stakes = stakes_on(asset, ctx.reference)
@@ -444,7 +452,7 @@ def _color_value(card_data: dict[str, Any], econ: AssetEconomics | None, mode: s
 
 def map_feature(asset: Asset, bundle: Bundle, ctx: ViewContext, color: str) -> dict[str, Any]:
     data = card(asset, bundle, ctx)
-    facts = latest_per_metric(bundle.facts.get(asset.id, []), ctx.as_of, ctx.view)
+    facts = view_facts(bundle.facts.get(asset.id, []), ctx)
     econ = asset_economics(asset, facts, data["status"], ctx)
     value = _color_value(data, econ, color)
     knowledge = data["knowledge"]

@@ -51,10 +51,13 @@ def get_view(
     asof: date | None = None,
     view: View = View.AS_KNOWN,
     scenario: str = "",
+    proven: bool = False,  # noqa: FBT001, FBT002 - a query flag
 ) -> ViewContext:
     if asof is not None and asof > utcnow().date():
         raise HTTPException(status_code=422, detail="Der Stichtag liegt in der Zukunft")
-    return build_view(session, container.market, asof, view, parse_scenario(scenario))
+    return build_view(
+        session, container.market, asof, view, parse_scenario(scenario), proven_only=proven
+    )
 
 
 ViewDep = Annotated[ViewContext, Depends(get_view)]

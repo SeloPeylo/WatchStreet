@@ -32,10 +32,10 @@ from watchstreet.services.world import (
     primary_commodity,
     stakes_on,
     status_on,
+    view_facts,
 )
-from watchstreet.temporal.views import latest_per_metric
 
-PRO_FORMA = ("cash_pro_forma", "shares_pro_forma")  # shown only once a later raise exists
+PRO_FORMA = ("shares_pro_forma",)  # shown only once a later raise exists
 BURDEN_ROLES = (StakeRole.ROYALTY, StakeRole.STREAM)
 
 
@@ -67,7 +67,7 @@ def company_facts(session: Session, company_id: int, ctx: ViewContext) -> dict[s
     rows = session.scalars(
         select(Fact).where(Fact.subject_type == SubjectType.COMPANY, Fact.subject_id == company_id)
     )
-    return latest_per_metric(rows, ctx.as_of, ctx.view)
+    return view_facts(rows, ctx)
 
 
 def _derived(
@@ -100,7 +100,7 @@ def _cash_empty(
     empty_on: date | None, reference: date, inputs: tuple[Fact | None, ...]
 ) -> dict[str, Any]:
     """States plainly when the reported cash is used up; an old balance sheet must not look fresh."""
-    formula = "Bilanzstichtag + (Kasse + seither erfasste Finanzierungen) / Mittelabfluss"
+    formula = "Bilanzstichtag + (Kasse + spätere Finanzierungen) / Mittelabfluss"
     label = "Kasse rechnerisch leer"
     if empty_on is None:
         return {
@@ -168,8 +168,7 @@ def _costs_known(bundle: Bundle, ctx: ViewContext) -> bool:
     ]
     return bool(producing) and all(
         any(
-            (f := latest_per_metric(bundle.facts.get(a.id, []), ctx.as_of, ctx.view).get(k))
-            is not None
+            (f := view_facts(bundle.facts.get(a.id, []), ctx).get(k)) is not None
             and not is_unproven(f)
             for k in COST_METRICS
         )
@@ -183,7 +182,7 @@ def _attributable(bundle: Bundle, company_id: int, ctx: ViewContext) -> Attribut
         period = status_on(asset, ctx.reference)
         if period is None or period.status not in PRODUCING_STATUSES:
             continue
-        facts = latest_per_metric(bundle.facts.get(asset.id, []), ctx.as_of, ctx.view)
+        facts = view_facts(bundle.facts.get(asset.id, []), ctx)
         econ = asset_economics(asset, facts, period.status, ctx)
         share = owner_share(stakes_on(asset, ctx.reference), company_id)
         producing += 1
@@ -219,7 +218,7 @@ def _project_sum(
         period = status_on(asset, ctx.reference)
         if period is not None and period.status in PRODUCING_STATUSES:
             continue
-        fact = latest_per_metric(bundle.facts.get(asset.id, []), ctx.as_of, ctx.view).get(metric)
+        fact = view_facts(bundle.facts.get(asset.id, []), ctx).get(metric)
         share = owner_share(stakes_on(asset, ctx.reference), company_id)
         if fact is None or fact.value is None or share <= 0:
             continue
@@ -298,8 +297,6 @@ def company_view(
     shares, diluted = facts.get("shares_outstanding"), facts.get("shares_diluted")
     # only today's quote is known here; a past reference date gets no price instead of today's
     quote = market.try_quote(company.stock.symbol) if company.stock and not ctx.as_of else None
-    market_cap = quote.price * shares.value if quote and shares and shares.value else None
-    net = ratios.net_cash(_value(cash), _value(debt))
     attributable = _attributable(bundle, company.id, ctx)
     nav_sum = attributable.nav
     capex, capex_facts = _project_sum(bundle, company.id, ctx, "capex")
@@ -310,38 +307,54 @@ def company_view(
         ratios.Raise(f.amount or 0.0, f.kind == "equity", f.price, f.shares, f.warrants)
         for f in later
     ]
-    cash_pf = ratios.pro_forma_cash(_value(cash), raises)
+    raised = sum(r.amount for r in raises)
     issued = ratios.new_shares(raises)
-    shares_pf = shares.value + issued if shares and shares.value and raises else None
-    runway = ratios.runway_months(_value(cash), _value(burn))
-    empty_on = ratios.cash_empty_on(balance_day, ratios.runway_months(cash_pf, _value(burn)))
-    gap = ratios.funding_gap(capex, _value(cash))
-    cap_diluted = quote.price * diluted.value if quote and diluted and diluted.value else None
+    warrants = sum(r.warrants or 0.0 for r in raises)
+    # one consistent basis for everything below: today's estimated cash and today's share count
+    elapsed = (ctx.reference - balance_day).days if balance_day else None
+    cash_now = ratios.cash_today(_value(cash), raised, _value(burn), elapsed)
+    shares_now = shares.value + issued if shares and shares.value else None
+    diluted_now = diluted.value + issued + warrants if diluted and diluted.value else None
+    market_cap = quote.price * shares_now if quote and shares_now else None
+    cap_diluted = quote.price * diluted_now if quote and diluted_now else None
+    net = ratios.net_cash(cash_now, _value(debt))
+    runway = ratios.runway_months(cash_now, _value(burn))
+    empty_on = ratios.cash_empty_on(
+        balance_day,
+        ratios.runway_months(ratios.pro_forma_cash(_value(cash), raises), _value(burn)),
+    )
+    gap = ratios.funding_gap(capex, cash_now)
+    basis = f"{len(later)} Finanzierung(en) nach dem Bilanzstichtag eingerechnet"
     burdens = _burdens(bundle, ctx)
     derived = [
-        _derived("net_cash", "Nettokasse", net, "USD", "Kasse − Finanzschulden", (cash, debt)),
         _derived(
-            "runway_months", "Reichweite ab Bilanzstichtag", runway,
-            "Monate", "Kasse / Mittelabfluss je Quartal × 3", (cash, burn),
+            "cash_today", "Kasse heute (geschätzt)", cash_now, "USD",
+            f"Kasse am Bilanzstichtag + spätere Finanzierungen − Mittelabfluss seither; {basis}",
+            (cash, burn),
         ),
         _derived(
-            "cash_pro_forma", f"Kasse pro forma ({len(later)} spätere Finanzierung(en))",
-            cash_pf if later else None, "USD",
-            "Kasse am Bilanzstichtag + seither erfasste Finanzierungen; Ausgaben seither fehlen",
-            (cash,),
+            "net_cash", "Nettokasse", net, "USD",
+            "Kasse heute (geschätzt) − Finanzschulden", (cash, debt),
         ),
         _derived(
-            "shares_pro_forma", "Aktien pro forma", shares_pf, "Aktien",
+            "runway_months", "Reichweite ab heute", runway,
+            "Monate", "Kasse heute (geschätzt) / Mittelabfluss je Quartal × 3", (cash, burn),
+        ),
+        _derived(
+            "shares_pro_forma", "Aktien heute (inkl. späterer Finanzierungen)",
+            shares_now if later else None, "Aktien",
             "Ausstehende Aktien + seither ausgegebene (angegeben oder Betrag / Preis)", (shares,),
         ),
         _cash_empty(empty_on, ctx.reference, (cash, burn)),
         _derived(
             "dilution_overhang", "Verwässerungsüberhang",
-            ratios.dilution_overhang(_value(shares), _value(diluted)),
-            "Anteil", "Aktien voll verwässert / ausstehende Aktien − 1", (shares, diluted),
+            ratios.dilution_overhang(shares_now, diluted_now),
+            "Anteil",
+            "Aktien voll verwässert / ausstehende Aktien − 1; spätere Aktien und Warrants eingerechnet",
+            (shares, diluted),
         ),
         _derived(
-            "market_cap", "Börsenwert", market_cap, "USD", "Kurs × ausstehende Aktien", (shares,)
+            "market_cap", "Börsenwert", market_cap, "USD", "Kurs × Aktien heute", (shares,)
         ),
         _derived(
             "market_cap_diluted", "Börsenwert voll verwässert", cap_diluted, "USD",
@@ -349,8 +362,8 @@ def company_view(
         ),
         _derived(
             "enterprise_value", "Unternehmenswert (EV)",
-            ratios.enterprise_value(market_cap, _value(cash), _value(debt)), "USD",
-            "Börsenwert + Finanzschulden − Kasse", (shares, cash, debt),
+            ratios.enterprise_value(market_cap, cash_now, _value(debt)), "USD",
+            "Börsenwert + Finanzschulden − Kasse heute (geschätzt)", (shares, cash, debt),
         ),
         _derived(
             "open_capex", "Capex der Projekte (anteilig)", capex, "USD",
@@ -358,7 +371,7 @@ def company_view(
         ),
         _derived(
             "funding_gap", "Finanzierungslücke", gap, "USD",
-            "Capex der Projekte − Kasse (mindestens 0): muss über Aktien, Schulden oder Royalties beschafft werden",
+            "Capex der Projekte − Kasse heute (mindestens 0): über Aktien, Schulden oder Royalties zu beschaffen",
             (cash, *capex_facts),
         ),
         _derived(
@@ -405,7 +418,7 @@ def company_view(
                 "since": p.since.isoformat() if p.since else None, "sourced": bool(p.quote),
                 "is_demo": p.is_demo,
                 "prior_companies": p.prior_companies, "shares_held": p.shares_held,
-                "ownership": ratios.ratio(p.shares_held, _value(shares)),
+                "ownership": ratios.ratio(p.shares_held, shares_now),
                 "own_entry": p.origin == DataOrigin.USER and not p.is_demo,
             }
             for p in people

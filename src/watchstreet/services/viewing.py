@@ -19,6 +19,8 @@ def build_view(
     as_of: date | None = None,
     view: View = View.AS_KNOWN,
     scenario: Mapping[str, float] | None = None,
+    *,
+    proven_only: bool = False,
 ) -> ViewContext:
     """Effective price per commodity: scenario, else the close at the reference date or today."""
     scenario = dict(scenario or {})
@@ -34,4 +36,5 @@ def build_view(
         as_of=as_of,
         view=view,
         scenario=scenario,
+        proven_only=proven_only,
     )

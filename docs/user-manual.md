@@ -104,10 +104,15 @@ Bewertung.
 Ist eine These aktiv, lässt sich im Herleitungsdialog jede Kennzahl der These als stützende oder
 widersprechende Evidenz zuordnen.
 
-**Wann ist die Kasse leer?** Die Reichweite zählt ab dem Bilanzstichtag, nicht ab heute. Darunter
-steht deshalb „Kasse rechnerisch leer am …“ oder, wenn das Datum schon vorbei ist, „seit …“ mit
-Warnzeichen. Später erfasste Finanzierungen sind darin nicht eingerechnet. Bei einem Stichtag in der
-Vergangenheit werden kein Kurs und keine späteren Finanzierungen gezeigt.
+**Wie viel Geld ist heute noch da?** Die Bilanz ist immer alt. „Kasse heute (geschätzt)“ rechnet
+deshalb vom Bilanzstichtag weiter: Kasse plus später erfasste Finanzierungen minus Mittelabfluss seither.
+Alle abgeleiteten Werte – Nettokasse, Reichweite ab heute, Unternehmenswert, Finanzierungslücke –
+stehen auf dieser einen Basis; Börsenwert und Verwässerungsüberhang rechnen mit den Aktien inklusive
+später ausgegebener Aktien und Warrants. Darunter steht „Kasse rechnerisch leer am …“ oder, wenn das
+Datum schon vorbei ist, „seit …“ mit Warnzeichen. Die berichteten Kennzahlen oben bleiben unverändert
+auf dem Bilanzstichtag. Abgeleitete Werte sind gerundet („rund 8 Monate“): Sie sind grob, und
+Nachkommastellen würden etwas anderes vortäuschen. Bei einem Stichtag in der Vergangenheit werden kein
+Kurs und keine späteren Finanzierungen gezeigt.
 
 **Finanzierungslücke und Unternehmenswert:** Unter „Abgeleitet“ stehen zusätzlich der Unternehmenswert
 (Börsenwert + Finanzschulden − Kasse), der anteilige Capex der noch nicht produzierenden Projekte und
@@ -119,8 +124,8 @@ voll verwässert und die Finanzierungslücke als Vielfaches des Börsenwerts in 
 Asset-NAV nennt, aus wie vielen der produzierenden Objekte sie gebildet ist.
 
 Finanzierungen nehmen auch Warrants (Stück, Ausübungspreis, Laufzeit) und Zeichner auf. Liegt eine
-Finanzierung nach dem Bilanzstichtag, erscheinen „Kasse pro forma“ und „Aktien pro forma“, und das
-Datum „Kasse rechnerisch leer“ rechnet sie ein. Für Projekte stehen der NPV laut Studien (anteilig)
+Finanzierung nach dem Bilanzstichtag, erscheint zusätzlich „Aktien heute“, und alle abgeleiteten Werte
+rechnen sie ein. Für Projekte stehen der NPV laut Studien (anteilig)
 und das Verhältnis Börsenwert zu Studien-NPV in der Liste. Bei Personen lassen sich frühere
 Unternehmen und der eigene Aktienbesitz erfassen. Eigene Personen und Finanzierungen lassen sich mit
 „✕“ löschen. Ein Royalty-Halter erhält einen Wert aus seinem Umsatzanteil über die Reservenlaufzeit.
@@ -150,8 +155,8 @@ Recherche läuft in zwei bewussten Schritten:
 
 ![Backlog](screenshots/08_backlog.png)
 
-Im Backlog lässt sich der Auftragstext ändern, der Nutzenwert einsehen (Maus auf ⓘ), mehrere
-Vorschläge gesammelt starten oder ein Vorschlag verwerfen. Der Nutzenwert sortiert nur.
+Im Backlog lässt sich der Auftragstext ändern, der Grund für die Reihenfolge einsehen (Maus auf ⓘ),
+mehrere Vorschläge gesammelt starten oder ein Vorschlag verwerfen. Die Reihenfolge ist ein Vorschlag.
 
 Während eine Recherche läuft, kann weiter erkundet werden. Fertige Ergebnisse meldet die Glocke; von
 dort führt ein Klick zum Objekt.
@@ -311,6 +316,10 @@ Prüfen lässt sich auf drei Wegen:
 3. **Prüfung gegen Primärquellen vormerken**: Je Angabe entsteht ein Vorschlag im Research-Backlog.
    Nach dem Start sucht das System die Zahl zuerst ohne Sprachmodell in den gespeicherten
    Primärdokumenten; erst wenn das nichts ergibt, arbeitet der eingestellte Agent.
+
+Mit dem Schalter **„nur Belegtes“** in der Kartenlegende lassen sich importierte und nur selbst
+bestätigte Zahlen ganz ausblenden: Karte, Kostenrangliste, Marge, NAV und Unternehmenssummen rechnen
+dann nur mit belegten Angaben.
 
 Ungeprüfte Zahlen wirken weiter, und das ist sichtbar: Marge, Cashflow, NAV und die
 Unternehmenssummen, die auf einer ungeprüften oder nur selbst bestätigten Zahl beruhen, tragen

@@ -139,6 +139,7 @@ export const METHOD_LABEL: Record<string, string> = {
 
 const compact = new Intl.NumberFormat("de-DE", { notation: "compact", maximumFractionDigits: 2 });
 const plain = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 2 });
+const coarse = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
 
 export function num(value: number | null | undefined): string {
   if (value === null || value === undefined) return "–";
@@ -147,8 +148,11 @@ export function num(value: number | null | undefined): string {
 
 export function metricText(m: Metric): string {
   if (m.provenance === "unknown") return "unbekannt";
+  // Derived figures are rough by nature; decimals would only pretend otherwise.
+  if (m.unit === "Monate" && m.value != null) return `rund ${Math.round(m.value)} Monate`;
+  if (m.unit === "×" && m.value != null) return `rund ${m.value >= 10 ? Math.round(m.value) : coarse.format(m.value)} ×`;
   if (m.unit === "Anteil") {
-    const pct = (v: number) => `${plain.format(v * 100)} %`;
+    const pct = (v: number) => `${Math.round(v * 100)} %`;
     return m.value != null ? pct(m.value) : `${pct(m.low!)} bis ${pct(m.high!)}`;
   }
   if (m.value != null) return `${num(m.value)} ${m.unit ?? ""}`.trim();

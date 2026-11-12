@@ -124,8 +124,7 @@ testen“ prüft die Eingabe im Formular.
 
 | Prio | Offen | Begründung |
 |---|---|---|
-| MUSS | Schalter „nur Belegtes“ für Karte, Rangliste und Summen | sonst bleibt nur die Markierung |
-| MUSS | Pro-forma durchgängig: Börsenwert, Überhang, Lücke und Reichweite auf derselben Basis; Warrants einrechnen | heute stehen zwei Rechenstände nebeneinander |
+| erledigt | Schalter „nur Belegtes“; durchgängige Basis „Kasse heute (geschätzt)“ und „Aktien heute“ inkl. Warrants; gerundete abgeleitete Werte; Nutzenwert ausgeblendet | |
 | SOLL | Je Quelle „Wer verdient daran?“ und eine Bilanz bestätigt/widerlegt/offen | Anreize und Trefferquote |
 | SOLL | Markierung „zu schwierig“ je Objekt oder Unternehmen | bewusst nicht investieren |
 | SOLL | Hinweis beim Kauf bei leerer Kasse oder Lücke über dem Börsenwert; Zähler „Ausstieg n-mal geändert“ | |

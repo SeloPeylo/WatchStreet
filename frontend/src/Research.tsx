@@ -158,7 +158,7 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
         <div className="box" data-testid="backlog">
           <div className="row"><h2>Backlog – Vorschläge</h2>
             <button className="primary right" disabled={checked.length === 0} onClick={() => start(checked)}>Ausgewählte starten ({checked.length})</button></div>
-          <p className="muted small">Nichts läuft, bevor du es startest. Der Nutzenwert sortiert nur; er verwirft nichts.</p>
+          <p className="muted small">Nichts läuft, bevor du es startest. Die Reihenfolge ist ein Vorschlag (Bezug zu Portfolio, These und Lücken); sie verwirft nichts.</p>
           {proposals.length === 0 && <p className="muted">Keine offenen Vorschläge.</p>}
           <div className="cardlist">
             {proposals.map((p) => (
@@ -167,7 +167,7 @@ export function Research({ update, tick, refresh, notify, theses }: Props) {
                   <input type="checkbox" checked={checked.includes(p.id)} onChange={() => setChecked(checked.includes(p.id) ? checked.filter((c) => c !== p.id) : [...checked, p.id])} />
                   <span>{p.template_label} · {ORIGIN[p.origin]}</span>
                   <button className="link" onClick={() => update({ path: "/", a: String(p.subject_id) })}>{p.subject_name}</button>
-                  <span className="right" title={Object.entries(p.value_parts).map(([k, v]) => `${PARTS[k]}: ${v}`).join("\n")}>Nutzen {p.value_score.toFixed(2)} ⓘ</span>
+                  <span className="right" title={Object.entries(p.value_parts).map(([k, v]) => `${PARTS[k]}: ${v}`).join("\n")}>Warum hier? ⓘ</span>
                 </div>
                 <textarea defaultValue={p.question} onBlur={(e) => e.target.value !== p.question && act(() => patch(`/proposals/${p.id}`, { question: e.target.value }), "Auftrag geändert")} />
                 <div className="row"><button className="primary" onClick={() => start([p.id])}>Starten</button>

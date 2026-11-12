@@ -129,7 +129,7 @@ await shot("system");
 await page.getByRole("button", { name: "Explorer", exact: true }).click();
 await page.getByPlaceholder("Suche").fill("Junior");
 await page.locator(".search li button", { hasText: "Demo Junior Explorers" }).click();
-await company.getByText("Reichweite ab Bilanzstichtag").waitFor();
+await company.getByText("Reichweite ab heute").waitFor();
 await shot("junior_unternehmen");
 
 // import an analysis: visible at once, marked unverified, then confirmed by the user

@@ -32,7 +32,7 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
   const [fin, setFin] = useState({ day: "", amount: "", price: "", note: "", kind: "equity", warrants: "", warrant_price: "", warrant_expiry: "", investors: "" });
   useEffect(() => {
     get(`/companies/${id}`, viewParams(state)).then(setData).catch(() => setData(null));
-  }, [id, state.asof, state.view, state.sc, tick]);
+  }, [id, state.asof, state.view, state.sc, state.pv, tick]);
   if (!data) return <p className="muted">Lädt …</p>;
   const act = async (run: () => Promise<Json>, text: string) => {
     try {

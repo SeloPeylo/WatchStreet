@@ -12,9 +12,10 @@ export interface ViewState {
   sc: string; // scenario, e.g. copper:5.2
   co: string; // highlighted company id
   th: string; // focused thesis id
+  pv: string; // "1" = only proven figures (no imported or self-confirmed ones)
 }
 
-const KEYS = ["c", "a", "sel", "asof", "view", "color", "sc", "co", "th"] as const;
+const KEYS = ["c", "a", "sel", "asof", "view", "color", "sc", "co", "th", "pv"] as const;
 
 function read(): ViewState {
   const query = new URLSearchParams(window.location.search);
@@ -50,4 +51,5 @@ export const viewParams = (state: ViewState): Record<string, string | undefined>
   asof: state.asof || undefined,
   view: state.asof && state.view ? state.view : undefined,
   scenario: state.sc || undefined,
+  proven: state.pv ? "true" : undefined,
 });
