@@ -24,11 +24,14 @@ from watchstreet.models import (
     Thesis,
     WatchEntry,
 )
+from watchstreet.services.companies import company_view
 from watchstreet.services.facts import display_value
+from watchstreet.services.viewing import build_view
 from watchstreet.services.world import is_unproven
 from watchstreet.timeutil import utcnow
 
 SYMBOL_MAX_LEN = 32
+SNAPSHOT_DERIVED = ("cash_today", "runway_months", "shares_pro_forma", "market_cap", "funding_gap")
 SNAPSHOT_METRICS = ("aisc", "cash_cost", "production", "capex", "study_npv", "expected_aisc")
 
 
@@ -79,6 +82,8 @@ class NewHolding:
     thesis_id: int | None = None
     exit_condition: str = ""
     reason: str = ""
+    stop_price: float | None = None
+    min_runway_months: float | None = None
 
 
 def snapshot(
@@ -149,10 +154,19 @@ def record_decision(  # noqa: PLR0913
     day: date | None = None,
 ) -> Decision:
     quote = market.try_quote(stock.symbol)
+    known = snapshot(session, stock, thesis_id, quote.price if quote else None)
+    company = session.scalars(select(Company).where(Company.stock_id == stock.id)).first()
+    if company is not None:  # the derived state then: cash today, runway, share count, value
+        view = company_view(session, company, build_view(session, market), market)
+        known["derived"] = {
+            m["label"]: f"{m['value']:,.0f} {m.get('unit', '')}".replace(",", ".").strip()
+            for m in view["derived"]
+            if m["metric"] in SNAPSHOT_DERIVED and m.get("value") is not None
+        }
     decision = Decision(
         stock_id=stock.id, kind=kind, day=day or utcnow().date(), quantity=quantity,
         price=price, reason=reason.strip(), thesis_id=thesis_id,
-        snapshot=snapshot(session, stock, thesis_id, quote.price if quote else None),
+        snapshot=known,
     )  # fmt: skip
     session.add(decision)
     session.flush()
@@ -192,6 +206,8 @@ def add_holding(session: Session, market: MarketService, data: NewHolding) -> Ho
         intent=data.intent.strip(),
         thesis_id=data.thesis_id,
         exit_condition=data.exit_condition.strip(),
+        stop_price=data.stop_price,
+        min_runway_months=data.min_runway_months,
     )
     session.add(holding)
     session.flush()
@@ -209,20 +225,33 @@ def adjust_holding(  # noqa: PLR0913
     exit_condition: str | None = None,
     thesis_id: int | None = None,
     clear_thesis: bool = False,
+    stop_price: float | None = None,
+    min_runway_months: float | None = None,
 ) -> None:
     """Change why a position is held. Needs a reason, so the journal shows the bar being moved."""
     if len(reason.strip()) < MIN_REASON_CHARS:
         msg = "Bitte begründen, warum Absicht, These oder Ausstiegsbedingung geändert werden"
         raise PortfolioError(msg)
     _check_thesis(session, thesis_id)
-    before = f"{holding.intent} | Ausstieg: {holding.exit_condition}"
+
+    def state() -> str:
+        return (
+            f"{holding.intent} | Ausstieg: {holding.exit_condition} | Kursschwelle: "
+            f"{holding.stop_price or '–'} | Mindestreichweite: {holding.min_runway_months or '–'}"
+        )
+
+    before = state()
+    if stop_price is not None:
+        holding.stop_price = stop_price or None  # 0 clears the threshold
+    if min_runway_months is not None:
+        holding.min_runway_months = min_runway_months or None
     if intent is not None:
         holding.intent = intent.strip()
     if exit_condition is not None:
         holding.exit_condition = exit_condition.strip()
     if thesis_id is not None or clear_thesis:
         holding.thesis_id = thesis_id
-    after = f"{holding.intent} | Ausstieg: {holding.exit_condition}"
+    after = state()
     record_decision(
         session, market, holding.stock, "adjust",
         f"{reason.strip()} (vorher: {before} → neu: {after})",
@@ -230,18 +259,60 @@ def adjust_holding(  # noqa: PLR0913
     )  # fmt: skip
 
 
-def sell_holding(
-    session: Session, market: MarketService, holding: Holding, reason: str, price: float | None
+def buy_more(
+    session: Session,
+    market: MarketService,
+    holding: Holding,
+    quantity: float,
+    price: float,
+    reason: str,
 ) -> None:
-    """Close a position; the reason and the knowledge at that time stay in the journal."""
-    if len(reason.strip()) < MIN_REASON_CHARS:
-        msg = "Bitte begründen, warum die Position geschlossen wird"
+    """Add to a position; the average price moves, and the journal says why you bought again."""
+    if quantity <= 0 or price <= 0:
+        msg = "Menge und Preis müssen größer als 0 sein"
         raise PortfolioError(msg)
+    if len(reason.strip()) < MIN_REASON_CHARS:
+        msg = "Bitte begründen, warum du nachkaufst"
+        raise PortfolioError(msg)
+    total = holding.quantity + quantity
+    holding.avg_price = (holding.avg_price * holding.quantity + price * quantity) / total
+    holding.quantity = total
     record_decision(
-        session, market, holding.stock, "sell", reason, thesis_id=holding.thesis_id,
-        quantity=holding.quantity, price=price,
+        session, market, holding.stock, "buy", reason, thesis_id=holding.thesis_id,
+        quantity=quantity, price=price,
     )  # fmt: skip
-    session.delete(holding)
+
+
+def sell_holding(
+    session: Session,
+    market: MarketService,
+    holding: Holding,
+    reason: str,
+    price: float | None,
+    quantity: float | None = None,
+) -> None:
+    """Sell all or part of a position; reason, result and the knowledge then stay in the journal."""
+    if len(reason.strip()) < MIN_REASON_CHARS:
+        msg = "Bitte begründen, warum verkauft wird"
+        raise PortfolioError(msg)
+    sold = holding.quantity if quantity is None else quantity
+    if sold <= 0 or sold > holding.quantity:
+        msg = "Die Verkaufsmenge passt nicht zum Bestand"
+        raise PortfolioError(msg)
+    decision = record_decision(
+        session, market, holding.stock, "sell", reason, thesis_id=holding.thesis_id,
+        quantity=sold, price=price,
+    )  # fmt: skip
+    if price is not None:
+        decision.snapshot = {
+            **decision.snapshot,
+            "realized": (price - holding.avg_price) * sold,
+            "avg_price": holding.avg_price,
+        }
+    if sold == holding.quantity:
+        session.delete(holding)
+    else:
+        holding.quantity -= sold
     session.flush()
 
 

@@ -69,6 +69,8 @@ class Holding(Base):
     intent: Mapped[str] = mapped_column(Text, default="")
     thesis_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # why it is held
     exit_condition: Mapped[str] = mapped_column(Text, default="")  # what would make me sell
+    stop_price: Mapped[float | None] = mapped_column(Float, nullable=True)  # checkable exits
+    min_runway_months: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
     stock: Mapped[Stock] = relationship(back_populates="holding")
@@ -160,6 +162,7 @@ class Financing(Base):
     warrant_price: Mapped[float | None] = mapped_column(Float, nullable=True)
     warrant_expiry: Mapped[date | None] = mapped_column(Date, nullable=True)
     investors: Mapped[str] = mapped_column(Text, default="")
+    announced: Mapped[bool] = mapped_column(default=False)  # planned, not closed: a what-if
     note: Mapped[str] = mapped_column(Text, default="")
     document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), nullable=True)
     quote: Mapped[str] = mapped_column(Text, default="")

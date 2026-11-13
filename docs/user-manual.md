@@ -123,6 +123,11 @@ Eine Finanzierung braucht Datum (nicht in der Zukunft), Art und Betrag. Zusätzl
 voll verwässert und die Finanzierungslücke als Vielfaches des Börsenwerts in der Liste. Die Summe der
 Asset-NAV nennt, aus wie vielen der produzierenden Objekte sie gebildet ist.
 
+Eine **angekündigte** Finanzierung (Haken „nur angekündigt“) darf in der Zukunft liegen. Sie wird als
+Was-wäre-wenn eingerechnet – Kasse, Aktienzahl, Überhang, Reichweite – und die Formel nennt, wie viele
+der eingerechneten Finanzierungen nur angekündigt sind. „Letzte Finanzierung gegen heutigen Kurs“ zeigt
+den Abschlag, „Finanzierungspreise“ die Folge der Preise; fallende Preise sind markiert.
+
 Finanzierungen nehmen auch Warrants (Stück, Ausübungspreis, Laufzeit) und Zeichner auf. Liegt eine
 Finanzierung nach dem Bilanzstichtag, erscheint zusätzlich „Aktien heute“, und alle abgeleiteten Werte
 rechnen sie ein. Für Projekte stehen der NPV laut Studien (anteilig)
@@ -260,6 +265,32 @@ ohne These ist als solche ausgewiesen.
 
 ![Portfolio](screenshots/17_portfolio.png)
 
+### Depot, Nachkauf, Teilverkauf und Ausstiegsschwellen
+
+* **Depotwert und Gewichte:** Unter jeder Position steht ihr Anteil am Depot. Eine Positionsgrösse
+  rechnet WatchStreet bewusst nicht aus.
+* **Nachkaufen** und **Verkaufen** (auch teilweise) gehen nur mit Begründung. Beim Verkauf mit Preis
+  wird das Ergebnis gegen den Durchschnittskaufpreis festgehalten; „Depot und Ergebnis“ listet alle
+  Verkäufe und die Summe.
+* **Ausstiegsschwellen:** Zusätzlich zum Text lassen sich eine Kursschwelle und eine Mindestreichweite
+  in Monaten setzen. Ist eine Schwelle berührt oder eine Annahme der These widerlegt, steht „⚠ Ausstieg
+  prüfen“ an der Position. WatchStreet verkauft nichts; es weist nur darauf hin.
+
+## 10a. Unternehmen sichten
+
+Die Seite „Unternehmen“ zeigt alle erfassten Unternehmen in einer Tabelle: Kasse heute (geschätzt),
+Reichweite, Börsenwert, Verwässerungsüberhang, Finanzierungslücke, Datum „Kasse leer“, nächster Termin
+und wie viele der zehn Prüffragen beantwortet sind. Ein Klick auf eine Spalte sortiert, ein Klick auf den
+Namen öffnet die Unternehmensansicht. Eine Reichweite unter zwölf Monaten ist rot. Unternehmen mit
+ungeprüften importierten Zahlen sind markiert.
+
+![Unternehmen sichten](screenshots/23_unternehmen_sichten.png)
+
+Auf dem Handy ordnen sich Kopfzeile, Karte und Ansichten untereinander an; breite Tabellen lassen sich
+seitlich schieben.
+
+![Handy-Ansicht](screenshots/25_handy.png)
+
 ## 11. Quellen
 
 Alle gespeicherten Dokumente. Ein Bericht lässt sich in der Charakterkarte unter „Quellen“ per Adresse
@@ -329,6 +360,11 @@ weiter als „noch nicht geprüft“. Nennt eine Analyse etwas anderes als eine 
 Auffälligkeit am Objekt stehen. Nicht plausible Werte (negativ, null, Prozent über 100) werden nicht
 übernommen.
 
+Auch Unternehmenszahlen lassen sich importieren: Eine Zeile mit `company` und Spalten wie `cash`,
+`debt`, `burn`, `shares`, `shares_diluted`, `insider` oder `katalysator` legt das Unternehmen an und
+trägt die Zahlen als ungeprüft ein – auch ohne Mine in derselben Zeile. Spalten, die WatchStreet nicht
+kennt, nennt das Importergebnis ausdrücklich.
+
 Fliesstext ohne Tabelle zerlegt der Agent in einem Aufruf; jede Zeile braucht ein wörtliches Zitat aus
 dem Text. Skripte und Research-Agenten ausserhalb der Anwendung nutzen dieselbe Funktion über die
 [Import-API](import-api.md).
@@ -340,7 +376,7 @@ OpenAI-kompatibler Server (ein API-Anbieter oder ein Modell auf eigener Hardware
 Adresse und Schlüssel werden hier eingetragen; „Verbindung testen“ schickt eine kurze Anfrage. Der
 Schlüssel wird in der Datenbank des Servers gespeichert und nicht wieder angezeigt.
 
-![Agent einstellen](screenshots/23_agent_einstellung.png)
+![Agent einstellen](screenshots/24_agent_einstellung.png)
 
 Datenmodus, Marktdatenquelle, konfigurierter Agent, Zustand des Workers. „Hintergrundlauf jetzt“
 aktualisiert Preise und Ereignisse und führt die Regelprüfung aus; er startet nie einen Agenten.
@@ -361,6 +397,28 @@ nur mit deterministischen Schritten.
 
 **Sicherung:** bei PostgreSQL `docker compose exec db pg_dump -U watchstreet watchstreet > backup.sql`;
 vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehrbar.
+
+## 13a. Glossar
+
+| Begriff | Bedeutung in einem Satz |
+|---|---|
+| AISC | „All-in Sustaining Costs“: was die Förderung einer Einheit kostet, inklusive der Investitionen, um die Mine am Laufen zu halten |
+| Cash Cost | reine Betriebskosten je Einheit, ohne Erhaltungsinvestitionen – immer niedriger als AISC |
+| Reserven | der Teil der Lagerstätte, dessen Abbau nach einer Studie wirtschaftlich ist |
+| Ressourcen (M&I, Inferred) | geschätzte Menge im Boden; „Measured & Indicated“ ist besser belegt, „Inferred“ nur vermutet |
+| Gehalt, Ausbringung | wie viel Metall im Gestein steckt und wie viel davon die Anlage herausholt |
+| PEA, PFS, FS | Studienstufen eines Projekts, von der ersten Abschätzung (PEA) bis zur Machbarkeitsstudie (FS) |
+| Capex | Investition, um ein Projekt zu bauen |
+| NPV | heutiger Wert der künftigen Zahlungen eines Projekts laut Studie – hängt stark von der Preisannahme ab |
+| NAV | hier: einfacher Barwert des Cashflows einer Mine über die Reservenlaufzeit |
+| EV (Unternehmenswert) | Börsenwert plus Schulden minus Kasse: was ein Käufer für das Geschäft zahlt |
+| Mittelabfluss (Burn) | Geld, das ein Unternehmen ohne Einnahmen je Quartal verbraucht |
+| Reichweite | Monate, bis die Kasse bei diesem Mittelabfluss leer ist |
+| Verwässerung | neue Aktien senken deinen Anteil am Unternehmen |
+| Verwässerungsüberhang | Optionen und Warrants, die noch zu Aktien werden können, im Verhältnis zu den ausstehenden Aktien |
+| Warrant | Recht, bis zu einem Datum Aktien zu einem festen Preis zu kaufen; oft Beigabe einer Finanzierung |
+| Royalty, Stream | Anspruch auf einen Teil des Umsatzes oder der Produktion einer Mine, ohne sie zu betreiben |
+| Zeichen an Kennzahlen | **B** belegt mit wörtlichem Zitat · **≈** berechnet oder geschätzt · **N** aus einer importierten Analyse, ungeprüft · **E** eigene Annahme · **?** unbekannt |
 
 ## 14. Grenzen des aktuellen Stands
 

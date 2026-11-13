@@ -6,9 +6,55 @@ import { day, del, get, num, patch, post, put } from "./api";
 type Notify = (text: string) => void;
 const STATE: Record<string, string> = { open: "offen", supported: "gestützt", contradicted: "widerlegt", unclear: "unklar" };
 
+type Sort = { key: string; up: boolean };
+const COMPANY_COLUMNS: [string, string, string][] = [
+  ["name", "Unternehmen", ""], ["cash_today", "Kasse heute", "Geschätzt: Kasse am Bilanzstichtag + spätere Finanzierungen − Mittelabfluss seither"],
+  ["runway_months", "Reichweite", "Monate, bis die Kasse beim aktuellen Mittelabfluss aufgebraucht ist"], ["market_cap", "Börsenwert", "Kurs × Aktien heute"],
+  ["dilution_overhang", "Überhang", "Optionen und Warrants im Verhältnis zu den ausstehenden Aktien"], ["funding_gap", "Finanzierungslücke", "Capex der Projekte − Kasse heute"],
+];
+
+export function Companies({ update }: { update: (change: Json) => void }) {
+  const [rows, setRows] = useState<Json[] | null>(null);
+  const [sort, setSort] = useState<Sort>({ key: "runway_months", up: true });
+  useEffect(() => { get("/companies").then(setRows); }, []);
+  if (!rows) return <div className="page"><p className="muted">Lädt …</p></div>;
+  const sorted = [...rows].sort((x, y) => {
+    const a = x[sort.key], b = y[sort.key];
+    if (a == null) return 1;
+    if (b == null) return -1;
+    return (a < b ? -1 : a > b ? 1 : 0) * (sort.up ? 1 : -1);
+  });
+  return (
+    <div className="page"><div className="box" data-testid="companies">
+      <h2>Unternehmen</h2>
+      <p className="muted small">Alle erfassten Unternehmen auf einen Blick, zum Sichten. Klick auf eine Spalte sortiert; leere Felder heissen „unbekannt“, nicht „null“. Neue Unternehmen kommen über den Import unter „Quellen“ (Spalten company, cash, shares, burn …) oder über ein Register.</p>
+      <table>
+        <thead><tr>
+          {COMPANY_COLUMNS.map(([key, label, hint]) => <th key={key} title={hint} style={{ cursor: "pointer" }} onClick={() => setSort({ key, up: sort.key === key ? !sort.up : true })}>{label}{sort.key === key ? (sort.up ? " ▲" : " ▼") : ""}</th>)}
+          <th>Kasse leer</th><th>Nächster Termin</th><th title="Wie viele der zehn Prüffragen mit Unterlagen beantwortet sind">Geprüft</th>
+        </tr></thead>
+        <tbody>
+          {sorted.map((c) => (
+            <tr key={c.id}>
+              <td><button className="link" onClick={() => update({ path: "/", co: String(c.id), a: "" })}>{c.name}</button> <span className="muted small">{c.symbol ?? ""}{c.price != null ? ` ${num(c.price)}` : ""} · {c.assets} Obj.</span>{c.unverified && <span className="pill unresolved" title="Enthält ungeprüfte importierte Zahlen"> ungeprüft</span>}</td>
+              <td className="n">{c.cash_today != null ? num(c.cash_today) : <span className="muted">?</span>}</td>
+              <td className={`n ${c.runway_months != null && c.runway_months < 12 ? "alert" : ""}`}>{c.runway_months != null ? `${Math.round(c.runway_months)} Mon.` : <span className="muted">?</span>}</td>
+              <td className="n">{c.market_cap != null ? num(c.market_cap) : <span className="muted">?</span>}</td>
+              <td className="n">{c.dilution_overhang != null ? `${Math.round(c.dilution_overhang * 100)} %` : <span className="muted">?</span>}</td>
+              <td className="n">{c.funding_gap != null ? num(c.funding_gap) : <span className="muted">?</span>}</td>
+              <td className="small">{c.cash_empty}</td><td className="small">{c.next_catalyst || <span className="muted">?</span>}</td>
+              <td className="n small">{c.answered}/{c.questions}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div></div>
+  );
+}
+
 export function Portfolio({ notify }: { notify: Notify }) {
   const [data, setData] = useState<Json>({ holdings: [], watchlist: [] });
-  const empty = { symbol: "", quantity: "", avg_price: "", bought_at: "", intent: "", thesis_id: "", exit_condition: "" };
+  const empty = { symbol: "", quantity: "", avg_price: "", bought_at: "", intent: "", thesis_id: "", exit_condition: "", stop_price: "", min_runway_months: "" };
   const [holding, setHolding] = useState(empty);
   const [theses, setTheses] = useState<Json[]>([]);
   const [journal, setJournal] = useState<Json[]>([]);
@@ -23,10 +69,20 @@ export function Portfolio({ notify }: { notify: Notify }) {
     act(patch(`/portfolio/holdings/${h.id}`, { exit_condition, reason }));
   };
   const sell = (h: Json) => {
-    const reason = window.prompt(`Warum schliesst du ${h.symbol}? (steht im Entscheidungsprotokoll)`, "") ?? "";
-    if (reason.trim().length < 10) return notify("Ohne Begründung (mindestens 10 Zeichen) wird die Position nicht geschlossen");
-    const price = Number(window.prompt("Verkaufspreis je Stück (leer lassen, wenn unbekannt)", "") ?? "");
-    act(post(`/portfolio/holdings/${h.id}/sell`, { reason, ...(price > 0 ? { price } : {}) }));
+    const quantity = Number((window.prompt(`Wie viele Stück ${h.symbol} verkaufst du? (Bestand ${h.quantity})`, String(h.quantity)) ?? "").replace(",", "."));
+    if (!(quantity > 0)) return;
+    const reason = window.prompt("Warum verkaufst du? (steht im Entscheidungsprotokoll)", "") ?? "";
+    if (reason.trim().length < 10) return notify("Ohne Begründung (mindestens 10 Zeichen) wird nicht verkauft");
+    const price = Number((window.prompt("Verkaufspreis je Stück (leer lassen, wenn unbekannt – dann ohne Ergebnis)", "") ?? "").replace(",", "."));
+    act(post(`/portfolio/holdings/${h.id}/sell`, { reason, quantity, ...(price > 0 ? { price } : {}) }));
+  };
+  const buyMore = (h: Json) => {
+    const quantity = Number((window.prompt(`Wie viele Stück ${h.symbol} kaufst du nach?`, "") ?? "").replace(",", "."));
+    const price = Number((window.prompt("Kaufpreis je Stück", "") ?? "").replace(",", "."));
+    if (!(quantity > 0) || !(price > 0)) return;
+    const reason = window.prompt("Warum kaufst du nach? (steht im Entscheidungsprotokoll)", "") ?? "";
+    if (reason.trim().length < 10) return notify("Ohne Begründung (mindestens 10 Zeichen) wird nicht nachgekauft");
+    act(post(`/portfolio/holdings/${h.id}/buy`, { quantity, price, reason }));
   };
   const act = (run: Promise<Json>) => run.then(load).catch((e) => notify(e.message));
   return (
@@ -38,12 +94,13 @@ export function Portfolio({ notify }: { notify: Notify }) {
           <tbody>
             {data.holdings.map((h: Json) => (
               <tr key={h.id}><td><b>{h.symbol}</b></td><td>{h.name}</td><td className="n">{num(h.quantity)}</td><td className="n">{num(h.avg_price)}</td>
-                <td className="n">{num(h.price)}</td><td className="n">{num(h.market_value)} {h.currency}</td>
+                <td className="n">{num(h.price)}</td><td className="n">{num(h.market_value)} {h.currency}{h.weight != null && <div className="small muted">{Math.round(h.weight * 100)} % des Depots</div>}</td>
                 <td className={`n ${h.pnl_abs >= 0 ? "up" : "down"}`}>{num(h.pnl_abs)} ({num(h.pnl_pct)} %)</td><td>{h.intent}
+                  {(h.alerts ?? []).map((text: string) => <div key={text} className="small alert">⚠ Ausstieg prüfen: {text}</div>)}
                   <div className="small">{h.thesis ? <>These: <b>{h.thesis.title}</b>{h.thesis.contradicted ? ` ⚠ ${h.thesis.contradicted} Annahme(n) widerlegt` : ""}{h.thesis.due ? ` · ${h.thesis.due} Prüfung(en) fällig` : ""}</> : <span className="muted">⚠ keiner These zugeordnet</span>}</div>
-                  <div className="small">{h.exit_condition ? <>Ausstieg: {h.exit_condition}</> : <span className="muted">⚠ keine Ausstiegsbedingung</span>}</div>
+                  <div className="small">{h.exit_condition ? <>Ausstieg: {h.exit_condition}{h.stop_price != null ? ` · Kursschwelle ${num(h.stop_price)}` : ""}{h.min_runway_months != null ? ` · Mindestreichweite ${num(h.min_runway_months)} Mon.` : ""}</> : <span className="muted">⚠ keine Ausstiegsbedingung</span>}</div>
                   <div className="small muted">{h.company ? <>{h.company.name} · {h.assets.length} Objekte{h.theses.length > 0 && <> · Thesen: {h.theses.map((t: Json) => `${t.title}${t.contradicted ? ` (⚠ ${t.contradicted} Annahme(n) widerlegt)` : ""}${t.due ? ` (${t.due} Prüfung(en) fällig)` : ""}`).join(", ")}</>}</> : "kein Unternehmen mit Objekten zugeordnet"}</div></td>
-                <td><button onClick={() => adjust(h)}>Ausstieg ändern</button> <button onClick={() => sell(h)}>Schliessen</button></td></tr>
+                <td><button onClick={() => buyMore(h)}>Nachkaufen</button> <button onClick={() => adjust(h)}>Ausstieg ändern</button> <button onClick={() => sell(h)}>Verkaufen</button></td></tr>
             ))}
             {data.holdings.length === 0 && <tr><td colSpan={9} className="muted">Noch keine Bestände.</td></tr>}
           </tbody>
@@ -61,8 +118,22 @@ export function Portfolio({ notify }: { notify: Notify }) {
           </select>
           <input className="grow" placeholder="Warum kaufst du? (Absicht)" value={holding.intent} onChange={(e) => setHolding({ ...holding, intent: e.target.value })} />
           <input className="grow" placeholder="Ausstiegsbedingung: Was müsste eintreten, damit du verkaufst?" value={holding.exit_condition} onChange={(e) => setHolding({ ...holding, exit_condition: e.target.value })} />
-          <button className="primary" disabled={holding.intent.trim().length < 10 || holding.exit_condition.trim().length < 10} title="Absicht und Ausstiegsbedingung sind Pflicht" onClick={() => act(post("/portfolio/holdings", { ...holding, quantity: Number(holding.quantity), avg_price: Number(holding.avg_price), bought_at: holding.bought_at || null, thesis_id: holding.thesis_id ? Number(holding.thesis_id) : null })).then(() => setHolding(empty))}>Hinzufügen</button>
+          <input type="number" style={{ width: 130 }} placeholder="Kursschwelle" title="Optional: Fällt der Kurs auf oder unter diesen Wert, erscheint ein Hinweis an der Position" value={holding.stop_price} onChange={(e) => setHolding({ ...holding, stop_price: e.target.value })} />
+          <input type="number" style={{ width: 150 }} placeholder="Mindestreichweite Mon." title="Optional: Fällt die Reichweite des Unternehmens unter diese Zahl von Monaten, erscheint ein Hinweis" value={holding.min_runway_months} onChange={(e) => setHolding({ ...holding, min_runway_months: e.target.value })} />
+          <button className="primary" disabled={holding.intent.trim().length < 10 || holding.exit_condition.trim().length < 10} title="Absicht und Ausstiegsbedingung sind Pflicht" onClick={() => act(post("/portfolio/holdings", { ...holding, quantity: Number(holding.quantity), avg_price: Number(holding.avg_price), bought_at: holding.bought_at || null, thesis_id: holding.thesis_id ? Number(holding.thesis_id) : null, stop_price: holding.stop_price ? Number(holding.stop_price) : null, min_runway_months: holding.min_runway_months ? Number(holding.min_runway_months) : null })).then(() => setHolding(empty))}>Hinzufügen</button>
         </div>
+      </div>
+      <div className="box section" data-testid="closed">
+        <h2>Depot und Ergebnis</h2>
+        <p>Depotwert <b>{num(data.total_value)}</b> · realisiertes Ergebnis aus Verkäufen <b className={data.realized < 0 ? "down" : "up"}>{num(data.realized)}</b></p>
+        <p className="muted small">Die Gewichte stehen bei jeder Position. Wie viel du setzt, entscheidest du – das Werkzeug rechnet keine Positionsgrösse aus, weil das bekannte Wahrscheinlichkeiten vortäuschen würde.</p>
+        <table><tbody>
+          {(data.closed ?? []).map((c: Json, i: number) => (
+            <tr key={i}><td>{day(c.day)}</td><td><b>{c.symbol}</b></td><td className="n">{num(c.quantity)} Stück{c.price != null ? ` zu ${num(c.price)}` : ""}</td>
+              <td className={`n ${c.realized != null && c.realized < 0 ? "down" : "up"}`}>{c.realized != null ? num(c.realized) : <span className="muted">ohne Preis</span>}</td><td className="small">{c.reason}</td></tr>
+          ))}
+          {(data.closed ?? []).length === 0 && <tr><td className="muted">Noch nichts verkauft.</td></tr>}
+        </tbody></table>
       </div>
       <div className="box section" data-testid="journal">
         <h2>Entscheidungsprotokoll</h2>
@@ -74,6 +145,8 @@ export function Portfolio({ notify }: { notify: Notify }) {
               <td className="n">{d.quantity != null ? `${num(d.quantity)} Stück` : ""}{d.price != null ? ` zu ${num(d.price)}` : ""}</td>
               <td>{d.reason || <span className="muted">ohne Begründung</span>}
                 <div className="small muted">Damals: Kurs {num(d.snapshot.price)}{d.snapshot.thesis ? ` · These „${d.snapshot.thesis.title}“ (${d.snapshot.thesis.assumptions.map((a: Json) => `${a.text}: ${STATE[a.status] ?? a.status}`).join("; ") || "ohne Annahmen"})` : " · ohne These"}{Object.keys(d.snapshot.figures ?? {}).length > 0 ? ` · ${Object.entries(d.snapshot.figures).map(([k, v]) => `${k} ${v}`).join(", ")}` : ""}
+                  {Object.keys(d.snapshot.derived ?? {}).length > 0 && <div>Stand damals: {Object.entries(d.snapshot.derived).map(([k, v]) => `${k} ${v}`).join(", ")}</div>}
+                  {d.snapshot.realized != null && <div>Ergebnis: {num(d.snapshot.realized)}</div>}
                   {Object.entries(d.snapshot.assets ?? {}).map(([name, figures]) => <div key={name}>{name}: {Object.entries(figures as Record<string, string>).map(([k, v]) => `${k} ${v}`).join(", ")}</div>)}</div></td>
             </tr>
           ))}

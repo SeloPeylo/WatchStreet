@@ -182,12 +182,13 @@ def _fact(  # noqa: PLR0913, PLR0917
     session: Session,
     row: ImportRow,
     document: Document,
-    asset: Asset,
+    asset: Asset | Company,
     metric_key: str,
     outcome: ImportOutcome,
     ticket_id: int | None,
 ) -> None:
     metric = METRICS[metric_key]
+    kind = SubjectType.COMPANY if isinstance(asset, Company) else SubjectType.ASSET
     raw = row.fields[metric_key]
     value = None if metric.is_text else number(raw)
     label = f"{asset.name}, {metric.label}"
@@ -197,7 +198,7 @@ def _fact(  # noqa: PLR0913, PLR0917
     if value is not None and (value <= 0 or (metric.unit == "%" and value > PERCENT)):
         outcome.skipped.append(f"{label}: {raw} ist nicht plausibel (muss positiv sein, % ≤ 100)")
         return
-    current = current_any(session, SubjectType.ASSET, asset.id, metric_key)
+    current = current_any(session, kind, asset.id, metric_key)
     if current is not None and agrees(current, value, raw):
         outcome.unchanged += 1
         return
@@ -209,7 +210,7 @@ def _fact(  # noqa: PLR0913, PLR0917
         # the disagreement stays at the asset: how often a source is wrong is what matters about it
         session.add(
             Finding(
-                subject_type=SubjectType.ASSET, subject_id=asset.id, kind=FindingKind.ANOMALY,
+                subject_type=kind, subject_id=asset.id, kind=FindingKind.ANOMALY,
                 epistemic=Epistemic.UNRESOLVED,
                 text=f"„{document.title}“ ({document.publisher}) nennt für {metric.label} {raw}; "
                 f"vorhanden ist {display_value(current)}.",
@@ -221,7 +222,7 @@ def _fact(  # noqa: PLR0913, PLR0917
         fact = record_fact(
             session,
             FactInput(
-                SubjectType.ASSET, asset.id, metric_key,
+                kind, asset.id, metric_key,
                 value=value, text=raw if metric.is_text else "",
                 unit=metric_unit(asset, metric_key),
                 basis=IMPORT_BASIS if metric.is_cost else "",
@@ -236,6 +237,38 @@ def _fact(  # noqa: PLR0913, PLR0917
     outcome.fact_ids.append(fact.id)
 
 
+def _company_figures(
+    session: Session,
+    row: ImportRow,
+    document: Document,
+    outcome: ImportOutcome,
+    ticket_id: int | None,
+) -> None:
+    """Cash, debt, share count and the like belong to the company named in the row."""
+    keys = [k for k in row.fields if k in METRICS and METRICS[k].scope == SubjectType.COMPANY]
+    if not keys:
+        return
+    if not row.fields.get("company"):
+        outcome.skipped.append("Unternehmenszahlen ohne Spalte „company“")
+        return
+    company = company_by_name(session, row.fields["company"])
+    linked = session.scalars(
+        select(DocumentLink.id).where(
+            DocumentLink.document_id == document.id,
+            DocumentLink.subject_type == SubjectType.COMPANY,
+            DocumentLink.subject_id == company.id,
+        )
+    ).first()
+    if not linked:
+        session.add(
+            DocumentLink(
+                document_id=document.id, subject_type=SubjectType.COMPANY, subject_id=company.id
+            )
+        )
+    for key in keys:
+        _fact(session, row, document, company, key, outcome, ticket_id)
+
+
 def apply_rows(
     session: Session, document: Document, rows: list[ImportRow], ticket_id: int | None = None
 ) -> ImportOutcome:
@@ -243,12 +276,16 @@ def apply_rows(
     outcome = ImportOutcome(rows=len(rows))
     by_slug = {slug(a.name): a for a in session.scalars(select(Asset))}
     for row in rows:
-        name = row.fields["name"]
+        name = row.fields.get("name") or row.fields["company"]
         if not verify_quote(document, row.line):
             outcome.skipped.append(
-                f"{name}: Zeile steht nicht wörtlich im Dokument oder ist zu kurz"
+                f"{name}: Zeile ist kürzer als 20 Zeichen (zu kurz als Beleg) oder steht "
+                "nicht wörtlich im Dokument"
             )
             continue
+        _company_figures(session, row, document, outcome, ticket_id)
+        if "name" not in row.fields:
+            continue  # a row about the company only
         asset = by_slug.get(slug(name))
         if asset is None:
             made = _create_asset(session, row, document)

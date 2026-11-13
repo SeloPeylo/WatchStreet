@@ -38,6 +38,14 @@ FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "study_date": ("studiendatum", "study date"),
     "first_production": ("inbetriebnahme", "first production"),
     "permit_status": ("genehmigung", "genehmigungsstatus", "permit", "permits"),
+    # figures of the company itself (need the company column)
+    "cash": ("kasse", "cash and equivalents"),
+    "debt": ("schulden", "finanzschulden"),
+    "burn_rate": ("mittelabfluss", "burn", "burn rate", "mittelabfluss je quartal"),
+    "shares_outstanding": ("aktien", "shares", "ausstehende aktien", "shares outstanding"),
+    "shares_diluted": ("aktien verwässert", "fully diluted", "aktien voll verwässert"),
+    "insider_ownership": ("insiderbesitz", "insider", "insider ownership"),
+    "next_catalyst": ("katalysator", "catalyst", "nächster katalysator", "nächster termin"),
 }
 STATUS_ALIASES: dict[str, AssetStatus] = {
     "production": AssetStatus.PRODUCTION,
@@ -97,7 +105,7 @@ def _header(line: str) -> tuple[str, dict[int, str]] | None:
             for index, cell in enumerate(_cells(line, delimiter))
             if (key := canonical(cell)) is not None
         }
-        if "name" in columns.values() and len(columns) >= MIN_COLUMNS:
+        if {"name", "company"} & set(columns.values()) and len(columns) >= MIN_COLUMNS:
             return delimiter, columns
     return None
 
@@ -116,7 +124,7 @@ def parse_table(text: str) -> list[ImportRow]:
                 continue  # the |---|---| line of a Markdown table
             cells = _cells(raw, delimiter)
             fields = {columns[i]: cell for i, cell in enumerate(cells) if i in columns and cell}
-            if fields.get("name"):
+            if fields.get("name") or fields.get("company"):
                 rows.append(ImportRow(raw.strip(), fields))
         return rows
     return []
@@ -148,6 +156,17 @@ def number(raw: str) -> float | None:
 
 def status_of(raw: str) -> AssetStatus | None:
     return STATUS_ALIASES.get(raw.strip().lower())
+
+
+def ignored_columns(text: str) -> list[str]:
+    """Header cells of the first table that no known field matches (they are not imported)."""
+    for line in (ln for ln in text.splitlines() if ln.strip()):
+        header = _header(line)
+        if header is not None:
+            delimiter, columns = header
+            cells = _cells(line, delimiter)
+            return [cell for index, cell in enumerate(cells) if index not in columns and cell]
+    return []
 
 
 def table_from_records(records: list[dict[str, object]]) -> str:

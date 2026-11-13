@@ -3,11 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Commodity, Json } from "./api";
 import { TICKET_LABEL, get, num, post } from "./api";
 import { Explorer } from "./Explorer";
-import { Manual, Portfolio, Sources, System } from "./Pages";
+import { Companies, Manual, Portfolio, Sources, System } from "./Pages";
 import { Research } from "./Research";
 import { useViewState } from "./state";
 
-const NAV: [string, string][] = [["/", "Explorer"], ["/research", "Research"], ["/portfolio", "Portfolio"], ["/sources", "Quellen"], ["/system", "System"], ["/manual", "Handbuch"]];
+const NAV: [string, string][] = [["/", "Explorer"], ["/companies", "Unternehmen"], ["/research", "Research"], ["/portfolio", "Portfolio"], ["/sources", "Quellen"], ["/system", "System"], ["/manual", "Handbuch"]];
 const POLL_MS = 4000;
 
 function Login({ onDone }: { onDone: () => void }) {
@@ -130,6 +130,7 @@ function Shell({ canLogout, onLogout }: { canLogout: boolean; onLogout: () => vo
         </div>
       </header>
       {state.path === "/research" ? <Research update={update} theses={theses} {...common} />
+        : state.path === "/companies" ? <Companies update={update} />
         : state.path === "/portfolio" ? <Portfolio notify={notify} />
         : state.path === "/sources" ? <Sources notify={notify} />
         : state.path === "/system" ? <System notify={notify} tick={tick} />

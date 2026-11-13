@@ -152,10 +152,24 @@ await page.getByRole("status").getByText("Als eigene Annahme übernommen").waitF
 await page.getByTestId("derivation").getByText("eigene Annahme, keine Primärquelle").waitFor();
 await page.getByTestId("derivation").getByRole("button", { name: "Schliessen" }).click();
 
+// sift all companies on one page
+await page.getByRole("button", { name: "Unternehmen", exact: true }).click();
+await page.getByTestId("companies").getByText("Demo Junior Explorers Ltd").waitFor();
+await shot("unternehmen_sichten");
+
 // the agent backend is chosen at runtime
 await page.getByRole("button", { name: "System", exact: true }).click();
 await page.getByTestId("agent").getByTestId("agent-runner").selectOption("openai");
 await shot("agent_einstellung");
+
+// a phone: the panel sits below the map, nothing is cut off to the right
+const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+await phone.goto(`${BASE}/companies`);
+await phone.getByTestId("companies").getByText("Demo Junior Explorers Ltd").waitFor();
+const overflow = await phone.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+if (overflow > 2) problems.push(`Phone layout scrolls sideways by ${overflow}px`);
+await phone.screenshot({ path: path.join(OUT, "25_handy.png") });
+await phone.close();
 
 await browser.close();
 if (problems.length) {

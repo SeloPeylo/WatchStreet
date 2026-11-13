@@ -9,7 +9,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from watchstreet.constants import DEFAULT_DISCOUNT_RATE, PERCENT, SENSITIVITY_FACTORS
@@ -118,6 +118,31 @@ def _cash_empty(
     }  # fmt: skip
 
 
+def _price_path(priced: list[Financing]) -> dict[str, Any]:
+    """Falling financing prices are the plainest sign of value being diluted away."""
+    label, formula = (
+        "Finanzierungspreise",
+        "Preise je Aktie der erfassten Finanzierungen, älteste zuerst",
+    )
+    if len(priced) < 2:  # noqa: PLR2004 - a path needs two points
+        return {
+            "metric": "raise_prices",
+            "label": label,
+            "provenance": Provenance.UNKNOWN,
+            "formula": formula,
+        }
+    prices = [f.price or 0.0 for f in priced]
+    trend = (
+        "fallend" if prices[-1] < prices[0] else "steigend" if prices[-1] > prices[0] else "gleich"
+    )
+    return {
+        "metric": "raise_prices", "label": label,
+        "text": " → ".join(f"{p:g}".replace(".", ",") for p in prices) + f" ({trend})",
+        "provenance": Provenance.DERIVED, "claim_kind": "actual", "formula": formula,
+        "stale": trend == "fallend", "origin": DataOrigin.ENGINE,
+    }  # fmt: skip
+
+
 def _value(fact: Fact | None) -> float | None:
     return fact.value if fact else None
 
@@ -187,7 +212,8 @@ def _attributable(bundle: Bundle, company_id: int, ctx: ViewContext) -> Attribut
         share = owner_share(stakes_on(asset, ctx.reference), company_id)
         producing += 1
         income = _royalty_income(asset, facts, company_id, ctx)
-        if income is not None:
+        losing = econ is not None and econ.result.margin is not None and econ.result.margin.mid < 0
+        if income is not None and not losing:  # a closed mine pays no royalty
             cash_flow += income
             life = mine_life(
                 MineInputs(
@@ -238,7 +264,8 @@ def _sensitivity(bundle: Bundle, company_id: int, ctx: ViewContext) -> list[dict
     return rows if _attributable(bundle, company_id, ctx).valued else []
 
 
-def _burdens(bundle: Bundle, ctx: ViewContext) -> list[dict[str, Any]]:
+def _burdens(bundle: Bundle, ctx: ViewContext, company_id: int) -> list[dict[str, Any]]:
+    """Royalties and streams others hold on the company's assets (its own are income, not burden)."""
     return [
         {
             "asset_id": asset.id,
@@ -249,7 +276,7 @@ def _burdens(bundle: Bundle, ctx: ViewContext) -> list[dict[str, Any]]:
         }
         for asset in bundle.assets
         for stake in stakes_on(asset, ctx.reference)
-        if stake.role in BURDEN_ROLES
+        if stake.role in BURDEN_ROLES and stake.company_id != company_id
     ]
 
 
@@ -289,7 +316,10 @@ def company_view(
     financings = list(
         session.scalars(
             select(Financing)
-            .where(Financing.company_id == company.id, Financing.day <= ctx.reference)
+            .where(
+                Financing.company_id == company.id,
+                or_(Financing.day <= ctx.reference, Financing.announced),
+            )
             .order_by(Financing.day.desc())
         )
     )
@@ -324,8 +354,13 @@ def company_view(
         ratios.runway_months(ratios.pro_forma_cash(_value(cash), raises), _value(burn)),
     )
     gap = ratios.funding_gap(capex, cash_now)
-    basis = f"{len(later)} Finanzierung(en) nach dem Bilanzstichtag eingerechnet"
-    burdens = _burdens(bundle, ctx)
+    planned = sum(1 for f in later if f.announced)
+    basis = f"{len(later)} Finanzierung(en) nach dem Bilanzstichtag eingerechnet" + (
+        f", davon {planned} nur angekündigt" if planned else ""
+    )
+    priced = [f for f in reversed(financings) if f.price]  # oldest first
+    last = priced[-1] if priced else None
+    burdens = _burdens(bundle, ctx, company.id)
     derived = [
         _derived(
             "cash_today", "Kasse heute (geschätzt)", cash_now, "USD",
@@ -346,6 +381,12 @@ def company_view(
             "Ausstehende Aktien + seither ausgegebene (angegeben oder Betrag / Preis)", (shares,),
         ),
         _cash_empty(empty_on, ctx.reference, (cash, burn)),
+        _derived(
+            "raise_discount", "Letzte Finanzierung gegen heutigen Kurs",
+            last.price / quote.price - 1 if last and last.price and quote and quote.price else None,
+            "Anteil", "Finanzierungspreis / heutiger Kurs − 1 (negativ = unter dem Kurs)", (),
+        ),
+        _price_path(priced),
         _derived(
             "dilution_overhang", "Verwässerungsüberhang",
             ratios.dilution_overhang(shares_now, diluted_now),
@@ -429,7 +470,7 @@ def company_view(
                 "price": f.price, "shares": f.shares, "note": f.note, "sourced": bool(f.quote),
                 "warrants": f.warrants, "warrant_price": f.warrant_price,
                 "warrant_expiry": f.warrant_expiry.isoformat() if f.warrant_expiry else None,
-                "investors": f.investors, "after_balance": f in later,
+                "investors": f.investors, "after_balance": f in later, "announced": f.announced,
                 "own_entry": f.origin == DataOrigin.USER and not f.is_demo,
             }
             for f in financings

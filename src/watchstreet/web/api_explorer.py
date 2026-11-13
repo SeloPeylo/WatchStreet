@@ -280,6 +280,37 @@ def compare(
     }
 
 
+LIST_METRICS = ("cash_today", "runway_months", "market_cap", "funding_gap", "dilution_overhang")
+
+
+@router.get("/companies")
+def company_list(
+    session: SessionDep, ctx: ViewDep, container: ContainerDep
+) -> list[dict[str, Any]]:
+    """Every company on one line: what is needed to sift many quickly."""
+    rows = []
+    for company in session.scalars(select(Company).order_by(Company.name)):
+        view = company_view(session, company, ctx, container.market)
+        derived = {m["metric"]: m for m in view["derived"]}
+        catalyst = next(m for m in view["metrics"] if m["metric"] == "next_catalyst")
+        rows.append(
+            {
+                "id": company.id,
+                "name": company.name,
+                "symbol": view["symbol"],
+                "price": view["price"],
+                "assets": len(view["assets"]),
+                "next_catalyst": catalyst.get("text", ""),
+                "cash_empty": derived["cash_empty"].get("text", ""),
+                "answered": sum(1 for q in view["checklist"] if q["answered"]),
+                "questions": len(view["checklist"]),
+                "unverified": any(m.get("unverified") for m in view["metrics"] + view["derived"]),
+                **{key: derived[key].get("value") for key in LIST_METRICS},
+            }
+        )
+    return rows
+
+
 @router.get("/companies/{company_id}")
 def company_detail(
     company_id: int, session: SessionDep, ctx: ViewDep, container: ContainerDep
@@ -327,6 +358,7 @@ class FinancingBody(BaseModel):
     warrant_price: float | None = Field(default=None, gt=0)
     warrant_expiry: date | None = None
     investors: str = ""
+    announced: bool = False  # planned, not closed: counted as a what-if
     note: str = ""
 
 
@@ -345,8 +377,11 @@ def add_person(company_id: int, body: PersonBody, session: SessionDep) -> dict[s
 def add_financing(company_id: int, body: FinancingBody, session: SessionDep) -> dict[str, int]:
     """A user entry: one capital raise."""
     company = get_or_404(session, Company, company_id)
-    if body.day > utcnow().date():
-        raise HTTPException(status_code=422, detail="Das Datum liegt in der Zukunft")
+    if body.day > utcnow().date() and not body.announced:
+        raise HTTPException(
+            status_code=422,
+            detail="Datum in der Zukunft: geplante Finanzierungen bitte als „angekündigt“ erfassen",
+        )
     financing = Financing(company_id=company.id, origin=DataOrigin.USER, **body.model_dump())
     session.add(financing)
     log_change(

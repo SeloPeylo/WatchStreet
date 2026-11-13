@@ -217,3 +217,17 @@ def test_proven_only_view_leaves_imported_figures_out(client, session):
     features = client.get(f"{API}/map", params={"commodity": "copper", "proven": "true"}).json()
     mine = next(f for f in features["features"] if f["properties"]["name"] == "Mina Prueba Norte")
     assert mine["properties"]["unit_cost"] is None and features["summary"]["unverified"] == 0
+
+
+def test_import_takes_company_figures_and_names_ignored_columns(client, session):
+    table = (
+        "company;ticker;cash;shares;burn;katalysator\n"
+        "Yukon Star Mining;YSM.V;4,5 Mio;88 Mio;1,2 Mio;PEA im ersten Quartal 2027\n"
+    )
+    report = _import(client, text=table)
+    assert report["facts"] == 4 and any("ticker" in line for line in report["skipped"])
+    hit = client.get(f"{API}/search", params={"q": "Yukon Star"}).json()[0]
+    view = client.get(f"{API}/companies/{hit['id']}").json()
+    metrics = {m["metric"]: m for m in view["metrics"]}
+    assert metrics["cash"]["value"] == 4.5e6 and metrics["cash"]["unverified"]
+    assert metrics["next_catalyst"]["text"].startswith("PEA")

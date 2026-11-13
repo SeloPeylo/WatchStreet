@@ -544,7 +544,8 @@ def test_portfolio(client):
     assert view["watchlist"][0]["price"] > 0
     client.delete(f"{API}/portfolio/holdings/{made['id']}")
     client.delete(f"{API}/portfolio/watch/{watch['id']}")
-    assert client.get(f"{API}/portfolio").json() == {"holdings": [], "watchlist": []}
+    left = client.get(f"{API}/portfolio").json()
+    assert left["holdings"] == [] and left["watchlist"] == [] and left["total_value"] == 0
 
 
 def test_system_manual_security_and_spa(client, container, tmp_path):
@@ -1004,3 +1005,43 @@ def test_reference_date_hides_todays_research_sources_and_questions(client, cont
     assert then["card"]["knowledge"]["open_questions"] == 0
     assert then["proposals"] == [] and then["tickets"] == []
     assert all(d["published_at"] <= "2025-06-30T23:59" for d in then["documents"])
+
+
+def test_trading_basics_add_partial_sale_weights_thresholds_and_company_list(client, session):
+    why = {
+        "intent": "Option auf Cobre Alto",
+        "exit_condition": "Verkauf bei neuer Billigfinanzierung",
+    }
+    body = {"symbol": "DJEX", "quantity": 1000, "avg_price": 0.30, "stop_price": 5.0, **why}
+    djex = client.post(f"{API}/portfolio/holdings", json={**body, "min_runway_months": 6}).json()[
+        "id"
+    ]
+    client.post(
+        f"{API}/portfolio/holdings", json={"symbol": "DACC", "quantity": 10, "avg_price": 40, **why}
+    )
+    path = f"{API}/portfolio/holdings/{djex}"
+    more = {"quantity": 1000, "price": 0.50, "reason": "Nachkauf nach guter Bohrung"}
+    assert client.post(f"{path}/buy", json=more).status_code == 200
+    assert client.post(f"{path}/buy", json={**more, "reason": "ja"}).status_code == 400
+    part = {"quantity": 500, "price": 0.60, "reason": "Hälfte des Einsatzes zurückholen"}
+    assert client.post(f"{path}/sell", json=part).status_code == 200
+    assert client.post(f"{path}/sell", json={**part, "quantity": 99999}).status_code == 400
+    data = client.get(f"{API}/portfolio").json()
+    row = next(h for h in data["holdings"] if h["symbol"] == "DJEX")
+    assert row["quantity"] == 1500 and row["avg_price"] == 0.40
+    assert round(sum(h["weight"] for h in data["holdings"]), 6) == 1.0
+    assert round(data["realized"], 2) == 100.0 and data["closed"][0]["symbol"] == "DJEX"
+    assert any("Schwelle 5" in a for a in row["alerts"])  # price is below the stop
+    assert any("Reichweite" in a for a in row["alerts"])  # cash is used up
+    journal = client.get(f"{API}/portfolio/decisions").json()
+    assert "Kasse heute (geschätzt)" in journal[0]["snapshot"]["derived"]
+    junior = _company_id(session, "Demo Junior Explorers Ltd")
+    planned = {"day": "2099-01-01", "amount": 10e6, "price": 0.3, "announced": True}
+    assert client.post(f"{API}/companies/{junior}/financings", json=planned).status_code == 201
+    view = client.get(f"{API}/companies/{junior}").json()
+    derived = {m["metric"]: m for m in view["derived"]}
+    assert "angekündigt" in derived["cash_today"]["formula"] and derived["cash_today"]["value"] > 0
+    assert derived["raise_discount"]["value"] < 0 and "fallend" in derived["raise_prices"]["text"]
+    listing = client.get(f"{API}/companies").json()
+    line = next(c for c in listing if c["id"] == junior)
+    assert line["symbol"] == "DJEX" and line["runway_months"] > 0 and line["questions"] == 10

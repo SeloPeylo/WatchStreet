@@ -8,9 +8,11 @@ import { selection, viewParams } from "./state";
 export function Chip({ m }: { m: Metric }) {
   const p = PROVENANCE[m.provenance];
   const claim = m.claim_kind ? ` · ${CLAIM_LABEL[m.claim_kind] ?? m.claim_kind}` : "";
+  // An imported or merely self-confirmed figure must not carry the sign of a sourced one.
+  const weak = m.provenance === "reported" && (m.unverified || m.own_claim);
   return (
-    <span className={`prov ${m.provenance}`} title={`${p.label}${claim}`}>
-      {p.chip}
+    <span className={`prov ${weak ? "unknown" : m.provenance}`} title={weak ? (m.own_claim ? "Eigene Annahme: von dir bestätigt, ohne Primärquelle" : "Übernommen aus einer importierten Analyse, nicht geprüft") : `${p.label}${claim}`}>
+      {weak ? (m.own_claim ? "E" : "N") : p.chip}
     </span>
   );
 }

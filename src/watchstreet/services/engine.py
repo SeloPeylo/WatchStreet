@@ -173,7 +173,10 @@ def _runway_rule(session: Session, ctx: ViewContext, report: EngineReport) -> No
         ).first()
         if exists:
             continue
-        text = f"Die Kasse von {company.name} reicht beim aktuellen Mittelabfluss rund {months:.0f} Monate."
+        text = (
+            f"Die berichtete Kasse von {company.name} reicht ab dem Bilanzstichtag rund "
+            f"{months:.0f} Monate; ohne neue Finanzierung ist sie danach aufgebraucht."
+        )
         session.add(
             Finding(
                 subject_type=SubjectType.COMPANY,

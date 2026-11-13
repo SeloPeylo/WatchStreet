@@ -13,6 +13,7 @@ const ENTRY: [string, string, boolean][] = [
   ["royalty_burden", "Royalties und Streams (Text)", true], ["next_catalyst", "Nächster Katalysator (Text)", true],
 ];
 const QUESTION_TEMPLATE: Record<string, string> = { people: "management", insiders: "management", financing: "financing", burn: "financing" };
+const NO_FIN = { day: "", amount: "", price: "", note: "", kind: "equity", warrants: "", warrant_price: "", warrant_expiry: "", investors: "", announced: false };
 const ROLE: Record<string, string> = { royalty: "Royalty", stream: "Stream" };
 
 interface Props {
@@ -29,7 +30,7 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
   const [open, setOpen] = useState("");
   const [entry, setEntry] = useState({ metric: "cash", value: "" });
   const [person, setPerson] = useState({ name: "", role: "", track_record: "", prior_companies: "", shares_held: "" });
-  const [fin, setFin] = useState({ day: "", amount: "", price: "", note: "", kind: "equity", warrants: "", warrant_price: "", warrant_expiry: "", investors: "" });
+  const [fin, setFin] = useState(NO_FIN);
   useEffect(() => {
     get(`/companies/${id}`, viewParams(state)).then(setData).catch(() => setData(null));
   }, [id, state.asof, state.view, state.sc, state.pv, tick]);
@@ -39,18 +40,20 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
       await run();
       notify(text);
       onChanged();
+      return true;
     } catch (error) {
       notify((error as Error).message);
+      return false; // keep what the user typed
     }
   };
   const propose = (body: Json) => act(() => post("/proposals", { subject_type: "company", subject_id: id, ...body }), "Frage vorgemerkt – im Backlog prüfen und starten");
   const ask = (q: Json) => (q.missing.length > 0 ? propose({ template: "fill_metric", metric: q.missing[0] }) : propose({ template: QUESTION_TEMPLATE[q.key] ?? "free", question: QUESTION_TEMPLATE[q.key] ? "" : q.text }));
   const isText = ENTRY.find(([key]) => key === entry.metric)![2];
   const save = () =>
-    act(() => post("/facts", { subject_type: "company", subject_id: id, metric: entry.metric, ...(isText ? { text: entry.value } : { value: Number(entry.value) }) }), "Kennzahl gespeichert").then(() => setEntry({ ...entry, value: "" }));
-  const savePerson = () => act(() => post(`/companies/${id}/people`, { ...person, shares_held: person.shares_held ? Number(person.shares_held) : null }), "Person erfasst").then(() => setPerson({ name: "", role: "", track_record: "", prior_companies: "", shares_held: "" }));
+    act(() => post("/facts", { subject_type: "company", subject_id: id, metric: entry.metric, ...(isText ? { text: entry.value } : { value: Number(entry.value) }) }), "Kennzahl gespeichert").then((ok) => { if (ok) setEntry({ ...entry, value: "" }); });
+  const savePerson = () => act(() => post(`/companies/${id}/people`, { ...person, shares_held: person.shares_held ? Number(person.shares_held) : null }), "Person erfasst").then((ok) => { if (ok) setPerson({ name: "", role: "", track_record: "", prior_companies: "", shares_held: "" }); });
   const saveFin = () =>
-    act(() => post(`/companies/${id}/financings`, { day: fin.day, note: fin.note, kind: fin.kind, investors: fin.investors, ...(fin.warrants ? { warrants: Number(fin.warrants) } : {}), ...(fin.warrant_price ? { warrant_price: Number(fin.warrant_price) } : {}), ...(fin.warrant_expiry ? { warrant_expiry: fin.warrant_expiry } : {}), ...(fin.amount ? { amount: Number(fin.amount) } : {}), ...(fin.price ? { price: Number(fin.price) } : {}) }), "Finanzierung erfasst").then(() => setFin({ day: "", amount: "", price: "", note: "", kind: "equity", warrants: "", warrant_price: "", warrant_expiry: "", investors: "" }));
+    act(() => post(`/companies/${id}/financings`, { day: fin.day, note: fin.note, kind: fin.kind, investors: fin.investors, announced: fin.announced, ...(fin.warrants ? { warrants: Number(fin.warrants) } : {}), ...(fin.warrant_price ? { warrant_price: Number(fin.warrant_price) } : {}), ...(fin.warrant_expiry ? { warrant_expiry: fin.warrant_expiry } : {}), ...(fin.amount ? { amount: Number(fin.amount) } : {}), ...(fin.price ? { price: Number(fin.price) } : {}) }), "Finanzierung erfasst").then((ok) => { if (ok) setFin(NO_FIN); });
   const answered = data.checklist.filter((q: Json) => q.answered).length;
   return (
     <div data-testid="company-panel">
@@ -124,14 +127,14 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
         {data.financings.length === 0 && <p className="muted small">Keine Finanzierung erfasst.</p>}
         <table><tbody>
           {data.financings.map((f: Json) => (
-            <tr key={f.id}><td>{day(f.day)}</td><td className="n">{num(f.amount)} USD</td><td className="n">{f.price != null ? `${num(f.price)} je Aktie` : ""}</td><td className="small muted">{f.warrants != null && <>+ {num(f.warrants)} Warrants{f.warrant_price != null ? ` zu ${num(f.warrant_price)}` : ""}{f.warrant_expiry ? ` bis ${day(f.warrant_expiry)}` : ""} · </>}{f.investors && <>{f.investors} · </>}{f.note}{f.after_balance && <> · <b>nach Bilanzstichtag</b></>}
+            <tr key={f.id}><td>{day(f.day)}</td><td className="n">{num(f.amount)} USD</td><td className="n">{f.price != null ? `${num(f.price)} je Aktie` : ""}</td><td className="small muted">{f.warrants != null && <>+ {num(f.warrants)} Warrants{f.warrant_price != null ? ` zu ${num(f.warrant_price)}` : ""}{f.warrant_expiry ? ` bis ${day(f.warrant_expiry)}` : ""} · </>}{f.investors && <>{f.investors} · </>}{f.note}{f.announced && <> · <b>angekündigt</b></>}{f.after_balance && <> · <b>nach Bilanzstichtag</b></>}
               {f.own_entry && <button className="link small" title="Eigenen Eintrag löschen" onClick={() => act(() => del(`/financings/${f.id}`), "Finanzierung gelöscht")}> ✕</button>}</td></tr>
           ))}
         </tbody></table>
         <details>
           <summary className="small">Finanzierung erfassen</summary>
           <div className="row">
-            <input type="date" value={fin.day} onChange={(e) => setFin({ ...fin, day: e.target.value })} data-testid="fin-day" />
+            <label className="small">Datum <input type="date" value={fin.day} onChange={(e) => setFin({ ...fin, day: e.target.value })} data-testid="fin-day" /></label>
             <select value={fin.kind} onChange={(e) => setFin({ ...fin, kind: e.target.value })}>
               <option value="equity">Eigenkapital</option><option value="debt">Fremdkapital</option><option value="royalty_sale">Royalty-Verkauf</option>
             </select>
@@ -141,7 +144,10 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
           <div className="row">
             <input type="number" placeholder="Warrants (Stück)" value={fin.warrants} onChange={(e) => setFin({ ...fin, warrants: e.target.value })} />
             <input type="number" placeholder="Ausübungspreis" value={fin.warrant_price} onChange={(e) => setFin({ ...fin, warrant_price: e.target.value })} />
-            <input type="date" title="Laufzeit der Warrants bis" value={fin.warrant_expiry} onChange={(e) => setFin({ ...fin, warrant_expiry: e.target.value })} />
+            <label className="small">Warrants laufen bis <input type="date" value={fin.warrant_expiry} onChange={(e) => setFin({ ...fin, warrant_expiry: e.target.value })} /></label>
+          </div>
+          <div className="row">
+            <label className="small" title="Geplant, noch nicht abgeschlossen: wird als Was-wäre-wenn eingerechnet und so gekennzeichnet; das Datum darf in der Zukunft liegen"><input type="checkbox" checked={fin.announced} onChange={() => setFin({ ...fin, announced: !fin.announced })} data-testid="fin-announced" /> nur angekündigt (Was-wäre-wenn)</label>
           </div>
           <div className="row">
             <input placeholder="Zeichner" value={fin.investors} onChange={(e) => setFin({ ...fin, investors: e.target.value })} />

@@ -13,7 +13,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from watchstreet.agents.base import AgentError, AgentRequest
-from watchstreet.analysis.imports import parse_table, table_from_records
+from watchstreet.analysis.imports import ignored_columns, parse_table, table_from_records
 from watchstreet.constants import (
     HEARTBEAT_STALE_AFTER,
     LAST_SCAN_KEY,
@@ -46,8 +46,10 @@ from watchstreet.models import (
     WatchEntry,
 )
 from watchstreet.services import imports, portfolio, proposals
+from watchstreet.services.companies import company_view
 from watchstreet.services.state import touch, updated_at
 from watchstreet.services.tickets import create_ticket
+from watchstreet.services.viewing import build_view
 from watchstreet.timeutil import utcnow
 from watchstreet.web import payloads
 from watchstreet.web.auth import COOKIE, Auth
@@ -250,6 +252,9 @@ def import_analysis(
     rows = parse_table(text)[:MAX_IMPORT_ROWS]
     outcome = imports.apply_rows(session, document, rows)
     report: dict[str, Any] = {**asdict(outcome), "document_id": document.id, "ticket_id": None}
+    unknown = ignored_columns(text)
+    if unknown:
+        report["skipped"].append(f"Nicht erkannte Spalten (nicht übernommen): {', '.join(unknown)}")
     if not rows:
         if runner_for(container, session).name == "offline":
             report["skipped"].append(
@@ -370,6 +375,8 @@ class HoldingBody(BaseModel):
     thesis_id: int | None = None
     exit_condition: str = ""
     reason: str = ""
+    stop_price: float | None = Field(default=None, gt=0)
+    min_runway_months: float | None = Field(default=None, gt=0)
 
 
 class AdjustBody(BaseModel):
@@ -378,11 +385,20 @@ class AdjustBody(BaseModel):
     exit_condition: str | None = None
     thesis_id: int | None = None
     clear_thesis: bool = False
+    stop_price: float | None = Field(default=None, ge=0)  # 0 clears it
+    min_runway_months: float | None = Field(default=None, ge=0)
 
 
 class SellBody(BaseModel):
     reason: str
     price: float | None = Field(default=None, gt=0)
+    quantity: float | None = Field(default=None, gt=0)  # empty = everything
+
+
+class BuyMoreBody(BaseModel):
+    reason: str
+    quantity: float = Field(gt=0)
+    price: float = Field(gt=0)
 
 
 class WatchBody(BaseModel):
@@ -431,11 +447,55 @@ def _exposure(session: Session, stock_id: int) -> dict[str, Any]:
     }
 
 
+def _alerts(row: Any, exposure: dict[str, Any], runway: float | None) -> list[str]:
+    """Exit thresholds the user set, checked against today's data."""
+    holding, alerts = row.holding, []
+    if holding.stop_price and row.price is not None and row.price <= holding.stop_price:
+        alerts.append(
+            f"Kurs {row.price:g} liegt auf oder unter deiner Schwelle {holding.stop_price:g}"
+        )
+    if holding.min_runway_months and runway is not None and runway < holding.min_runway_months:
+        alerts.append(
+            f"Reichweite rund {runway:.0f} Monate liegt unter deiner Schwelle "
+            f"{holding.min_runway_months:g}"
+        )
+    alerts += [
+        f"These „{t['title']}“: {t['contradicted']} Annahme(n) widerlegt"
+        for t in exposure["theses"]
+        if t["contradicted"]
+    ]
+    return alerts
+
+
+def _runway(session: Session, container: Container, company_id: int | None) -> float | None:
+    company = session.get(Company, company_id) if company_id else None
+    if company is None:
+        return None
+    view = company_view(session, company, build_view(session, container.market), container.market)
+    return next((m.get("value") for m in view["derived"] if m["metric"] == "runway_months"), None)
+
+
 @router.get(f"{API}/portfolio")
 def portfolio_view(session: SessionDep, container: ContainerDep) -> dict[str, Any]:
     rows = portfolio.holding_rows(session, container.market)
     watch = portfolio.watch_entries(session)
+    total = sum(r.market_value or 0.0 for r in rows)
+    exposures = {r.holding.id: _exposure(session, r.holding.stock_id) for r in rows}
+    closed = [d for d in portfolio.decisions(session) if d.kind == "sell"]
     return {
+        "total_value": total,
+        "realized": sum(d.snapshot.get("realized") or 0.0 for d in closed),
+        "closed": [
+            {
+                "symbol": d.stock.symbol,
+                "day": d.day.isoformat(),
+                "quantity": d.quantity,
+                "price": d.price,
+                "realized": d.snapshot.get("realized"),
+                "reason": d.reason,
+            }
+            for d in closed
+        ],
         "holdings": [
             {
                 "id": r.holding.id,
@@ -455,7 +515,17 @@ def portfolio_view(session: SessionDep, container: ContainerDep) -> dict[str, An
                 "pnl_abs": r.pnl_abs,
                 "pnl_pct": r.pnl_pct,
                 "day_change_pct": r.day_change_pct,
-                **_exposure(session, r.holding.stock_id),
+                "stop_price": r.holding.stop_price,
+                "min_runway_months": r.holding.min_runway_months,
+                "weight": r.market_value / total if r.market_value and total else None,
+                "alerts": _alerts(
+                    r,
+                    exposures[r.holding.id],
+                    _runway(
+                        session, container, (exposures[r.holding.id]["company"] or {}).get("id")
+                    ),
+                ),
+                **exposures[r.holding.id],
             }
             for r in rows
         ],
@@ -484,6 +554,7 @@ def add_holding(body: HoldingBody, session: SessionDep, container: ContainerDep)
         portfolio.NewHolding(
             body.symbol, body.quantity, body.avg_price, body.bought_at, body.intent,
             body.thesis_id, body.exit_condition, body.reason,
+            body.stop_price, body.min_runway_months,
         ),
     )  # fmt: skip
     return {"id": holding.id}
@@ -498,7 +569,8 @@ def adjust_holding(
     portfolio.adjust_holding(
         session, container.market, holding, body.reason, intent=body.intent,
         exit_condition=body.exit_condition, thesis_id=body.thesis_id,
-        clear_thesis=body.clear_thesis,
+        clear_thesis=body.clear_thesis, stop_price=body.stop_price,
+        min_runway_months=body.min_runway_months,
     )  # fmt: skip
     return {"status": "adjusted"}
 
@@ -507,10 +579,22 @@ def adjust_holding(
 def sell_holding(
     holding_id: int, body: SellBody, session: SessionDep, container: ContainerDep
 ) -> dict[str, str]:
-    """Close a position with a reason; it stays in the decision journal."""
+    """Sell all or part of a position with a reason; result and reason stay in the journal."""
     holding = get_or_404(session, Holding, holding_id)
-    portfolio.sell_holding(session, container.market, holding, body.reason, body.price)
+    portfolio.sell_holding(
+        session, container.market, holding, body.reason, body.price, body.quantity
+    )
     return {"status": "sold"}
+
+
+@router.post(f"{API}/portfolio/holdings/{{holding_id}}/buy")
+def buy_more(
+    holding_id: int, body: BuyMoreBody, session: SessionDep, container: ContainerDep
+) -> dict[str, str]:
+    """Add to an existing position; the average price is recalculated."""
+    holding = get_or_404(session, Holding, holding_id)
+    portfolio.buy_more(session, container.market, holding, body.quantity, body.price, body.reason)
+    return {"status": "bought"}
 
 
 @router.get(f"{API}/portfolio/decisions")

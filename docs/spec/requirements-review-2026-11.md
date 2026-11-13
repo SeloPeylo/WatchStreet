@@ -131,6 +131,36 @@ testen“ prüft die Eingabe im Formular.
 | SOLL | Realisiertes Ergebnis geschlossener Positionen; Nachkäufe | |
 | Entscheidung | Weglassen oder entschärfen: Börsenwert/Studien-NPV und Börsenwert/Asset-NAV, Nachkommastellen, Nutzenwert im Backlog, „Kasse pro forma“ ohne Ausgaben, Übernahme-Vorschläge aus blosser Nähe, Zählung im Prüfkatalog | täuschen Präzision vor oder nähren Spekulation |
 
+## Fünfter Durchlauf: Handelsnutzen (Rule-Sicht) und Privatanleger für Junior-Minen
+
+Leitfrage: Was fehlt, um Minen-, Royalty- und Rohstoffaktien damit zu handeln? Zweite Sicht: der
+eigentliche Zielnutzer, technisch versiert, wenig Zeit, kein Analyst, auch am Handy.
+
+Umgesetzt: Seite „Unternehmen“ zum Sichten; Import von Unternehmenszahlen, Nennung ignorierter
+Spalten; Nachkauf, Teilverkauf, realisiertes Ergebnis, Depotwert und Gewichte; Kursschwelle und
+Mindestreichweite mit Hinweis an der Position; angekündigte Finanzierungen als Was-wäre-wenn; Abschlag
+der letzten Finanzierung und Preisfolge; Royalty-Halter folgt der Stilllegung des Betreibers, eigene
+Royalties zählen nicht als Belastung; Wissensstand im Protokoll auf heutiger Basis; Formulare behalten
+Eingaben nach einer Ablehnung; eigenes Zeichen für importierte und selbst bestätigte Zahlen; Glossar;
+Layout für schmale Bildschirme.
+
+| Prio | Offen | Für wen |
+|---|---|---|
+| 1 | Termine und Katalysatoren mit Datum, Kalender über alle Werte | alle |
+| 2 | Benachrichtigungen in der Glocke: Schwelle berührt, Reichweite unter sechs Monaten, Termin fällig | alle |
+| 3 | Unternehmensvergleich mit Bewertungsverhältnissen (EV je Cashflow, je Reserve, je Jahresproduktion) | Betreiber |
+| 4 | Eigenes Datenmodell für Royalties: Art, Fläche, Rückkauf, Stadium, Gegenpartei, Konzentration, Wachstum je Aktie | Royalty |
+| 5 | Kursverlauf der Aktie gegen Rohstoff und gegen die eigenen Finanzierungspreise | alle |
+| 6 | Warrants als eigene Position; Kapitalgeschichte (Aktienzahl über die Zeit) | Junior |
+| 7 | Pressemitteilung einordnen: was ist neu gegenüber dem Bekannten | Junior |
+| 8 | Freier Cashflow: Erhaltungsinvestitionen, Steuern, Schuldenfälligkeiten | Betreiber |
+| 9 | Watchlist mit Kaufbedingung; Lagebericht nur für eigene Werte | alle |
+| 10 | Menschen prüfbar: Insiderkäufe, Teilnahme an Platzierungen | Junior |
+
+Bewusst nicht bauen: Kursziele und „fairer Wert“ je Aktie, Kauf-/Verkaufsampel, Warrant-Bewertung nach
+Black-Scholes, wahrscheinlichkeitsgewichtete NAV für Explorer, Intraday-Kurse und Chartsignale,
+automatische Positionsgrössen.
+
 ## Wo die Anwendung weiterhin zu falscher Sicherheit verleiten kann
 
 * **NAV und Cashflow** lesen sich wie Bewertungen, enthalten aber weder Steuern, Royalties,
