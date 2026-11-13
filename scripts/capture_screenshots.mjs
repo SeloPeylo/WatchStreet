@@ -12,6 +12,9 @@ const BASE = process.env.BASE_URL ?? "http://127.0.0.1:8000";
 const OUT = path.resolve("docs/screenshots");
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1500, height: 900 }, deviceScaleFactor: 2 });
+// The acceptance run must not depend on outside tile servers: use the built-in background.
+const offlineMap = () => localStorage.setItem("basemap", "plain");
+await page.addInitScript(offlineMap);
 const problems = [];
 page.on("console", (m) => m.type() === "error" && problems.push(m.text()));
 page.on("pageerror", (e) => problems.push(String(e)));
@@ -164,6 +167,7 @@ await shot("agent_einstellung");
 
 // a phone: the panel sits below the map, nothing is cut off to the right
 const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+await phone.addInitScript(offlineMap);
 await phone.goto(`${BASE}/companies`);
 await phone.getByTestId("companies").getByText("Demo Junior Explorers Ltd").waitFor();
 const overflow = await phone.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

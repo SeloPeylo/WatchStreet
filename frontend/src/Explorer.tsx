@@ -4,7 +4,7 @@ import { AssetPanel, MetricRow } from "./AssetPanel";
 import { CompanyPanel } from "./CompanyPanel";
 import type { Card, Commodity, Json } from "./api";
 import { COMMODITY_LABEL, KNOWLEDGE_LABEL, STATUS_LABEL, day, get, num, post } from "./api";
-import { KNOWLEDGE_COLORS, MapView, SCALES, SHAPES } from "./MapView";
+import { BASEMAPS, KNOWLEDGE_COLORS, MapView, SCALES, SHAPES } from "./MapView";
 import type { ViewState } from "./state";
 import { selection, viewParams } from "./state";
 
@@ -158,6 +158,13 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
   const [world, setWorld] = useState<Json>({ features: [], events: [] });
   const [hidden, setHidden] = useState<string[]>([]);
   const [showEvents, setShowEvents] = useState(true);
+  const [basemap, setBasemap] = useState(() => {
+    try { return localStorage.getItem("basemap") ?? "streets"; } catch { return "streets"; }
+  });
+  const chooseBasemap = (key: string) => {
+    setBasemap(key);
+    try { localStorage.setItem("basemap", key); } catch { /* private window: choice lasts for this visit */ }
+  };
   const [comparing, setComparing] = useState(false);
   const [milestones, setMilestones] = useState<Json[]>([]);
   const [bounds, setBounds] = useState<Json>(null);
@@ -203,12 +210,17 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
   return (
     <div className="explorer">
       <div className="mapwrap">
-        <MapView features={features} events={showEvents ? world.events : []} mode={mode} commodities={commodities} selected={selected} active={active}
+        <MapView features={features} events={showEvents ? world.events : []} mode={mode} commodities={commodities} selected={selected} active={active} basemap={basemap}
           company={state.co} focus={thesis ? thesis.asset_ids : []} onPick={pick} onBounds={setBounds} />
         <div className="maptools">
           <label className="small">Farbe{" "}
             <select data-testid="color-mode" value={mode} onChange={(e) => update({ color: e.target.value })}>
               {Object.entries(MODES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+          </label>
+          <label className="small">Hintergrund{" "}
+            <select data-testid="basemap" value={basemap} onChange={(e) => chooseBasemap(e.target.value)}>
+              {Object.entries(BASEMAPS).map(([key, base]) => <option key={key} value={key}>{base.label}</option>)}
             </select>
           </label>
           {LAYERS.map((layer) => (

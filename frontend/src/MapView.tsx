@@ -32,6 +32,24 @@ export const SCALES: Record<string, { stops: number[]; colors: string[]; percent
 const UNKNOWN = "hatch";
 const BADGES: Record<string, string> = { running: "#1f6feb", new_result: "#1a7f52", open: "#e0a030" };
 const SIZE = 26;
+const DETAIL_ZOOM = 12; // close enough to tell neighbouring deposits apart
+
+/** Background maps. Tiles come from the provider straight to the browser; "plain" needs no network. */
+export const BASEMAPS: Record<string, { label: string; tiles: string[]; maxzoom: number; attribution: string }> = {
+  streets: {
+    label: "Karte (Orte, Strassen)",
+    tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+    maxzoom: 19,
+    attribution: "© OpenStreetMap-Mitwirkende",
+  },
+  terrain: {
+    label: "Gelände (Höhenlinien)",
+    tiles: ["a", "b", "c"].map((host) => `https://${host}.tile.opentopomap.org/{z}/{x}/{y}.png`),
+    maxzoom: 17,
+    attribution: "Kartendaten © OpenStreetMap-Mitwirkende, SRTM · Darstellung © OpenTopoMap (CC-BY-SA)",
+  },
+  plain: { label: "Schema (ohne Netz)", tiles: [], maxzoom: 0, attribution: "" },
+};
 
 // MapLibre 6 ships its worker as a separate module; Vite bundles it and hands us the URL.
 maplibregl.setWorkerUrl(workerUrl);
@@ -113,6 +131,28 @@ function drawDot(color: string, ring = false): ImageData {
   return ctx.getImageData(0, 0, size, size);
 }
 
+const HALF_TURN = 180;
+
+/**
+ * Country shapes that cross the date line (Russia, Fiji) arrive with longitudes jumping from
+ * +180 to -180, which the renderer draws as a band across the whole world. Shifting the western
+ * part by a full turn keeps each ring continuous.
+ */
+function unwrapped(collection: Json): Json {
+  const ring = (points: number[][]) =>
+    points.some((point, i) => i > 0 && Math.abs(point[0] - points[i - 1][0]) > HALF_TURN)
+      ? points.map(([lon, lat]) => [lon < 0 ? lon + 2 * HALF_TURN : lon, lat])
+      : points;
+  const polygon = (rings: number[][][]) => rings.map(ring);
+  const features = collection.features.map((f: Json) => {
+    const g = f.geometry;
+    if (g?.type === "Polygon") return { ...f, geometry: { ...g, coordinates: polygon(g.coordinates) } };
+    if (g?.type === "MultiPolygon") return { ...f, geometry: { ...g, coordinates: g.coordinates.map(polygon) } };
+    return f;
+  });
+  return { ...collection, features };
+}
+
 interface Props {
   features: Json[];
   events: Json[];
@@ -121,6 +161,7 @@ interface Props {
   selected: number[];
   active: number | null;
   company: string;
+  basemap: string;
   focus: number[]; // asset ids to frame (e.g. those of a thesis)
   onPick: (id: number, add: boolean) => void;
   onBounds: (box: { south: number; west: number; north: number; east: number }) => void;
@@ -173,17 +214,23 @@ export function MapView(props: Props) {
       style: { version: 8, sources: {}, layers: [{ id: "sea", type: "background", paint: { "background-color": color("--sea") } }] },
       center: [-35, 8],
       zoom: 1.5,
-      attributionControl: false,
+      attributionControl: { compact: true },
       dragRotate: false,
     });
     map.current = m;
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    m.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-right");
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 14 });
     m.on("load", async () => {
       const topology = await (await fetch("/static/vendor/countries-110m.json")).json();
-      m.addSource("countries", { type: "geojson", data: feature(topology, topology.objects.countries) as Json });
+      m.addSource("countries", { type: "geojson", data: unwrapped(feature(topology, topology.objects.countries) as Json) });
       m.addLayer({ id: "land", type: "fill", source: "countries", paint: { "fill-color": color("--land") } });
       m.addLayer({ id: "borders", type: "line", source: "countries", paint: { "line-color": color("--border"), "line-width": 0.6 } });
+      for (const [key, base] of Object.entries(BASEMAPS)) {
+        if (base.tiles.length === 0) continue;
+        m.addSource(`base-${key}`, { type: "raster", tiles: base.tiles, tileSize: 256, maxzoom: base.maxzoom, attribution: base.attribution });
+        m.addLayer({ id: `base-${key}`, type: "raster", source: `base-${key}`, layout: { visibility: key === latest.current.basemap ? "visible" : "none" } });
+      }
       for (const [name, hex] of Object.entries(BADGES)) m.addImage(`badge-${name}`, drawDot(hex), { pixelRatio: 2 });
       m.addImage("event", drawDot("#c0392b", true), { pixelRatio: 2 });
       const empty = { type: "FeatureCollection" as const, features: [] };
@@ -238,6 +285,14 @@ export function MapView(props: Props) {
 
   useEffect(() => {
     const m = map.current;
+    if (!m || !ready.current) return;
+    for (const key of Object.keys(BASEMAPS)) {
+      if (m.getLayer(`base-${key}`)) m.setLayoutProperty(`base-${key}`, "visibility", key === props.basemap ? "visible" : "none");
+    }
+  }, [props.basemap]);
+
+  useEffect(() => {
+    const m = map.current;
     const hit = props.features.find((f) => f.id === props.active);
     if (m && hit && !m.getBounds().contains(hit.geometry.coordinates)) m.easeTo({ center: hit.geometry.coordinates });
   }, [props.active]);
@@ -247,7 +302,7 @@ export function MapView(props: Props) {
     const points = props.features.filter((f) => props.focus.includes(f.id)).map((f) => f.geometry.coordinates);
     if (!m || points.length === 0) return;
     const bounds = points.reduce((b, point) => b.extend(point), new maplibregl.LngLatBounds(points[0], points[0]));
-    m.fitBounds(bounds, { padding: 80, maxZoom: 5 });
+    m.fitBounds(bounds, { padding: 80, maxZoom: DETAIL_ZOOM });
   }, [props.focus.join(","), props.features.length]);
 
   return <div ref={node} className="map" data-testid="map" />;

@@ -30,6 +30,12 @@ fügt ihn der Auswahl hinzu.
 
 Ein Klick auf einen Rohstoff in der Kopfzeile filtert die Karte. Ein zweiter Klick hebt den Filter auf.
 
+* **Hintergrund** (Auswahl links auf der Karte): „Karte“ zeigt Orte, Strassen und Gewässer
+  (OpenStreetMap), „Gelände“ zusätzlich Höhenlinien und Relief (OpenTopoMap, bis etwa Massstab
+  1:25 000) – gedacht für den Blick auf benachbarte Vorkommen im Umkreis weniger Kilometer. Der
+  Massstab steht unten rechts. Die Kacheln lädt dein Browser direkt beim Kartenanbieter; dieser
+  sieht dabei deine IP-Adresse und den Kartenausschnitt, aber keine Inhalte aus WatchStreet.
+  „Schema“ kommt ohne Netz aus und zeigt nur Ländergrenzen. Die Wahl merkt sich der Browser.
 * **Form** zeigt den Status: ● Produktion, ◆ Entwicklung, ▲ Exploration, ■ stillgelegt/ruhend.
 * **Farbe** zeigt den Farbmodus (Auswahl links oben): Rohstoff (neutral), Marge, Änderung im Szenario,
   Wissensstatus, Datenqualität.
@@ -429,6 +435,8 @@ vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehr
 * Register liefern nur Ort, Namen und teils Betreiber. Der USGS-Abruf ist mit echten Daten geprüft; der
   Wikidata-Abruf ist gegen aufgezeichnete echte Antworten geprüft, wurde in der Entwicklungsumgebung
   aber von Wikidata abgewiesen (Bot-Richtlinie) und ist im Betrieb noch zu bestätigen.
+* Die Hintergrundkarten stammen von freien Diensten ohne Verfügbarkeitszusage und sind für
+  gelegentliche Einzelnutzung gedacht. Satellitenbilder und Konzessionsgrenzen (Claims) fehlen noch.
 * Noch nicht vorhanden: Marker-Clustering, Standortbilder, Inflations- und
   Rohstoffäquivalent-Spalten im Vergleich.
 * Die Zitatprüfung stellt sicher, dass ein Zitat wörtlich im Dokument steht, nicht, dass es die Zahl

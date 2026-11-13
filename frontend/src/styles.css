@@ -80,7 +80,6 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; } td.n { text-align
 .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
 .manual { max-width: 900px; } .manual img { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; }
 .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 60; background: var(--text); color: var(--panel); padding: 8px 14px; border-radius: 8px; }
-.maplibregl-ctrl-attrib { display: none; }
 
 .alert { color: var(--bad); font-weight: 600; }
 /* phone: stack everything; the side panel moves below the map, tables scroll sideways */

@@ -10,16 +10,19 @@ from watchstreet.web.auth import COOKIE, Auth
 
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 # MapLibre needs blob: workers and injects inline styles; scripts stay strictly same-origin.
+# The background map is the one thing the browser loads from elsewhere (see frontend MapView).
+MAP_TILE_HOSTS = "https://tile.openstreetmap.org https://*.tile.opentopomap.org"
 CONTENT_SECURITY_POLICY = (
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data: blob:; worker-src 'self' blob:; child-src blob:; "
-    "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    f"img-src 'self' data: blob: {MAP_TILE_HOSTS}; worker-src 'self' blob:; child-src blob:; "
+    f"connect-src 'self' {MAP_TILE_HOSTS}; frame-ancestors 'none'; "
+    "base-uri 'self'; form-action 'self'"
 )
 HEADERS = {
     "Content-Security-Policy": CONTENT_SECURITY_POLICY,
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
-    "Referrer-Policy": "same-origin",
+    "Referrer-Policy": "strict-origin-when-cross-origin",  # tile servers require a referer,
 }
 
 
