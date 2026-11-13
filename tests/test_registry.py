@@ -98,3 +98,45 @@ def test_registry_import_end_to_end(client, container, session, monkeypatch):
     assert card["card"]["knowledge"]["status"] == "unexamined"
     body = {"subject_id": grasberg.id, "template": "profile"}
     assert "Status, Betreiber" in client.post(f"{API}/proposals", json=body).json()["question"]
+
+
+def _claims_fetcher(name: str) -> Fetcher:
+    def respond(_request: httpx.Request) -> httpx.Response:
+        body = (FIXTURES / name).read_text(encoding="utf-8")
+        return httpx.Response(200, text=body, headers={"content-type": "application/json"})
+
+    client = httpx.Client(transport=httpx.MockTransport(respond))
+    return Fetcher(client, lambda _host: ["93.184.216.34"], min_interval_s=0)
+
+
+def test_claim_registers_answer_who_holds_the_ground():
+    from watchstreet.intel.connectors import claims
+
+    wa = claims.register_at(-30.75, 121.5)
+    bc = claims.register_at(56.6, -130.1)
+    assert wa is not None and bc is not None and claims.register_at(0, 0) is None
+    lease = claims.claims_at(_claims_fetcher("claims_wa.json"), wa, -30.75, 121.5)[0]
+    assert (lease.number, lease.holder, lease.status) == (
+        "M 26/383",
+        "NORTHERN STAR (KLV) PTY LTD",
+        "LIVE",
+    )
+    assert lease.other_holders == 1 and lease.area_ha == 653.45 and lease.expires.year == 2034
+    claim = claims.claims_at(_claims_fetcher("claims_bc.json"), bc, 56.6, -130.1)[0]
+    assert (claim.number, claim.name, claim.holder) == ("390925", "TC 4", "TUDOR GOLD CORP.")
+
+
+def test_claims_api_lists_registers_and_asks_live(client, container, monkeypatch):
+    registers = client.get(f"{API}/claims/registers").json()
+    assert {r["key"] for r in registers} == {"bc", "wa"} and "{bbox-epsg-3857}" in registers[0][
+        "tiles"
+    ]
+    assert client.get(f"{API}/claims", params={"lat": 0, "lon": 0}).json()["register"] is None
+    assert client.get(f"{API}/claims", params={"lat": -30.75, "lon": 121.5}).status_code == 409
+    monkeypatch.setattr(type(container), "is_demo", property(lambda _self: False))
+    container.fetcher = _claims_fetcher("claims_wa.json")
+    found = client.get(f"{API}/claims", params={"lat": -30.75, "lon": 121.5}).json()
+    assert found["claims"][0]["holder"] == "NORTHERN STAR (KLV) PTY LTD"
+    container.fetcher = _claims_fetcher("mrds_box.xml")
+    assert client.get(f"{API}/claims", params={"lat": -30.75, "lon": 121.5}).status_code == 502
+    assert client.get(f"{API}/claims", params={"lat": 95, "lon": 0}).status_code == 422

@@ -6,12 +6,16 @@ from urllib.parse import urlparse
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
+from watchstreet.intel.connectors.claims import HOSTS as CLAIM_HOSTS
 from watchstreet.web.auth import COOKIE, Auth
 
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 # MapLibre needs blob: workers and injects inline styles; scripts stay strictly same-origin.
 # The background map is the one thing the browser loads from elsewhere (see frontend MapView).
-MAP_TILE_HOSTS = "https://tile.openstreetmap.org https://*.tile.opentopomap.org"
+MAP_TILE_HOSTS = " ".join(
+    ["https://tile.openstreetmap.org", "https://*.tile.opentopomap.org"]
+    + [f"https://{host}" for host in CLAIM_HOSTS]
+)
 CONTENT_SECURITY_POLICY = (
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
     f"img-src 'self' data: blob: {MAP_TILE_HOSTS}; worker-src 'self' blob:; child-src blob:; "

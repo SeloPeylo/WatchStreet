@@ -94,3 +94,5 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; } td.n { text-align
   .cols { grid-template-columns: 1fr; } .box { overflow-x: auto; }
   .popover { position: fixed; left: 8px; right: 8px; top: 48px; width: auto; }
 }
+.claims { color: #1b2430; font-size: 13px; max-height: 240px; overflow: auto; } .claims .holder { font-weight: 600; margin-top: 6px; }
+.maplibregl-popup-content { color: #1b2430; }

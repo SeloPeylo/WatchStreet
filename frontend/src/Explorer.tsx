@@ -161,6 +161,8 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
   const [basemap, setBasemap] = useState(() => {
     try { return localStorage.getItem("basemap") ?? "streets"; } catch { return "streets"; }
   });
+  const [claims, setClaims] = useState(false);
+  const [zoomTick, setZoomTick] = useState(0);
   const chooseBasemap = (key: string) => {
     setBasemap(key);
     try { localStorage.setItem("basemap", key); } catch { /* private window: choice lasts for this visit */ }
@@ -210,7 +212,7 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
   return (
     <div className="explorer">
       <div className="mapwrap">
-        <MapView features={features} events={showEvents ? world.events : []} mode={mode} commodities={commodities} selected={selected} active={active} basemap={basemap}
+        <MapView features={features} events={showEvents ? world.events : []} mode={mode} commodities={commodities} selected={selected} active={active} basemap={basemap} claims={claims} zoomTick={zoomTick}
           company={state.co} focus={thesis ? thesis.asset_ids : []} onPick={pick} onBounds={setBounds} />
         <div className="maptools">
           <label className="small">Farbe{" "}
@@ -223,11 +225,13 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
               {Object.entries(BASEMAPS).map(([key, base]) => <option key={key} value={key}>{base.label}</option>)}
             </select>
           </label>
+          <label className="small" title="Amtliche Register für Claims und Abbaurechte, derzeit British Columbia und Westaustralien. Ab Regionalmassstab sichtbar; ein Klick auf die Fläche zeigt den Inhaber."><input type="checkbox" checked={claims} onChange={() => setClaims(!claims)} data-testid="claims" /> Konzessionen (Klick = Inhaber)</label>
           {LAYERS.map((layer) => (
             <label key={layer} className="small"><input type="checkbox" checked={!hidden.includes(layer)} onChange={() => setHidden(hidden.includes(layer) ? hidden.filter((h) => h !== layer) : [...hidden, layer])} /> {SHAPE_SIGN[SHAPES[layer]]} {STATUS_LABEL[layer]}</label>
           ))}
           <label className="small"><input type="checkbox" checked={showEvents} onChange={() => setShowEvents(!showEvents)} /> ◯ Ereignisse</label>
           <label className="small" title="Blendet importierte und nur selbst bestätigte Zahlen aus – in Karte, Rangliste, Marge, NAV und Unternehmenssummen"><input type="checkbox" checked={!!state.pv} onChange={() => update({ pv: state.pv ? "" : "1" })} data-testid="proven-only" /> nur Belegtes</label>
+          {active !== null && <button data-testid="zoom-asset" title="Zoomt auf die Umgebung des geöffneten Objekts (rund 20 km Breite)" onClick={() => setZoomTick(zoomTick + 1)}>Zum Objekt zoomen</button>}
           {state.co && <button onClick={() => update({ co: "" })}>Hervorhebung aufheben</button>}
           {thesis && <div className="small">These: <b>{thesis.title}</b> <button className="link" onClick={() => update({ th: "" })}>lösen</button></div>}
           <div className="muted small">{features.length} Objekte · Umschalt+Klick wählt mehrere</div>

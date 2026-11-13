@@ -36,6 +36,18 @@ Ein Klick auf einen Rohstoff in der Kopfzeile filtert die Karte. Ein zweiter Kli
   Massstab steht unten rechts. Die Kacheln lädt dein Browser direkt beim Kartenanbieter; dieser
   sieht dabei deine IP-Adresse und den Kartenausschnitt, aber keine Inhalte aus WatchStreet.
   „Schema“ kommt ohne Netz aus und zeigt nur Ländergrenzen. Die Wahl merkt sich der Browser.
+* **Konzessionen** (Häkchen links auf der Karte) legt die amtlichen Register für Claims und
+  Abbaurechte über die Karte, derzeit für British Columbia (Kanada) und Westaustralien. Die Flächen
+  erscheinen ab Regionalmassstab. Ein Klick auf eine Fläche fragt das Register live ab und zeigt
+  Inhaber, Art des Titels, Nummer, Fläche und Ablaufdatum. „Zum Objekt zoomen“ springt auf die
+  Umgebung des geöffneten Objekts. Die Angaben werden nur angezeigt, nicht gespeichert; im
+  Demo-Modus wird kein Register abgefragt. Ein Titel im Register sagt, wem das Recht gehört, nicht,
+  ob dort eine Lagerstätte liegt, und Optionen oder Royalties auf dem Grund stehen dort nicht.
+
+![Konzessionen bei Kalgoorlie mit Inhaber](screenshots/26_konzessionen_karte.png)
+
+![Claims im Gelände, British Columbia](screenshots/27_konzessionen_gelaende.png)
+
 * **Form** zeigt den Status: ● Produktion, ◆ Entwicklung, ▲ Exploration, ■ stillgelegt/ruhend.
 * **Farbe** zeigt den Farbmodus (Auswahl links oben): Rohstoff (neutral), Marge, Änderung im Szenario,
   Wissensstatus, Datenqualität.
@@ -436,7 +448,11 @@ vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehr
   Wikidata-Abruf ist gegen aufgezeichnete echte Antworten geprüft, wurde in der Entwicklungsumgebung
   aber von Wikidata abgewiesen (Bot-Richtlinie) und ist im Betrieb noch zu bestätigen.
 * Die Hintergrundkarten stammen von freien Diensten ohne Verfügbarkeitszusage und sind für
-  gelegentliche Einzelnutzung gedacht. Satellitenbilder und Konzessionsgrenzen (Claims) fehlen noch.
+  gelegentliche Einzelnutzung gedacht. Satellitenbilder fehlen noch.
+* Konzessionen gibt es nur, wo ein amtliches Register offen abrufbar ist; angebunden sind bisher
+  British Columbia und Westaustralien. Weitere Register sind je eine Zeile in
+  `intel/connectors/claims.py`. Die Bilder 26 und 27 stammen aus einem Lauf mit echten Registern
+  und werden vom Abnahmeskript nicht neu erzeugt.
 * Noch nicht vorhanden: Marker-Clustering, Standortbilder, Inflations- und
   Rohstoffäquivalent-Spalten im Vergleich.
 * Die Zitatprüfung stellt sicher, dass ein Zitat wörtlich im Dokument steht, nicht, dass es die Zahl

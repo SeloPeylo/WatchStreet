@@ -5,7 +5,7 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { useEffect, useRef } from "react";
 import { feature } from "topojson-client";
 import type { Commodity, Json } from "./api";
-import { STATUS_LABEL } from "./api";
+import { STATUS_LABEL, day, get, num } from "./api";
 
 export const SHAPES: Record<string, string> = {
   production: "circle",
@@ -153,6 +153,23 @@ function unwrapped(collection: Json): Json {
   return { ...collection, features };
 }
 
+/** Lines for the popup that answers "who holds this ground". Register text is set as text only. */
+function claimLines(found: Json): HTMLElement[] {
+  const line = (text: string, className = "") => {
+    const el = document.createElement("div");
+    el.textContent = text;
+    el.className = className;
+    return el;
+  };
+  if (!found.register) return [line("Für diese Region ist noch kein amtliches Register angebunden.")];
+  if (found.claims.length === 0) return [line("Hier ist kein Titel eingetragen."), line(found.register.authority, "small muted")];
+  const rows = found.claims.flatMap((c: Json) => [
+    line(`${c.holder || "Inhaber unbekannt"}${c.other_holders ? ` (+${c.other_holders} weitere)` : ""}`, "holder"),
+    line([c.kind, c.name, `Nr. ${c.number}`, c.status, c.area_ha !== null ? `${num(c.area_ha)} ha` : "", c.expires ? `gültig bis ${day(c.expires)}` : ""].filter(Boolean).join(" · "), "small"),
+  ]);
+  return [...rows, line(`Quelle: ${found.register.authority}, live abgefragt`, "small muted")];
+}
+
 interface Props {
   features: Json[];
   events: Json[];
@@ -162,6 +179,8 @@ interface Props {
   active: number | null;
   company: string;
   basemap: string;
+  zoomTick: number; // counts requests to zoom in on the active asset
+  claims: boolean; // overlay official tenure registers and answer clicks on the ground
   focus: number[]; // asset ids to frame (e.g. those of a thesis)
   onPick: (id: number, add: boolean) => void;
   onBounds: (box: { south: number; west: number; north: number; east: number }) => void;
@@ -172,6 +191,7 @@ export function MapView(props: Props) {
   const map = useRef<maplibregl.Map | null>(null);
   const ready = useRef(false);
   const pins = useRef<maplibregl.Marker[]>([]);
+  const claimLayers = useRef<string[]>([]);
   const latest = useRef(props);
   latest.current = props;
 
@@ -231,6 +251,14 @@ export function MapView(props: Props) {
         m.addSource(`base-${key}`, { type: "raster", tiles: base.tiles, tileSize: 256, maxzoom: base.maxzoom, attribution: base.attribution });
         m.addLayer({ id: `base-${key}`, type: "raster", source: `base-${key}`, layout: { visibility: key === latest.current.basemap ? "visible" : "none" } });
       }
+      for (const register of (await get("/claims/registers").catch(() => [])) as Json[]) {
+        m.addSource(`claims-${register.key}`, {
+          type: "raster", tiles: [register.tiles], tileSize: 256, bounds: register.bounds, minzoom: register.min_zoom,
+          attribution: `Konzessionen: ${register.authority}`,
+        });
+        m.addLayer({ id: `claims-${register.key}`, type: "raster", source: `claims-${register.key}`, paint: { "raster-opacity": 0.75 }, layout: { visibility: latest.current.claims ? "visible" : "none" } });
+        claimLayers.current.push(`claims-${register.key}`);
+      }
       for (const [name, hex] of Object.entries(BADGES)) m.addImage(`badge-${name}`, drawDot(hex), { pixelRatio: 2 });
       m.addImage("event", drawDot("#c0392b", true), { pixelRatio: 2 });
       const empty = { type: "FeatureCollection" as const, features: [] };
@@ -254,6 +282,21 @@ export function MapView(props: Props) {
       m.on("click", "assets", (e) => {
         const hit = e.features?.[0];
         if (hit) latest.current.onPick(Number(hit.properties.id), e.originalEvent.shiftKey);
+      });
+      m.on("click", async (e) => {
+        if (!latest.current.claims || m.queryRenderedFeatures(e.point, { layers: ["assets"] }).length > 0) return;
+        const box = document.createElement("div");
+        box.className = "claims";
+        box.textContent = "Frage das Register …";
+        const info = new maplibregl.Popup({ maxWidth: "340px" }).setLngLat(e.lngLat).setDOMContent(box).addTo(m);
+        try {
+          const found = await get("/claims", { lat: String(e.lngLat.lat), lon: String(e.lngLat.lng) });
+          box.textContent = "";
+          box.append(...claimLines(found));
+        } catch (error) {
+          box.textContent = String((error as Error).message ?? error);
+        }
+        info.setDOMContent(box);
       });
       for (const layer of ["assets", "events"]) {
         m.on("mousemove", layer, (e) => {
@@ -286,6 +329,12 @@ export function MapView(props: Props) {
   useEffect(() => {
     const m = map.current;
     if (!m || !ready.current) return;
+    for (const id of claimLayers.current) m.setLayoutProperty(id, "visibility", props.claims ? "visible" : "none");
+  }, [props.claims]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready.current) return;
     for (const key of Object.keys(BASEMAPS)) {
       if (m.getLayer(`base-${key}`)) m.setLayoutProperty(`base-${key}`, "visibility", key === props.basemap ? "visible" : "none");
     }
@@ -296,6 +345,12 @@ export function MapView(props: Props) {
     const hit = props.features.find((f) => f.id === props.active);
     if (m && hit && !m.getBounds().contains(hit.geometry.coordinates)) m.easeTo({ center: hit.geometry.coordinates });
   }, [props.active]);
+
+  useEffect(() => {
+    const m = map.current;
+    const hit = props.features.find((f) => f.id === props.active);
+    if (m && hit && props.zoomTick > 0) m.jumpTo({ center: hit.geometry.coordinates, zoom: DETAIL_ZOOM });
+  }, [props.zoomTick]);
 
   useEffect(() => {
     const m = map.current;

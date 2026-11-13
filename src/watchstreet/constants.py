@@ -215,3 +215,7 @@ MIN_REASON_CHARS = 10  # a reason shorter than this is a formality, not a reason
 USER_CONFIRMED = "user_confirmed"  # formula_key of an imported figure the user vouched for
 MAX_IMPORT_ROWS = 2000
 MAX_IMPORT_PROMPT_CHARS = 60_000
+
+# Mineral-tenure registers: at most this many overlapping titles per click, texts cut to length.
+MAX_CLAIMS_PER_POINT = 20
+CLAIM_TEXT_CHARS = 160

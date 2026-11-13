@@ -3,14 +3,23 @@
 from datetime import date
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from watchstreet.commodities import BY_KEY, COMMODITIES
-from watchstreet.constants import DAYS_PER_YEAR, MAP_RECENT_DAYS, MAX_SELECTION, RECENT_LIMIT
+from watchstreet.constants import (
+    DAYS_PER_YEAR,
+    MAP_RECENT_DAYS,
+    MAX_LAT,
+    MAX_LON,
+    MAX_SELECTION,
+    RECENT_LIMIT,
+)
 from watchstreet.domain import DataOrigin, Provenance, SubjectType
+from watchstreet.intel.connectors import claims
+from watchstreet.intel.fetch import FetchError
 from watchstreet.metrics import METRICS
 from watchstreet.models import (
     Asset,
@@ -429,6 +438,56 @@ def company_fact_derivation(company_id: int, metric: str, session: SessionDep) -
         "label": METRICS[metric].label,
         "history": [payloads.fact_detail(f) for f in history],
         "inputs": [],
+    }
+
+
+@router.get("/claims/registers")
+def claim_registers() -> list[dict[str, Any]]:
+    """Official tenure registers the map can overlay."""
+    return [
+        {
+            "key": r.key,
+            "label": r.label,
+            "authority": r.authority,
+            "bounds": [r.west, r.south, r.east, r.north],
+            "min_zoom": r.min_zoom,
+            "tiles": r.tiles,
+        }
+        for r in claims.REGISTERS
+    ]
+
+
+@router.get("/claims")
+def claims_at_point(
+    container: ContainerDep,
+    lat: float = Query(ge=-MAX_LAT, le=MAX_LAT),
+    lon: float = Query(ge=-MAX_LON, le=MAX_LON),
+) -> dict[str, Any]:
+    """Who holds the ground at this point, asked live from the official register."""
+    register = claims.register_at(lat, lon)
+    if register is None:
+        return {"register": None, "claims": []}
+    if container.is_demo:
+        raise HTTPException(409, "Im Demo-Modus werden keine Register abgefragt.")
+    try:
+        found = claims.claims_at(container.fetcher, register, lat, lon)
+    except FetchError as exc:
+        raise HTTPException(502, f"Register nicht erreichbar: {exc}") from exc
+    return {
+        "register": {"key": register.key, "label": register.label, "authority": register.authority},
+        "claims": [
+            {
+                "number": c.number,
+                "name": c.name,
+                "holder": c.holder,
+                "other_holders": c.other_holders,
+                "kind": c.kind,
+                "status": c.status,
+                "expires": c.expires.isoformat() if c.expires else None,
+                "area_ha": c.area_ha,
+            }
+            for c in found
+        ],
     }
 
 
