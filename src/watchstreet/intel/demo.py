@@ -4,10 +4,13 @@ Used with ``WATCHSTREET_MARKET_PROVIDER=demo`` for development, tests and docume
 content is synthetic and labelled as such; nothing here resembles a real filing or article.
 """
 
-from datetime import UTC, datetime, timedelta
+import math
+from datetime import UTC, date, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
 import httpx
+
+from watchstreet.intel.connectors.fred import SERIES as FRED_SERIES
 
 DEMO_IP = "93.184.216.34"
 DEMO_NEWS_HOST = "https://news.demo.example"
@@ -46,6 +49,32 @@ def _rss(items: list[tuple[str, str, str]]) -> httpx.Response:
     return httpx.Response(200, text=xml, headers={"content-type": "application/rss+xml"})
 
 
+# Synthetic levels (published unit) and relative swing of the demo macro series.
+DEMO_MACRO: dict[str, tuple[float, float]] = {
+    "WALCL": (6_800_000.0, 0.04),
+    "WTREGEN": (800_000.0, 0.15),
+    "RRPONTSYD": (300.0, 0.5),
+    "M2SL": (22_000.0, 0.02),
+    "DFF": (4.0, 0.2),
+    "DGS2": (4.2, 0.15),
+    "DGS10": (4.5, 0.1),
+    "DFII10": (2.0, 0.2),
+    "T10YIE": (2.3, 0.05),
+    "VIXCLS": (18.0, 0.3),
+    "CPIAUCSL": (320.0, 0.004),
+    "DTWEXBGS": (122.0, 0.03),
+    "DEXUSEU": (1.1, 0.04),
+    "DEXCAUS": (1.38, 0.03),
+    "DEXUSAL": (0.66, 0.04),
+    "SP500": (6_000.0, 0.1),
+    "DCOILWTICO": (75.0, 0.15),
+}
+DEMO_MACRO_YEARS = 4
+DEMO_MACRO_PERIOD = {"daily": 60.0, "weekly": 12.0, "monthly": 3.0}
+DEMO_MACRO_DRIFT = {"daily": 0.0004, "weekly": 0.002, "monthly": 0.009}
+WEDNESDAY, SATURDAY = 2, 5
+
+
 class DemoTransport(httpx.BaseTransport):
     """Routes by host/path to deterministic fixtures."""
 
@@ -54,6 +83,8 @@ class DemoTransport(httpx.BaseTransport):
         host, path = url.hostname or "", url.path
         if host == "api.gdeltproject.org":
             return self._gdelt(parse_qs(url.query).get("query", [""])[0])
+        if host == "fred.stlouisfed.org":
+            return self._fred(parse_qs(url.query).get("id", [""])[0])
         if host == "earthquake.usgs.gov":
             return self._usgs()
         if host == "www.sec.gov" and path.endswith("company_tickers.json"):
@@ -116,6 +147,35 @@ class DemoTransport(httpx.BaseTransport):
                     )
                 ]
             }
+        )
+
+    @staticmethod
+    def _fred(series_id: str) -> httpx.Response:
+        """Synthetic macro series: a level with a slow wave, in the published unit."""
+        level, swing = DEMO_MACRO.get(series_id, (100.0, 0.1))
+        frequency = next((s.frequency for s in FRED_SERIES if s.key == series_id), "daily")
+        today = datetime.now(UTC).date()
+        day = date(today.year - DEMO_MACRO_YEARS, 1, 1)
+        rows = ["observation_date," + series_id]
+        index = 0
+        while day <= today:
+            wanted = (
+                day.day == 1
+                if frequency == "monthly"
+                else day.weekday() == WEDNESDAY
+                if frequency == "weekly"
+                else day.weekday() < SATURDAY
+            )
+            if wanted:
+                index += 1
+                wave = (
+                    math.sin(index / DEMO_MACRO_PERIOD[frequency])
+                    + index * DEMO_MACRO_DRIFT[frequency]
+                )
+                rows.append(f"{day.isoformat()},{level * (1 + swing * wave):.4f}")
+            day += timedelta(days=1)
+        return httpx.Response(
+            200, text="\n".join(rows), headers={"content-type": "application/csv"}
         )
 
     @staticmethod

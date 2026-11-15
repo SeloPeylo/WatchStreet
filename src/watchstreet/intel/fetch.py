@@ -33,6 +33,7 @@ from watchstreet.errors import WatchStreetError
 TEXT_TYPES = (
     "text/",
     "application/json",
+    "application/csv",
     "application/xml",
     "application/rss",
     "application/atom",

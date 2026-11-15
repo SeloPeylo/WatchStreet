@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from watchstreet.agents.base import AgentError, AgentRunner
 from watchstreet.agents.factory import build_runner
 from watchstreet.config import Settings
+from watchstreet.constants import MACRO_SYNC_KEY
 from watchstreet.db import make_engine, make_session_factory, session_scope
 from watchstreet.intel.connectors.edgar import EdgarClient
 from watchstreet.intel.demo import demo_client, demo_resolver
@@ -17,6 +18,8 @@ from watchstreet.market.service import MarketService, build_provider
 from watchstreet.migrate import startup_lock, upgrade_to_head
 from watchstreet.models import SystemState
 from watchstreet.services.demo import seed_demo
+from watchstreet.services.macro import sync as sync_macro
+from watchstreet.services.state import updated_at
 
 AGENT_CONFIG_KEY = "agent_config"
 RUNTIME_RUNNERS = ("offline", "anthropic", "openai")  # never "cli": no commands from the UI
@@ -105,6 +108,8 @@ def build_container(
         if settings.market_provider == "demo":
             with session_scope(factory) as session:
                 seed_demo(session, market)
+                if fetcher is not None and updated_at(session, MACRO_SYNC_KEY) is None:
+                    sync_macro(session, fetcher)
     return Container(
         settings=settings,
         engine=engine,

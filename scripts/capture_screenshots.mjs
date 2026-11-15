@@ -165,6 +165,15 @@ await page.getByRole("button", { name: "System", exact: true }).click();
 await page.getByTestId("agent").getByTestId("agent-runner").selectOption("openai");
 await shot("agent_einstellung");
 
+// macro: net liquidity is charted, a price can be shown in gold with the split below it
+await page.getByRole("button", { name: "Makro", exact: true }).click();
+await page.getByTestId("chart-note").getByText("Bilanzsumme der Fed − Konto des Finanzministeriums − Reverse Repo").waitFor();
+await page.getByTestId("tile-copper").click();
+await page.getByTestId("denominator").selectOption("gold");
+await page.getByTestId("chart-note").getByText("Keine Kaufkraftbereinigung").waitFor();
+await page.getByTestId("split").getByText("1 Jahr").waitFor();
+await page.screenshot({ path: path.join(OUT, "29_makro_nenner.png") });
+
 // a phone: the panel sits below the map, nothing is cut off to the right
 const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 await phone.addInitScript(offlineMap);

@@ -31,13 +31,13 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; } td.n { text-align
 .shell { display: grid; grid-template-rows: auto 1fr; height: 100%; }
 .top { display: flex; align-items: center; gap: 14px; padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .brand { font-weight: 700; letter-spacing: .02em; }
-.nav { display: flex; gap: 2px; } .nav button { border: none; background: none; padding: 6px 10px; border-radius: 6px; }
-.nav button.on { background: var(--chip); font-weight: 600; }
+.nav { display: flex; gap: 2px; } .nav button { border: none; background: none; box-shadow: none; padding: 6px 8px; border-radius: 6px; }
+.nav button.on { background: var(--chip); font-weight: 600; box-shadow: none; }
 .commodities { display: flex; gap: 6px; }
 .commodity { display: flex; flex-direction: column; align-items: flex-start; padding: 3px 10px; min-width: 96px; border-left: 4px solid var(--c); }
 .commodity.on { border-color: var(--accent); border-left-color: var(--c); background: var(--panel); box-shadow: 0 0 0 1px var(--accent); }
 .commodity b { font-size: 12px; } .up { color: var(--ok); } .down { color: var(--bad); }
-.search { position: relative; } .search ul { position: absolute; z-index: 30; top: 100%; left: 0; right: 0; margin: 2px 0 0; padding: 4px; list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; min-width: 260px; }
+.search { position: relative; min-width: 150px; } .search ul { position: absolute; z-index: 30; top: 100%; left: 0; right: 0; margin: 2px 0 0; padding: 4px; list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; min-width: 260px; }
 .search li button { width: 100%; border: none; background: none; text-align: left; }
 .bell { position: relative; } .bell .count { position: absolute; top: -6px; right: -6px; background: var(--bad); color: #fff; border-radius: 9px; font-size: 11px; padding: 0 5px; }
 .popover { position: absolute; right: 0; top: 110%; z-index: 40; width: 340px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / .2); }
@@ -96,3 +96,12 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; } td.n { text-align
 }
 .claims { color: #1b2430; font-size: 13px; max-height: 240px; overflow: auto; } .claims .holder { font-weight: 600; margin-top: 6px; }
 .maplibregl-popup-content { color: #1b2430; }
+.macro h3 { margin: 14px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.tile { display: flex; flex-direction: column; gap: 2px; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; color: inherit; }
+.tile.on, button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tilevalue { font-size: 18px; font-weight: 600; } .spark { width: 100%; height: 30px; }
+.chart { margin-top: 8px; } .plot { position: relative; } .chart svg { width: 100%; height: 320px; display: block; cursor: crosshair; }
+.chartaxis span { position: absolute; right: 0; transform: translateY(-50%); font-size: 11px; color: var(--muted); width: 64px; text-align: left; }
+.chartyears span { position: absolute; bottom: 4px; transform: translateX(-50%); font-size: 11px; color: var(--muted); }
+.chartread { height: 22px; } .chartempty { padding: 40px 0; }

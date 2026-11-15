@@ -494,6 +494,18 @@ class PricePoint(Base):
     source: Mapped[str] = mapped_column(String(32), default="")
 
 
+class MacroPoint(Base):
+    """One observation of a macro series (rates, liquidity, inflation, dollar)."""
+
+    __tablename__ = "macro_points"
+    __table_args__ = (UniqueConstraint("series", "day"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    series: Mapped[str] = mapped_column(String(24), index=True)
+    day: Mapped[date] = mapped_column(Date)
+    value: Mapped[float] = mapped_column(Float)
+
+
 class ChangeEntry(Base):
     """What changed and when; feeds the 'since your last visit' report."""
 

@@ -46,11 +46,15 @@ function Legend({ mode, commodities }: { mode: string; commodities: Commodity[] 
 
 function Timeline({ commodity, state, update, milestones }: { commodity: Commodity | undefined; state: ViewState; update: Props["update"]; milestones: Json[] }) {
   const [points, setPoints] = useState<{ day: string; close: number }[]>([]);
+  const [den, setDen] = useState("usd");
+  const [denUnit, setDenUnit] = useState("");
   useEffect(() => {
-    if (commodity) get(`/commodities/${commodity.key}/prices`).then(setPoints);
-  }, [commodity?.key]);
+    if (!commodity) return;
+    if (den === "usd" || commodity.key === "gold" && den === "gold") get(`/commodities/${commodity.key}/prices`).then((rows) => { setPoints(rows); setDenUnit(""); });
+    else get("/macro/chart", { key: commodity.key, den }).then((chart) => { setPoints(chart.points.map((p: Json) => ({ day: p.day, close: p.value }))); setDenUnit(chart.unit); });
+  }, [commodity?.key, den]);
   if (!commodity) return <div className="timeline muted small">Rohstoff wählen, um Preisverlauf, Stichtag und Szenario zu nutzen.</div>;
-  if (points.length === 0) return <div className="timeline muted small">Für {commodity.label} liegt noch kein Preisverlauf vor.</div>;
+  if (points.length === 0) return <div className="timeline muted small">Für {commodity.label} liegt {den === "usd" ? "noch kein Preisverlauf" : "in diesem Nenner kein Verlauf"} vor. {den !== "usd" && <button onClick={() => setDen("usd")}>in Dollar zeigen</button>}</div>;
   const times = points.map((p) => Date.parse(p.day));
   const t0 = Math.min(...times, ...milestones.map((m) => Date.parse(m.day)));
   const t1 = Date.now();
@@ -76,7 +80,12 @@ function Timeline({ commodity, state, update, milestones }: { commodity: Commodi
     <div className="timeline" data-testid="timeline">
       <div className="row small">
         <b>{commodity.label}</b>
-        <span className="muted">{commodity.price_unit}</span>
+        <span className="muted">{denUnit || commodity.price_unit}</span>
+        <select data-testid="timeline-den" value={den} onChange={(e) => setDen(e.target.value)} title="Preisverlauf in Dollar, in Gold gemessen oder inflationsbereinigt (Monatswerte). Szenario und Karte rechnen weiter in Dollar.">
+          <option value="usd">in Dollar</option>
+          {commodity.key !== "gold" && <option value="gold">in Gold</option>}
+          <option value="real">inflationsbereinigt</option>
+        </select>
         <label>Stichtag <input type="date" value={state.asof} max={new Date().toISOString().slice(0, 10)} onChange={(e) => update({ asof: e.target.value })} /></label>
         {state.asof && (
           <>

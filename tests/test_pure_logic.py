@@ -127,3 +127,24 @@ def test_losing_mine_has_no_negative_nav_and_company_ratios():
     assert company.enterprise_value(None, 30.0, 10.0) is None
     assert company.funding_gap(50.0, 20.0) == 30.0 and company.funding_gap(10.0, 20.0) == 0.0
     assert company.funding_gap(None, 20.0) is None
+
+
+def test_macro_rules_never_fill_gaps():
+    from datetime import date as d
+
+    from watchstreet.analysis import macro
+
+    wed, fri = d(2026, 11, 4), d(2026, 11, 6)
+    sheet, account = [(wed, 6800.0)], [(wed, 900.0)]
+    repo = [(wed, 300.0), (fri, 999.0)]
+    assert macro.net_liquidity(sheet, account, repo) == [(wed, 5600.0)]  # Friday changes nothing
+    assert macro.combine([(wed, 10.0), (fri, 12.0)], [(fri, 4.0)], "ratio") == [(fri, 3.0)]
+    cpi = [(d(2025, 10, 1), 100.0), (d(2026, 10, 1), 103.0)]
+    assert macro.year_over_year(cpi) == [(d(2026, 10, 1), 3.0000000000000027)]
+    prices = [(d(2025, 10, 6), 50.0), (d(2025, 10, 20), 150.0), (d(2026, 11, 3), 500.0)]
+    real, base = macro.deflate(prices, cpi)
+    assert base == d(2026, 10, 1) and real == [(d(2025, 10, 1), 103.0)]  # November: no CPI yet
+    parts = macro.decompose([(wed, 100.0), (fri, 121.0)], [(wed, 2000.0), (fri, 2200.0)], wed, fri)
+    assert round(parts["total_pct"], 6) == 21 and round(parts["denominator_pct"], 6) == 10
+    assert round(parts["in_denominator_pct"], 6) == 10
+    assert macro.decompose([(wed, 1.0)], [], wed, fri) is None

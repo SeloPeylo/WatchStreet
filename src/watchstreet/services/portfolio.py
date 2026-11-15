@@ -24,6 +24,7 @@ from watchstreet.models import (
     Thesis,
     WatchEntry,
 )
+from watchstreet.services import macro
 from watchstreet.services.companies import company_view
 from watchstreet.services.facts import display_value
 from watchstreet.services.viewing import build_view
@@ -163,6 +164,7 @@ def record_decision(  # noqa: PLR0913
             for m in view["derived"]
             if m["metric"] in SNAPSHOT_DERIVED and m.get("value") is not None
         }
+    known["macro"] = macro.snapshot(session, day or utcnow().date())
     decision = Decision(
         stock_id=stock.id, kind=kind, day=day or utcnow().date(), quantity=quantity,
         price=price, reason=reason.strip(), thesis_id=thesis_id,

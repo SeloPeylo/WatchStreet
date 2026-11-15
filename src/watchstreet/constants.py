@@ -219,3 +219,11 @@ MAX_IMPORT_PROMPT_CHARS = 60_000
 # Mineral-tenure registers: at most this many overlapping titles per click, texts cut to length.
 MAX_CLAIMS_PER_POINT = 20
 CLAIM_TEXT_CHARS = 160
+
+# Macro series: history kept from this year on; each refresh re-reads the last days because
+# statistical offices revise recent values.
+MACRO_HISTORY_START_YEAR = 2003
+MACRO_REVISION_DAYS = 400
+MACRO_SYNC_KEY = "macro_synced"
+MACRO_SPARK_POINTS = 60
+MACRO_CHANGE_DAYS = 365

@@ -312,6 +312,49 @@ seitlich schieben.
 
 ![Handy-Ansicht](screenshots/25_handy.png)
 
+## 10b. Makro
+
+Der Bereich **Makro** verfolgt das Umfeld, in dem Rohstoffe und Minenaktien bewertet werden. Die
+Reihen stammen aus der Datenbank FRED der Federal Reserve Bank of St. Louis; der Hintergrunddienst
+holt sie mit jedem Lauf, „Jetzt aktualisieren“ fordert einen Lauf an.
+
+| Gruppe | Inhalt |
+|---|---|
+| Liquidität | Bilanzsumme der Fed, Konto des Finanzministeriums (TGA), Reverse Repo, Geldmenge M2 mit Jahresrate, Nettoliquidität |
+| Zinsen | Leitzins, Staatsanleihen 2 und 10 Jahre, Realzins 10 Jahre, Inflationserwartung, Zinskurve 10 − 2 Jahre |
+| Inflation | Verbraucherpreisindex und Jahresrate |
+| Dollar und Währungen | breiter Dollar-Index (handelsgewichtet, nicht der DXY), Euro, Kanadischer und Australischer Dollar |
+| Risiko | VIX |
+| Märkte und Rohstoffe | S&P 500, Rohöl, Gold, Silber, Kupfer, Uran |
+| Verhältnisse | Gold ÷ Silber, Kupfer ÷ Gold, Uran ÷ Gold, S&P 500 ÷ Gold, Rohöl ÷ Gold |
+
+Jede Kachel zeigt den letzten Wert, den Tag der Beobachtung, die Frequenz und die Veränderung in
+einem Jahr. Ein Klick öffnet den grossen Chart: Zeitraum wählen, logarithmische Skala, mit der Maus
+Tag und Wert ablesen.
+
+![Makro mit Nettoliquidität](screenshots/28_makro.png)
+
+![Kupfer in Gold gemessen (Demo-Daten)](screenshots/29_makro_nenner.png)
+
+**Rechenregeln (es wird nichts aufgefüllt oder geschätzt):**
+
+* **Nettoliquidität** = Bilanzsumme der Fed − Konto des Finanzministeriums − Reverse Repo, nur an
+  Bilanzstichtagen (Mittwoch) und nur, wenn alle drei Reihen an diesem Tag einen Wert haben. Fällt
+  ein Mittwoch auf einen Feiertag, fehlt die Woche. Es ist eine verbreitete Näherung, keine amtliche
+  Grösse.
+* **Verhältnisse und „in Gold“** entstehen nur an Tagen, an denen beide Reihen einen eigenen Wert
+  haben. Die Auflösung ist die der gröberen Reihe (Rohstoffpreise liegen wöchentlich vor).
+* **Inflationsbereinigt** heisst: Monatsmittel des Preises, umgerechnet in Kaufkraft des letzten
+  veröffentlichten CPI-Monats. Der Chart endet mit diesem Monat; fehlt ein CPI-Monat, fehlt der
+  Punkt.
+* **Nenner:** Preise (Rohstoffe, S&P 500, Öl) lassen sich in Dollar, in Unzen Gold und
+  inflationsbereinigt zeigen. Darunter steht für ein und fünf Jahre die Zerlegung „Änderung in
+  Dollar = Goldpreis × Änderung in Gold gemessen“. Das ist eine Rechnung, keine Ursachenaussage.
+  Derselbe Umschalter steht im Explorer am Preisverlauf des gewählten Rohstoffs; Szenario und Karte
+  rechnen weiter in Dollar.
+* **Entscheidungsprotokoll:** Jeder Kauf und Verkauf hält Realzins, Rendite 10 Jahre, Leitzins,
+  Dollar-Index, VIX, Nettoliquidität und Inflationsrate mit ihrem Beobachtungstag fest.
+
 ## 11. Quellen
 
 Alle gespeicherten Dokumente. Ein Bericht lässt sich in der Charakterkarte unter „Quellen“ per Adresse
@@ -457,6 +500,12 @@ vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehr
   Kartendienst bestätigen konnte. Weitere Register sind je eine Zeile in
   `intel/connectors/claims.py`. Die Bilder 26 und 27 stammen aus einem Lauf mit echten Registern
   und werden vom Abnahmeskript nicht neu erzeugt.
+* Makro: Gespeichert wird der jeweils aktuelle Stand einer Reihe. Spätere Revisionen (CPI, M2)
+  überschreiben den alten Wert; „wie damals veröffentlicht“ gibt es noch nicht. Aktienkurse und
+  Depotwert lassen sich noch nicht in Gold oder inflationsbereinigt zeigen, weil die Anwendung keine
+  Kursverläufe von Aktien speichert. Annahmen einer These lassen sich noch nicht an eine Makroreihe
+  mit Schwelle binden. FRED führt den S&P 500 nur für zehn Jahre und keine Währungen von Chile
+  oder Peru.
 * Noch nicht vorhanden: Marker-Clustering, Standortbilder, Inflations- und
   Rohstoffäquivalent-Spalten im Vergleich.
 * Die Zitatprüfung stellt sicher, dass ein Zitat wörtlich im Dokument steht, nicht, dass es die Zahl

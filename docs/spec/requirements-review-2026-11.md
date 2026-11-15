@@ -174,3 +174,30 @@ automatische Positionsgrössen.
 * **Nutzenwert** mit zwei Nachkommastellen wirkt wie eine Wahrscheinlichkeit.
 * **Asset-Sicht blendet das Unternehmensrisiko aus** (Bilanz, Verwässerung).
 * Marker in dicht besetzten Regionen überlappen; die Margenlegende nennt keine Zwischenwerte.
+
+
+## Sechster Durchlauf: Makro-Ebene (Rollenspiel im Stil einer Makro-Analystin, Lyn-Alden-Schule)
+
+Auftrag: Was braucht eine Makro-Ebene, damit sie nicht in die Irre führt?
+
+**Umgesetzt**
+
+* Reihen als gespeicherte Objekte mit Einheit, Frequenz, Beobachtungstag und Hinweis auf Verzug.
+* Nettoliquidität mit Einheitenumrechnung, nur an Bilanzstichtagen, ohne Auffüllen.
+* Zinsblock mit marktbasiertem Realzins und Zinskurve; Dollar-Index mit Hinweis „nicht der DXY“.
+* Nenner-Umschalter (Dollar, Gold, inflationsbereinigt) in der Makro-Ansicht und am Preisverlauf.
+* Feste Verhältnis-Charts; logarithmische Skala; Zerlegung der Dollar-Änderung, als Rechnung beschriftet.
+* Makro-Stand im Entscheidungsprotokoll.
+
+**Offen (Muss laut Review)**
+
+1. Veröffentlichungsdatum und Vintage (ALFRED) je Beobachtung, damit „wie damals bekannt“ stimmt.
+2. Maschinenlesbares Kriterium einer Annahme (Reihe, Operator, Schwelle, Dauer) mit Hinweis „Prüfen“.
+3. Nenner für Aktienkurs und Depotwert (braucht gespeicherte Kursverläufe).
+4. AISC in Landeswährung an der Charakterkarte; Diskontsatz und Energiekosten im Szenario.
+
+**Offen (Soll)**: Fiskalblock (Schulden/BIP, Zinsausgaben), benannte Makro-Szenarien, frei
+überlagerbare Charts mit Basis 100, Heimwährung des Nutzers als Nenner.
+
+**Nicht bauen**: Signale, Ampeln, Liquiditäts-Score, Prognosen, Überlagerung mit frei skalierter
+zweiter Achse, vorwärts gefüllte Monatswerte, „fairer Wert“ von Gold aus M2.

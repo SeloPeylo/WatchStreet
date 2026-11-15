@@ -1045,3 +1045,40 @@ def test_trading_basics_add_partial_sale_weights_thresholds_and_company_list(cli
     listing = client.get(f"{API}/companies").json()
     line = next(c for c in listing if c["id"] == junior)
     assert line["symbol"] == "DJEX" and line["runway_months"] > 0 and line["questions"] == 10
+
+
+def test_macro_view_tracks_series_and_other_denominators(client, container, session):
+    from datetime import date
+
+    from watchstreet.intel.connectors import fred
+    from watchstreet.services import macro
+
+    assert fred.parse("observation_date,X\n2026-01-01,.\n2026-01-02,1.5\n") == [
+        (date(2026, 1, 2), 1.5)
+    ]
+    macro.sync(session, container.fetcher)
+    session.commit()
+    again = macro.sync(session, container.fetcher)
+    session.commit()
+    assert again["added"] == 0 and again["failed"] == []
+    data = client.get(f"{API}/macro").json()
+    items = {i["key"]: i for g in data["groups"] for i in g["items"]}
+    assert data["synced_at"] and {"NETLIQ", "RRPONTSYD", "VIXCLS", "CPIYOY", "GOLD_SILVER"} <= set(
+        items
+    )
+    store = macro.Store(session)
+    day, net = store.points("NETLIQ")[-1]
+    parts = [dict(store.points(k))[day] for k in ("WALCL", "WTREGEN", "RRPONTSYD")]
+    assert day.weekday() == 2 and abs(net - (parts[0] - parts[1] - parts[2])) < 1e-6
+    assert 4000 < net < 8000  # billions: millions and billions were not mixed
+    usd = client.get(f"{API}/macro/chart", params={"key": "copper"}).json()
+    gold = client.get(f"{API}/macro/chart", params={"key": "copper", "den": "gold"}).json()
+    real = client.get(f"{API}/macro/chart", params={"key": "copper", "den": "real"}).json()
+    assert gold["unit"] == "Unzen Gold" and len(gold["points"]) <= len(usd["points"])
+    assert usd["split"] and "in_denominator_pct" in usd["split"][0]
+    assert all(p["day"].endswith("-01") for p in real["points"]) and "Kaufkraft" in real["unit"]
+    rates = client.get(f"{API}/macro/chart", params={"key": "DGS10", "den": "gold"}).json()
+    assert rates["denominator"] == "usd"  # a yield is not a price
+    assert client.get(f"{API}/macro/chart", params={"key": "nope"}).status_code == 404
+    assert client.post(f"{API}/macro/refresh").status_code == 202
+    assert macro.snapshot(session, date(2100, 1, 1))["DFII10"]["unit"] == "%"

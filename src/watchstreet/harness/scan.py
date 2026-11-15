@@ -8,6 +8,7 @@ from watchstreet.container import Container
 from watchstreet.db import session_scope
 from watchstreet.intel.connectors.usgs import recent_quakes
 from watchstreet.intel.fetch import FetchError
+from watchstreet.services import macro
 from watchstreet.services.engine import EngineReport, run_engine
 from watchstreet.services.events import record_quakes
 from watchstreet.services.prices import sync_history
@@ -24,6 +25,8 @@ def run_scan(container: Container) -> EngineReport:
     with session_scope(container.session_factory) as session:
         touch(session, LAST_SCAN_KEY)
         sync_history(session, container.market)
+    with session_scope(container.session_factory) as session:
+        macro.sync(session, container.fetcher)
     try:
         quakes = recent_quakes(container.fetcher)
     except FetchError as exc:

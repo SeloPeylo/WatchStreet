@@ -146,6 +146,7 @@ export function Portfolio({ notify }: { notify: Notify }) {
               <td>{d.reason || <span className="muted">ohne Begründung</span>}
                 <div className="small muted">Damals: Kurs {num(d.snapshot.price)}{d.snapshot.thesis ? ` · These „${d.snapshot.thesis.title}“ (${d.snapshot.thesis.assumptions.map((a: Json) => `${a.text}: ${STATE[a.status] ?? a.status}`).join("; ") || "ohne Annahmen"})` : " · ohne These"}{Object.keys(d.snapshot.figures ?? {}).length > 0 ? ` · ${Object.entries(d.snapshot.figures).map(([k, v]) => `${k} ${v}`).join(", ")}` : ""}
                   {Object.keys(d.snapshot.derived ?? {}).length > 0 && <div>Stand damals: {Object.entries(d.snapshot.derived).map(([k, v]) => `${k} ${v}`).join(", ")}</div>}
+                  {Object.keys(d.snapshot.macro ?? {}).length > 0 && <div>Makro damals: {Object.values(d.snapshot.macro).map((m: Json) => `${m.label} ${num(m.value)} ${m.unit} (${day(m.day)})`).join(" · ")}</div>}
                   {d.snapshot.realized != null && <div>Ergebnis: {num(d.snapshot.realized)}</div>}
                   {Object.entries(d.snapshot.assets ?? {}).map(([name, figures]) => <div key={name}>{name}: {Object.entries(figures as Record<string, string>).map(([k, v]) => `${k} ${v}`).join(", ")}</div>)}</div></td>
             </tr>

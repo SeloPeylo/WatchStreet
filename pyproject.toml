@@ -137,7 +137,7 @@ name = "Web internals: app > API routers > payloads/deps/security (routers never
 type = "layers"
 layers = [
     "watchstreet.web.app",
-    "watchstreet.web.api_explorer | watchstreet.web.api_research | watchstreet.web.api_system",
+    "watchstreet.web.api_explorer | watchstreet.web.api_macro | watchstreet.web.api_research | watchstreet.web.api_system",
     "watchstreet.web.payloads | watchstreet.web.deps | watchstreet.web.security",
     "watchstreet.web.auth",
 ]
