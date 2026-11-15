@@ -225,7 +225,7 @@ export function Explorer({ state, update, commodities, tick, refresh, notify, te
               {Object.entries(BASEMAPS).map(([key, base]) => <option key={key} value={key}>{base.label}</option>)}
             </select>
           </label>
-          <label className="small" title="Amtliche Register für Claims und Abbaurechte, derzeit British Columbia und Westaustralien. Ab Regionalmassstab sichtbar; ein Klick auf die Fläche zeigt den Inhaber."><input type="checkbox" checked={claims} onChange={() => setClaims(!claims)} data-testid="claims" /> Konzessionen (Klick = Inhaber)</label>
+          <label className="small" title="Amtliche Register für Claims und Abbaurechte, derzeit British Columbia, Ontario, Westaustralien und US-Bundesland. Ab Regionalmassstab sichtbar; ein Klick auf die Fläche zeigt den Inhaber."><input type="checkbox" checked={claims} onChange={() => setClaims(!claims)} data-testid="claims" /> Konzessionen (Klick = Inhaber)</label>
           {LAYERS.map((layer) => (
             <label key={layer} className="small"><input type="checkbox" checked={!hidden.includes(layer)} onChange={() => setHidden(hidden.includes(layer) ? hidden.filter((h) => h !== layer) : [...hidden, layer])} /> {SHAPE_SIGN[SHAPES[layer]]} {STATUS_LABEL[layer]}</label>
           ))}

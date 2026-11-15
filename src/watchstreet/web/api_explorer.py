@@ -464,19 +464,34 @@ def claims_at_point(
     lon: float = Query(ge=-MAX_LON, le=MAX_LON),
 ) -> dict[str, Any]:
     """Who holds the ground at this point, asked live from the official register."""
-    register = claims.register_at(lat, lon)
-    if register is None:
-        return {"register": None, "claims": []}
+    registers = claims.registers_at(lat, lon)
+    if not registers:
+        return {"registers": [], "claims": []}
     if container.is_demo:
         raise HTTPException(409, "Im Demo-Modus werden keine Register abgefragt.")
-    try:
-        found = claims.claims_at(container.fetcher, register, lat, lon)
-    except FetchError as exc:
-        raise HTTPException(502, f"Register nicht erreichbar: {exc}") from exc
+    found: list[claims.Claim] = []
+    failures: list[str] = []
+    for register in registers:
+        try:
+            found.extend(claims.claims_at(container.fetcher, register, lat, lon))
+        except FetchError as exc:
+            failures.append(f"{register.label}: {exc}")
+    if failures and len(failures) == len(registers):
+        raise HTTPException(502, "Register nicht erreichbar: " + "; ".join(failures))
     return {
-        "register": {"key": register.key, "label": register.label, "authority": register.authority},
+        "registers": [
+            {
+                "key": r.key,
+                "label": r.label,
+                "authority": r.authority,
+                "names_holder": bool(r.holder),
+            }
+            for r in registers
+        ],
+        "failures": failures,
         "claims": [
             {
+                "register": c.register,
                 "number": c.number,
                 "name": c.name,
                 "holder": c.holder,

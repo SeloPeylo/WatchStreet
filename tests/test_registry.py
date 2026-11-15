@@ -112,9 +112,20 @@ def _claims_fetcher(name: str) -> Fetcher:
 def test_claim_registers_answer_who_holds_the_ground():
     from watchstreet.intel.connectors import claims
 
-    wa = claims.register_at(-30.75, 121.5)
-    bc = claims.register_at(56.6, -130.1)
-    assert wa is not None and bc is not None and claims.register_at(0, 0) is None
+    (wa,) = claims.registers_at(-30.75, 121.5)
+    (bc,) = claims.registers_at(56.6, -130.1)
+    (us,) = claims.registers_at(40.2963, -117.0512)
+    (on,) = claims.registers_at(48.6183, -80.9088)
+    assert claims.registers_at(0, 0) == [] and len(claims.registers_at(48.5, -120)) == 2  # border
+    lode = claims.claims_at(_claims_fetcher("claims_us.json"), us, 40.2963, -117.0512)[0]
+    assert (lode.number, lode.name, lode.holder, lode.area_ha) == (
+        "NV105273154",
+        "SAL 54",
+        "",
+        8.36,
+    )
+    cell = claims.claims_at(_claims_fetcher("claims_on.json"), on, 48.6183, -80.9088)[0]
+    assert cell.holder == "(100) Epica Gold Inc." and cell.area_ha is None and cell.expires
     lease = claims.claims_at(_claims_fetcher("claims_wa.json"), wa, -30.75, 121.5)[0]
     assert (lease.number, lease.holder, lease.status) == (
         "M 26/383",
@@ -128,10 +139,13 @@ def test_claim_registers_answer_who_holds_the_ground():
 
 def test_claims_api_lists_registers_and_asks_live(client, container, monkeypatch):
     registers = client.get(f"{API}/claims/registers").json()
-    assert {r["key"] for r in registers} == {"bc", "wa"} and "{bbox-epsg-3857}" in registers[0][
-        "tiles"
-    ]
-    assert client.get(f"{API}/claims", params={"lat": 0, "lon": 0}).json()["register"] is None
+    assert {r["key"] for r in registers} == {
+        "bc",
+        "wa",
+        "on",
+        "us",
+    } and "{bbox-epsg-3857}" in registers[0]["tiles"]
+    assert client.get(f"{API}/claims", params={"lat": 0, "lon": 0}).json()["registers"] == []
     assert client.get(f"{API}/claims", params={"lat": -30.75, "lon": 121.5}).status_code == 409
     monkeypatch.setattr(type(container), "is_demo", property(lambda _self: False))
     container.fetcher = _claims_fetcher("claims_wa.json")

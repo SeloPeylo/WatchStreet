@@ -37,7 +37,10 @@ Ein Klick auf einen Rohstoff in der Kopfzeile filtert die Karte. Ein zweiter Kli
   sieht dabei deine IP-Adresse und den Kartenausschnitt, aber keine Inhalte aus WatchStreet.
   „Schema“ kommt ohne Netz aus und zeigt nur Ländergrenzen. Die Wahl merkt sich der Browser.
 * **Konzessionen** (Häkchen links auf der Karte) legt die amtlichen Register für Claims und
-  Abbaurechte über die Karte, derzeit für British Columbia (Kanada) und Westaustralien. Die Flächen
+  Abbaurechte über die Karte, derzeit für British Columbia, Ontario, Westaustralien
+  und US-Bundesland (BLM, vor allem Weststaaten). Das US-Register nennt im Kartendienst nur Claim-Name,
+  Nummer und Status; den Inhaber findest du über die Nummer im Register selbst. Ontario nennt den
+  Inhaber nur für Claims, nicht für Leases und Patente. Die Flächen
   erscheinen ab Regionalmassstab. Ein Klick auf eine Fläche fragt das Register live ab und zeigt
   Inhaber, Art des Titels, Nummer, Fläche und Ablaufdatum. „Zum Objekt zoomen“ springt auf die
   Umgebung des geöffneten Objekts. Die Angaben werden nur angezeigt, nicht gespeichert; im
@@ -450,7 +453,8 @@ vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehr
 * Die Hintergrundkarten stammen von freien Diensten ohne Verfügbarkeitszusage und sind für
   gelegentliche Einzelnutzung gedacht. Satellitenbilder fehlen noch.
 * Konzessionen gibt es nur, wo ein amtliches Register offen abrufbar ist; angebunden sind bisher
-  British Columbia und Westaustralien. Weitere Register sind je eine Zeile in
+  British Columbia, Ontario, Westaustralien und US-Bundesland; Québec fehlt, weil ich keinen offenen
+  Kartendienst bestätigen konnte. Weitere Register sind je eine Zeile in
   `intel/connectors/claims.py`. Die Bilder 26 und 27 stammen aus einem Lauf mit echten Registern
   und werden vom Abnahmeskript nicht neu erzeugt.
 * Noch nicht vorhanden: Marker-Clustering, Standortbilder, Inflations- und

@@ -161,13 +161,16 @@ function claimLines(found: Json): HTMLElement[] {
     el.className = className;
     return el;
   };
-  if (!found.register) return [line("Für diese Region ist noch kein amtliches Register angebunden.")];
-  if (found.claims.length === 0) return [line("Hier ist kein Titel eingetragen."), line(found.register.authority, "small muted")];
+  if (found.registers.length === 0) return [line("Für diese Region ist noch kein amtliches Register angebunden.")];
+  const sources = found.registers.map((r: Json) => r.authority).join("; ");
+  const failed = (found.failures ?? []).map((text: string) => line(`Nicht erreichbar – ${text}`, "small muted"));
+  if (found.claims.length === 0) return [line("Hier ist kein Titel eingetragen."), ...failed, line(sources, "small muted")];
+  const namesHolder = Object.fromEntries(found.registers.map((r: Json) => [r.key, r.names_holder]));
   const rows = found.claims.flatMap((c: Json) => [
-    line(`${c.holder || "Inhaber unbekannt"}${c.other_holders ? ` (+${c.other_holders} weitere)` : ""}`, "holder"),
-    line([c.kind, c.name, `Nr. ${c.number}`, c.status, c.area_ha !== null ? `${num(c.area_ha)} ha` : "", c.expires ? `gültig bis ${day(c.expires)}` : ""].filter(Boolean).join(" · "), "small"),
+    line(namesHolder[c.register] ? `${c.holder || "Inhaber unbekannt"}${c.other_holders ? ` (+${c.other_holders} weitere)` : ""}` : c.name || c.number, "holder"),
+    line([c.kind, namesHolder[c.register] ? c.name : "", `Nr. ${c.number}`, c.status, c.area_ha !== null ? `${num(c.area_ha)} ha` : "", c.expires ? `gültig bis ${day(c.expires)}` : "", namesHolder[c.register] ? "" : "Inhaber nur im Register selbst (über die Nummer)"].filter(Boolean).join(" · "), "small"),
   ]);
-  return [...rows, line(`Quelle: ${found.register.authority}, live abgefragt`, "small muted")];
+  return [...rows, ...failed, line(`Quelle: ${sources}, live abgefragt`, "small muted")];
 }
 
 interface Props {

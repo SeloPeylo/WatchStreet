@@ -14,6 +14,7 @@ from watchstreet.constants import CLAIM_TEXT_CHARS, MAX_CLAIMS_PER_POINT
 from watchstreet.intel.fetch import Fetcher, FetchError
 
 MS_PER_S = 1000
+HECTARES_PER_ACRE = 0.404686
 
 
 @dataclass(frozen=True)
@@ -29,10 +30,12 @@ class Register:
     layer: int
     min_zoom: int  # the service draws nothing when zoomed out further
     number: str
-    holder: str
     kind: str
-    expires: str
-    area: str
+    holder: str = ""  # some registers publish the holder only in their own case system
+    expires: str = ""
+    area: str = ""
+    area_factor: float = 1.0  # converts the register's area unit to hectares
+    show: tuple[int, ...] = ()  # layers drawn on the map; default is the queried layer
     name: str = ""
     status: str = ""
     holders: str = ""  # column with the number of holders, if the register has one
@@ -47,16 +50,16 @@ class Register:
     @property
     def tiles(self) -> str:
         """Tile URL template for the map (the map library fills in the bounding box)."""
+        layers = ",".join(str(layer) for layer in self.show or (self.layer,))
         return (
             f"{self.service}/export?bbox={{bbox-epsg-3857}}&bboxSR=3857&imageSR=3857"
-            f"&size=256,256&format=png32&transparent=true&layers=show:{self.layer}&f=image"
+            f"&size=256,256&format=png32&transparent=true&layers=show:{layers}&f=image"
         )
 
     @property
     def columns(self) -> list[str]:
-        optional = (self.name, self.status, self.holders)
-        required = [self.number, self.holder, self.kind, self.expires, self.area]
-        return required + [column for column in optional if column]
+        optional = (self.holder, self.expires, self.area, self.name, self.status, self.holders)
+        return [self.number, self.kind] + [column for column in optional if column]
 
 
 REGISTERS: tuple[Register, ...] = (
@@ -101,6 +104,44 @@ REGISTERS: tuple[Register, ...] = (
         status="tenstatus",
         holders="holdercnt",
     ),
+    Register(
+        key="on",
+        label="Ontario (Kanada)",
+        authority="Mining Lands Administration System, Province of Ontario",
+        south=41.6,
+        west=-95.2,
+        north=56.9,
+        east=-74.3,
+        service="https://ws.lioservices.lrc.gov.on.ca/arcgis2/rest/services/MLAS/mlas_op/MapServer",
+        layer=1,
+        show=(1, 3, 5),  # claims, leases, patents; the holder is published for claims only
+        min_zoom=9,
+        number="TENURE_NUMBER_ID",
+        holder="HOLDER",
+        kind="TITLE_TYPE_DESC",
+        expires="CLAIM_DUE_DATE",
+        status="TENURE_STATUS_DESC",
+    ),
+    Register(
+        key="us",
+        label="USA (Bundesland, v. a. Weststaaten)",
+        authority="BLM Mineral & Land Records System (MLRS), U.S. Bureau of Land Management",
+        south=31.0,
+        west=-125.0,
+        north=49.0,
+        east=-102.0,
+        service=(
+            "https://nlsdbpubgis.blm.gov/arcgis/rest/services/Mining_Claims/MiningClaims/MapServer"
+        ),
+        layer=1,
+        min_zoom=11,
+        number="CSE_NR",
+        kind="BLM_PROD",
+        area="RCRD_ACRS",
+        area_factor=HECTARES_PER_ACRE,
+        name="CSE_NAME",
+        status="CSE_DISP",
+    ),
 )
 HOSTS = tuple(sorted({register.host for register in REGISTERS}))
 
@@ -118,8 +159,9 @@ class Claim:
     area_ha: float | None
 
 
-def register_at(lat: float, lon: float) -> Register | None:
-    return next((r for r in REGISTERS if r.covers(lat, lon)), None)
+def registers_at(lat: float, lon: float) -> list[Register]:
+    """Registers whose area contains the point; near a border more than one can apply."""
+    return [r for r in REGISTERS if r.covers(lat, lon)]
 
 
 def _text(value: object) -> str:
@@ -137,6 +179,11 @@ def _day(value: object) -> date | None:
 
 def _number(value: object) -> float | None:
     return float(value) if isinstance(value, int | float) else None
+
+
+def _area(register: Register, row: dict[str, object]) -> float | None:
+    raw = _number(row.get(register.area)) if register.area else None
+    return None if raw is None else round(raw * register.area_factor, 2)
 
 
 def parse(register: Register, body: str) -> list[Claim]:
@@ -160,12 +207,12 @@ def parse(register: Register, body: str) -> list[Claim]:
                 register=register.key,
                 number=_text(row.get(register.number)),
                 name=_text(row.get(register.name)) if register.name else "",
-                holder=_text(row.get(register.holder)),
+                holder=_text(row.get(register.holder)) if register.holder else "",
                 other_holders=max(int(count) - 1, 0) if count else 0,
                 kind=_text(row.get(register.kind)),
                 status=_text(row.get(register.status)) if register.status else "",
-                expires=_day(row.get(register.expires)),
-                area_ha=_number(row.get(register.area)),
+                expires=_day(row.get(register.expires)) if register.expires else None,
+                area_ha=_area(register, row),
             )
         )
     return claims
