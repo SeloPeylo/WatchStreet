@@ -186,6 +186,14 @@ await page.getByTestId("theme").click(); // back to automatic
 
 // charts: every price in every yardstick, the lever chain adds up, a lens is saved, the regime map
 await page.getByRole("button", { name: "Charts", exact: true }).click();
+await page.getByTestId("ladder-slope").getByText("Empfindlichkeit").waitFor();
+await page.getByTestId("ladder-deeper").click();
+await page.getByTestId("ladder-dependents").getByText("Demo Andes Copper Corp").waitFor();
+await page.getByTestId("ladder-deeper").click();
+await page.getByTestId("ladder-trail").getByText("Dollar-Index").waitFor();
+await page.getByTestId("ladder-space").check();
+await page.screenshot({ path: path.join(OUT, "35_treiberleiter.png") });
+await page.getByTestId("tab-matrix").click();
 await page.getByTestId("cell-S:DACC-gold").click();
 await page.getByTestId("matrix-detail").getByText("in Gold").waitFor();
 await page.screenshot({ path: path.join(OUT, "31_massstab_matrix.png") });

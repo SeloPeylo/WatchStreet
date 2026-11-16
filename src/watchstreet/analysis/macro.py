@@ -8,6 +8,7 @@ import math
 from bisect import bisect_right
 from collections import defaultdict
 from datetime import date
+from itertools import pairwise
 
 Points = list[tuple[date, float]]
 PERCENT = 100.0
@@ -169,3 +170,37 @@ def chain_path(
             base = levels
         out.append((day, [math.log(now / then) for now, then in zip(levels, base, strict=True)]))
     return out
+
+
+def _steps(values: list[float], *, relative: bool) -> list[float]:
+    if relative:
+        return [math.log(b / a) for a, b in pairwise(values)]
+    return [b - a for a, b in pairwise(values)]
+
+
+def sensitivity(
+    target: Points, driver: Points, *, relative_target: bool, relative_driver: bool, min_obs: int
+) -> dict[str, float] | None:
+    """Least-squares slope of the target's changes on the driver's changes (an estimate).
+
+    Changes are taken between consecutive days both series share; relative changes are log
+    changes, others plain differences. ``None`` below ``min_obs`` or without variation.
+    """
+    other = dict(driver)
+    shared = [(value, other[day]) for day, value in target if day in other]
+    if relative_target:
+        shared = [(a, b) for a, b in shared if a > 0]
+    if relative_driver:
+        shared = [(a, b) for a, b in shared if b > 0]
+    ys = _steps([a for a, _ in shared], relative=relative_target)
+    xs = _steps([b for _, b in shared], relative=relative_driver)
+    n = len(xs)
+    if n < min_obs:
+        return None
+    mean_x, mean_y = sum(xs) / n, sum(ys) / n
+    var_x = sum((x - mean_x) ** 2 for x in xs)
+    var_y = sum((y - mean_y) ** 2 for y in ys)
+    if var_x == 0 or var_y == 0:
+        return None
+    cov = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys, strict=True))
+    return {"beta": cov / var_x, "r2": cov * cov / (var_x * var_y), "n": float(n)}

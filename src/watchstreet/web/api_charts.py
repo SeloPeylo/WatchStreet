@@ -65,6 +65,11 @@ def delete_lens(session: SessionDep, lens_id: int) -> None:
         raise HTTPException(404, "Unbekannte Linse")
 
 
+@router.get("/ladder")
+def ladder(session: SessionDep, key: str, driver: str = "", years: float = 3.0) -> dict[str, Any]:
+    return charts.ladder(session, key, driver, _years(years))
+
+
 @router.get("/regime")
 def regime(
     session: SessionDep,

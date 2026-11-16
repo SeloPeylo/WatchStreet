@@ -1192,3 +1192,41 @@ def test_charts_lens_and_regime_map(client, container, session):
         200,
         400,
     )
+
+
+def test_driver_ladder_walks_from_share_to_what_stands_behind_it(client, container, session):
+    from datetime import date, timedelta
+
+    from watchstreet.analysis import macro as rules
+    from watchstreet.services import macro
+
+    macro.sync(session, container.fetcher)
+    session.commit()
+    share = client.get(f"{API}/charts/ladder", params={"key": "S:DACC"}).json()
+    assert share["driver"]["key"] == "copper" and share["driver"]["has_drivers"]
+    assert len(share["path"]) > 50 and share["slope"]["unit"] == "% je 1 %"
+    copper = client.get(f"{API}/charts/ladder", params={"key": "copper"}).json()
+    assert [d["key"] for d in copper["drivers"]] == ["DTWEXBGS", "DFII10"]
+    assert "S:DACC" in [d["key"] for d in copper["dependents"]]
+    other = client.get(f"{API}/charts/ladder", params={"key": "copper", "driver": "DFII10"}).json()
+    assert other["driver"]["key"] == "DFII10" and other["slope"]["unit"] == "% je Prozentpunkt"
+    inflation = client.get(f"{API}/charts/ladder", params={"key": "CPIYOY"}).json()
+    assert inflation["driver"]["key"] == "oil" and inflation["path"][0]["day"].endswith("-01")
+    end = client.get(f"{API}/charts/ladder", params={"key": "NETLIQ"}).json()
+    assert end["driver"] is None and end["path"] == [] and end["dependents"]
+    for params in (
+        {"key": "nope"},
+        {"key": "copper", "driver": "copper"},
+        {"key": "copper", "driver": "x"},
+    ):
+        assert client.get(f"{API}/charts/ladder", params=params).status_code == 400
+
+    days = [date(2026, 1, 1) + timedelta(days=i) for i in range(40)]
+    driver = [(d, 100.0 * 1.01 ** (i % 5)) for i, d in enumerate(days)]
+    target = [(d, 50.0 * 1.02 ** (i % 5)) for i, d in enumerate(days)]
+    kind = {"relative_target": True, "relative_driver": True}
+    fit = rules.sensitivity(target, driver, min_obs=26, **kind)
+    assert fit["beta"] == pytest.approx(1.99, abs=0.01) and fit["r2"] == pytest.approx(1.0)
+    assert rules.sensitivity(target[:10], driver, min_obs=26, **kind) is None
+    flat = [(d, 1.0) for d in days]
+    assert rules.sensitivity(target, flat, min_obs=26, **kind) is None

@@ -365,10 +365,23 @@ Tag und Wert ablesen.
 
 ## 10c. Charts
 
-Der Bereich „Charts“ zeigt Preise nicht als eine Linie, sondern in vier Sichten. Alles ist Rechnung
-auf gespeicherten Werten: keine Prognose, kein Signal, keine Lückenfüllung. Die Anwendung speichert
+Der Bereich „Charts“ zeigt Preise nicht als eine Linie, sondern in fünf Sichten. Alles ist Rechnung
+auf gespeicherten Werten: keine Prognose, kein Signal, keine Lückenfüllung. Einzige Schätzung ist
+die Empfindlichkeit in der Treiberleiter; sie ist als solche beschriftet. Die Anwendung speichert
 dafür Wochenschlusskurse aller Aktien, die im Depot, auf der Beobachtungsliste oder an einem
 Unternehmen hängen.
+
+**Treiberleiter** – zeigt jeden Wert gegen das, was hinter ihm steht: die Aktie gegen ihren
+Rohstoff, den Rohstoff gegen Realzins und Dollar, diese gegen Inflation und Liquidität, die
+Inflation gegen Energie. Die Zeit ist keine Achse, sondern der Weg durch die Ebene (blass = früher,
+Ring = heute). „Eine Stufe tiefer“ macht den Treiber selbst zum Gegenstand; die Spur oben führt
+zurück. „Raum“ stellt die Zeit als dritte Achse dar, der Regler dreht die Ansicht. Unter dem Chart
+steht, was am betrachteten Wert hängt, mit der geschätzten Empfindlichkeit (Steigung der
+Änderungen), dem erklärten Anteil, der Zahl der Beobachtungen und der Steigung in beiden Hälften
+des Zeitraums. Welche Treiber hinter einer Reihe stehen, ist eine hinterlegte Annahme
+(`DRIVERS` in `services/charts.py`), kein Befund; die Empfindlichkeit ist eine Schätzung, keine Regel.
+
+![Treiberleiter](screenshots/35_treiberleiter.png)
 
 **Massstab-Matrix** – Zeilen sind Aktien und Rohstoffe, Spalten die Massstäbe US-Dollar, Gold,
 Verbraucherpreise, Geldmenge M2 und Rohöl. Jede Zelle zeigt den Verlauf über bis zu zehn Jahre, die

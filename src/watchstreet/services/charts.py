@@ -6,7 +6,7 @@ labelled as such; nothing is fitted, searched or forecast.
 
 import math
 from collections import Counter
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -18,6 +18,7 @@ from watchstreet.analysis.macro import Link, Points
 from watchstreet.commodities import BY_KEY as COMMODITY
 from watchstreet.constants import (
     DAYS_PER_YEAR,
+    DRIVER_PATH_POINTS,
     LENS_NAME_CHARS,
     MACRO_CHANGE_DAYS,
     MATRIX_CELL_POINTS,
@@ -25,6 +26,7 @@ from watchstreet.constants import (
     MATRIX_YEARS,
     PERCENT,
     REGIME_MAX_POINTS,
+    SENSITIVITY_MIN_OBS,
     SERIES_MAX_GAP_DAYS,
 )
 from watchstreet.errors import WatchStreetError
@@ -453,5 +455,146 @@ def regime(session: Session, x: str, y: str, years: float) -> dict[str, Any]:
             "Der Weg zeigt, wo beide Grössen gemeinsam standen. Aufeinanderfolgende Tage sind "
             "nicht unabhängig: wenige Episoden sehen wie viele Punkte aus. Die Karte sagt "
             "nichts darüber, was als Nächstes geschieht."
+        ),
+    }
+
+
+# --- driver ladder ------------------------------------------------------------------------
+
+# What the application assumes stands behind a series, nearest driver first. A declared view of
+# the world, not a finding: the chart shows whether the data agree with it.
+DRIVERS: dict[str, tuple[str, ...]] = {
+    "gold": ("DFII10", "DTWEXBGS"),
+    "silver": ("gold", "DFII10"),
+    "copper": ("DTWEXBGS", "DFII10"),
+    "uranium": ("DTWEXBGS",),
+    "oil": ("DTWEXBGS",),
+    "gas": ("oil",),
+    "lumber": ("HOUST", "MORTGAGE30US"),
+    "HOUST": ("MORTGAGE30US",),
+    "MORTGAGE30US": ("DGS10",),
+    "DGS10": ("DFII10", "T10YIE"),
+    "DFII10": ("CPIYOY", "DFF"),
+    "DTWEXBGS": ("DFII10", "NETLIQ"),
+    "DFF": ("CPIYOY",),
+    "T10YIE": ("CPIYOY", "oil"),
+    "CPIYOY": ("oil", "M2YOY"),
+    "M2YOY": ("NETLIQ",),
+    "SP500": ("NETLIQ", "DFII10"),
+}
+RATE_UNITS = ("%", "Prozentpunkte")
+ESTIMATE = (
+    "Schätzung aus vergangenen Änderungen, keine Regel: Steigungen schwanken mit dem Zeitraum, "
+    "und ein Zusammenhang ist keine Ursache."
+)
+
+
+def _drivers(universe: Universe, key: str) -> tuple[str, ...]:
+    if universe.is_share(key):
+        return (universe.commodity(key) or "gold",)
+    return DRIVERS.get(key, ())
+
+
+def _relative(universe: Universe, key: str) -> bool:
+    return not universe.unit(key).startswith(RATE_UNITS)
+
+
+def _pair(universe: Universe, first: str, second: str) -> tuple[Points, Points]:
+    """Both series on a common grid: months if either is monthly, else their own days."""
+    a = universe.in_usd(first) if universe.money(first) else universe.points(first)
+    b = universe.in_usd(second) if universe.money(second) else universe.points(second)
+    if "monthly" in (universe.frequency(first), universe.frequency(second)):
+        return rules.monthly_mean(a), rules.monthly_mean(b)
+    return a, b
+
+
+def _slope(universe: Universe, target: str, driver: str, start: date) -> dict[str, Any] | None:
+    a, b = _pair(universe, target, driver)
+    a, b = [p for p in a if p[0] >= start], [p for p in b if p[0] >= start]
+    kind = {
+        "relative_target": _relative(universe, target),
+        "relative_driver": _relative(universe, driver),
+    }
+    whole = rules.sensitivity(a, b, min_obs=SENSITIVITY_MIN_OBS, **kind)
+    if whole is None:
+        return None
+    middle = a[len(a) // 2][0] if a else start
+    halves = [
+        rules.sensitivity(part, b, min_obs=SENSITIVITY_MIN_OBS // 2, **kind)
+        for part in ([p for p in a if p[0] < middle], [p for p in a if p[0] >= middle])
+    ]
+    return {
+        **whole,
+        "first_half": halves[0]["beta"] if halves[0] else None,
+        "second_half": halves[1]["beta"] if halves[1] else None,
+        "unit": ("% je 1 %" if kind["relative_target"] else "Punkte je 1 %")
+        if kind["relative_driver"]
+        else ("% je Prozentpunkt" if kind["relative_target"] else "Punkte je Prozentpunkt"),
+    }
+
+
+def ladder(session: Session, key: str, driver: str, years: float) -> dict[str, Any]:
+    """A series against what stands behind it, and what in turn depends on it."""
+    universe = Universe(session)
+    if not universe.known(key):
+        raise ChartError("Unbekannte Reihe")
+    declared = _drivers(universe, key)
+    chosen = driver or (declared[0] if declared else "")
+    if chosen and (not universe.known(chosen) or chosen == key):
+        raise ChartError("Unbekannter Treiber")
+    own = universe.in_usd(key) if universe.money(key) else universe.points(key)
+    if not own:
+        raise ChartError("Für diese Reihe ist nichts gespeichert")
+    start = own[-1][0] - timedelta(days=round(years * DAYS_PER_YEAR))
+    path: list[dict[str, Any]] = []
+    slope = None
+    if chosen:
+        a, b = _pair(universe, key, chosen)
+        other = dict(b)
+        shared = [(d, other[d], v) for d, v in a if d in other and d >= start]
+        step = max(math.ceil(len(shared) / DRIVER_PATH_POINTS), 1)
+        shown = shared[::step]
+        if shared and shown[-1] != shared[-1]:
+            shown.append(shared[-1])
+        path = [{"day": d.isoformat(), "x": x, "y": y} for d, x, y in shown]
+        slope = _slope(universe, key, chosen, start)
+    dependents = [
+        name
+        for name in (*(SHARE_PREFIX + s for s in sorted(universe.shares)), *DRIVERS)
+        if key in _drivers(universe, name) and universe.points(name)
+    ]
+    rows: list[tuple[float, dict[str, Any]]] = []
+    for name in dependents:
+        estimate = _slope(universe, name, key, start)
+        row = {
+            "key": name,
+            "label": universe.label(name),
+            "share": universe.is_share(name),
+            "slope": estimate,
+        }
+        rows.append((-abs(estimate["beta"]) if estimate else 1.0, row))
+    rows.sort(key=lambda item: item[0])
+
+    def meta(name: str) -> dict[str, Any]:
+        unit = USD if universe.is_share(name) else universe.unit(name)
+        return {
+            "key": name,
+            "label": universe.label(name),
+            "unit": unit,
+            "has_drivers": bool(_drivers(universe, name)),
+        }
+
+    return {
+        "subject": meta(key),
+        "drivers": [meta(name) for name in declared if universe.known(name)],
+        "driver": meta(chosen) if chosen else None,
+        "from": path[0]["day"] if path else None,
+        "to": path[-1]["day"] if path else None,
+        "path": path,
+        "slope": slope,
+        "dependents": [row for _, row in rows],
+        "note": (
+            "Die Treiber sind eine hinterlegte Annahme über die Welt, kein Befund; der Weg zeigt, "
+            f"ob die Daten dazu passen. {ESTIMATE}"
         ),
     }

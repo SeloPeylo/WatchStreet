@@ -4,7 +4,7 @@ import type { Json } from "./api";
 import { day, del, get, num, post } from "./api";
 import { Chart, Spark } from "./Macro";
 
-const TABS: [string, string][] = [["matrix", "Massstab-Matrix"], ["chain", "Hebelkette"], ["lens", "Linse"], ["regime", "Regimekarte"]];
+const TABS: [string, string][] = [["ladder", "Treiberleiter"], ["matrix", "Massstab-Matrix"], ["chain", "Hebelkette"], ["lens", "Linse"], ["regime", "Regimekarte"]];
 const YEARS: [string, number][] = [["1 J", 1], ["3 J", 3], ["5 J", 5], ["10 J", 10]];
 const LINK_COLORS = ["var(--warn)", "var(--accent)", "var(--ok)", "var(--demo)", "var(--bad)"];
 const signed = (value: number | null | undefined, unit = " %") => (value == null ? "–" : `${value >= 0 ? "+" : ""}${num(value)}${unit}`);
@@ -273,8 +273,113 @@ function Regime({ series }: { series: Json[] }) {
   );
 }
 
+// ---------------------------------------------------------------- driver ladder
+const SPACE = { w: 1000, h: 560 };
+
+/** The path through (driver, value); in space the third axis is time and the view can be turned. */
+function Path3({ data, space, angle }: { data: Json; space: boolean; angle: number }) {
+  const [hover, setHover] = useState<Json | null>(null);
+  const geo = useMemo(() => {
+    const pts: Json[] = data.path;
+    const span = (get: (p: Json) => number) => { const v = pts.map(get); return [Math.min(...v), Math.max(...v)]; };
+    const [x0, x1] = span((p) => p.x), [y0, y1] = span((p) => p.y);
+    const t0 = Date.parse(pts[0].day), t1 = Date.parse(pts[pts.length - 1].day);
+    const unit = (v: number, lo: number, hi: number) => ((v - lo) / (hi - lo || 1)) * 2 - 1;
+    const rad = (angle * Math.PI) / 180;
+    // orthographic view: turn around the value axis, then tilt slightly so depth is readable
+    const project = (x: number, y: number, z: number): [number, number] => {
+      if (!space) return [SPACE.w / 2 + x * 400, SPACE.h / 2 - y * 220];
+      const rx = x * Math.cos(rad) + z * Math.sin(rad);
+      const rz = -x * Math.sin(rad) + z * Math.cos(rad);
+      return [SPACE.w / 2 + rx * 300, SPACE.h / 2 - y * 190 - rz * 60];
+    };
+    const at = (p: Json) => project(unit(p.x, x0, x1), unit(p.y, y0, y1), unit(Date.parse(p.day), t0, t1));
+    const years: Json[] = [];
+    pts.forEach((p, i) => { if (i === 0 || p.day.slice(0, 4) !== pts[i - 1].day.slice(0, 4)) years.push(p); });
+    const corners = [-1, 1].flatMap((x) => [-1, 1].flatMap((y) => [-1, 1].map((z) => [x, y, z] as [number, number, number])));
+    const edges = corners.flatMap((a, i) => corners.slice(i + 1).filter((b) => a.filter((v, k) => v !== b[k]).length === 1).map((b) => [project(...a), project(...b)]));
+    return { at, years, edges, project, x0, x1, y0, y1 };
+  }, [data, space, angle]);
+  const pts: Json[] = data.path;
+  const last = pts[pts.length - 1];
+  const shown = hover ?? last;
+  return (
+    <>
+      <div className="small chartread" data-testid="ladder-read"><b>{day(shown.day)}</b>{hover ? "" : " (letzter Wert)"} · {data.driver.label}: {num(shown.x)} {data.driver.unit} · {data.subject.label}: {num(shown.y)} {data.subject.unit}</div>
+      <svg className="regime" viewBox={`0 0 ${SPACE.w} ${SPACE.h}`} onMouseLeave={() => setHover(null)} data-testid="ladder-plot">
+        {space ? geo.edges.map(([a, b], i) => <line key={i} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="var(--line)" />)
+          : <rect x={SPACE.w / 2 - 400} y={SPACE.h / 2 - 220} width={800} height={440} fill="none" stroke="var(--line)" />}
+        {space && pts.filter((_, i) => i % 4 === 0).map((p) => { const [x, y] = geo.at(p); const floor = geo.project(((p.x - geo.x0) / (geo.x1 - geo.x0 || 1)) * 2 - 1, -1, ((Date.parse(p.day) - Date.parse(pts[0].day)) / (Date.parse(last.day) - Date.parse(pts[0].day) || 1)) * 2 - 1); return <line key={p.day} x1={x} y1={y} x2={floor[0]} y2={floor[1]} stroke="var(--line)" strokeDasharray="2 3" />; })}
+        {pts.slice(1).map((p, i) => { const [a, b] = [geo.at(pts[i]), geo.at(p)]; return <line key={p.day} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="var(--accent)" strokeWidth="1.8" opacity={0.15 + 0.85 * ((i + 1) / pts.length)} />; })}
+        {pts.map((p) => { const [x, y] = geo.at(p); return <circle key={p.day} cx={x} cy={y} r="7" fill="transparent" onMouseEnter={() => setHover(p)} />; })}
+        {geo.years.map((p) => { const [x, y] = geo.at(p); return <text key={p.day} x={x + 6} y={y - 6} fontSize="11" fill="var(--muted)">{p.day.slice(0, 4)}</text>; })}
+        {(() => { const [x, y] = geo.at(last); return <circle cx={x} cy={y} r="8" fill="none" stroke="var(--text)" strokeWidth="2" />; })()}
+        <text x={SPACE.w / 2} y={SPACE.h - 8} textAnchor="middle" fontSize="11" fill="var(--muted)">→ {data.driver.label} ({data.driver.unit}) · {num(geo.x0)} bis {num(geo.x1)}{space ? " · Tiefe: Zeit" : ""}</text>
+        <text x={12} y={SPACE.h / 2} textAnchor="middle" fontSize="11" fill="var(--muted)" transform={`rotate(-90 12 ${SPACE.h / 2})`}>↑ {data.subject.label} ({data.subject.unit}) · {num(geo.y0)} bis {num(geo.y1)}</text>
+      </svg>
+    </>
+  );
+}
+
+function Slope({ slope }: { slope: Json | null }) {
+  if (!slope) return <span className="muted">zu wenige gemeinsame Änderungen</span>;
+  const stable = slope.first_half != null && slope.second_half != null && Math.sign(slope.first_half) === Math.sign(slope.second_half);
+  return <span title={`Bestimmtheitsmass ${num(slope.r2)} · ${slope.n} Änderungen`}><b>{signed(slope.beta, "")}</b> {slope.unit} <span className="muted">· erklärt {num(slope.r2 * 100)} % · n = {slope.n} · Hälften {signed(slope.first_half, "")} / {signed(slope.second_half, "")}{stable ? "" : " (Vorzeichen wechselt)"}</span></span>;
+}
+
+function Ladder({ series, start }: { series: Json[]; start: string }) {
+  const [trail, setTrail] = useState<string[]>([start]);
+  const [driver, setDriver] = useState("");
+  const [years, setYears] = useState(3);
+  const [space, setSpace] = useState(false);
+  const [angle, setAngle] = useState(35);
+  const [data, setData] = useState<Json | null>(null);
+  const [error, setError] = useState("");
+  const key = trail[trail.length - 1];
+  useEffect(() => {
+    get("/charts/ladder", { key, driver, years: String(years) }).then((d) => { setData(d); setError(""); }).catch((e) => { setData(null); setError(e.message); });
+  }, [key, driver, years]);
+  const go = (next: string) => { setDriver(""); setTrail((t) => (t.includes(next) ? t.slice(0, t.indexOf(next) + 1) : [...t, next])); };
+  const label = (k: string) => series.find((s) => s.key === k)?.label ?? k;
+  return (
+    <div data-testid="ladder">
+      <p className="small muted">Jeder Wert wird gegen das gezeigt, was hinter ihm steht: die Aktie gegen ihren Rohstoff, der Rohstoff gegen Realzins und Dollar, diese gegen Inflation und Liquidität, die Inflation gegen Energie. Die Zeit ist keine Achse, sondern der Weg (blass = früher, Ring = heute). „Eine Stufe tiefer“ macht den Treiber selbst zum Gegenstand.</p>
+      <div className="row small" style={{ marginBottom: 8 }}>
+        <SeriesSelect testid="ladder-subject" series={series} value={key} set={(v) => { setDriver(""); setTrail([v]); }} />
+        <span className="row" data-testid="ladder-trail">{trail.map((k, i) => <span key={k}>{i > 0 && " → "}<button className={i === trail.length - 1 ? "on" : ""} onClick={() => go(k)}>{label(k)}</button></span>)}</span>
+        <span className="right row"><Years value={years} set={setYears} /><label><input type="checkbox" data-testid="ladder-space" checked={space} onChange={() => setSpace(!space)} /> Raum (Zeit als Tiefe)</label>{space && <input type="range" min={-80} max={80} value={angle} onChange={(e) => setAngle(Number(e.target.value))} title="drehen" />}</span>
+      </div>
+      {error && <div className="note">{error}</div>}
+      {data && (
+        <>
+          <div className="box">
+            <div className="row">
+              <h2 style={{ margin: 0 }}>{data.subject.label}</h2>
+              {data.drivers.length > 0 ? <span className="small muted">gegen</span> : <span className="small muted">Für diese Reihe ist kein Treiber hinterlegt – hier endet die Leiter.</span>}
+              {data.drivers.map((d: Json) => <button key={d.key} className={data.driver?.key === d.key ? "on" : ""} data-testid={`driver-${d.key}`} onClick={() => setDriver(d.key)}>{d.label}</button>)}
+              {data.driver?.has_drivers && <button className="primary right" data-testid="ladder-deeper" onClick={() => go(data.driver.key)}>Eine Stufe tiefer: {data.driver.label} →</button>}
+            </div>
+            {data.path.length > 1 ? <Path3 data={data} space={space} angle={angle} /> : data.driver && <div className="muted small chartempty">Keine gemeinsamen Werte in diesem Zeitraum.</div>}
+            {data.driver && <p className="small" data-testid="ladder-slope">Empfindlichkeit von {data.subject.label} auf {data.driver.label}: <Slope slope={data.slope} /></p>}
+            <p className="small muted">{data.note}</p>
+          </div>
+          <div className="box">
+            <h3>Was hängt an {data.subject.label}?</h3>
+            {data.dependents.length === 0 ? <p className="small muted">Nichts Hinterlegtes.</p> : (
+              <table className="small" data-testid="ladder-dependents">
+                <thead><tr><th>Wert</th><th>Empfindlichkeit auf {data.subject.label} (Schätzung)</th></tr></thead>
+                <tbody>{data.dependents.map((d: Json) => <tr key={d.key}><td><button className="link" onClick={() => { setDriver(""); setTrail([d.key]); }}>{d.label}</button></td><td><Slope slope={d.slope} /></td></tr>)}</tbody>
+              </table>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function Charts() {
-  const [tab, setTab] = useState("matrix");
+  const [tab, setTab] = useState("ladder");
   const [series, setSeries] = useState<Json[]>([]);
   const [subject, setSubject] = useState("");
   useEffect(() => {
@@ -289,6 +394,7 @@ export function Charts() {
         {TABS.map(([key, label]) => <button key={key} data-testid={`tab-${key}`} className={tab === key ? "on" : ""} onClick={() => setTab(key)}>{label}</button>)}
         <span className="muted small">Alles hier ist Rechnung auf gespeicherten Werten – keine Prognose, kein Signal.</span>
       </div>
+      {tab === "ladder" && subject && <Ladder series={series} start={subject} />}
       {tab === "matrix" && <Matrix openChain={(key) => { if (key !== "gold") { setSubject(key); setTab("chain"); } }} />}
       {tab === "chain" && <Chain series={series} subject={subject} setSubject={setSubject} />}
       {tab === "lens" && <Lens series={series} subject={subject} setSubject={setSubject} />}
