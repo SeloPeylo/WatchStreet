@@ -130,3 +130,4 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; } td.n { text-align
 .rungstep { padding: 6px 10px 6px 24px; color: var(--muted); } .pill.warn { background: var(--warn); color: #fff; }
 .clockgrid { display: grid; grid-template-columns: minmax(320px, 640px) 1fr; gap: 20px; align-items: start; } .clock { width: 100%; height: auto; display: block; cursor: crosshair; }
 @media (max-width: 900px) { .clockgrid, .rung { grid-template-columns: 1fr; } }
+select { max-width: 100%; }

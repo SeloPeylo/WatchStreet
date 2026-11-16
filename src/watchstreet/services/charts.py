@@ -65,6 +65,10 @@ YARDSTICKS: tuple[tuple[str, str, str], ...] = (
     ("oil", "Rohöl", "Barrel Rohöl"),
 )
 MONTHLY_YARDSTICK = {"real": "CPIAUCSL", "m2": "M2SL"}
+POINTS = (
+    "Ein Punkt ist der Logarithmus der Änderung mal 100: bei kleinen Änderungen etwa ein "
+    "Prozent, und im Unterschied zu Prozenten lassen sich Punkte addieren."
+)
 ACCOUNTING = "Rechnung, keine Aussage über Ursachen: „gemessen in“, nicht „wegen“."
 
 
@@ -290,7 +294,8 @@ def chain(session: Session, key: str, years: float) -> dict[str, Any]:
         raise ChartError("Für diese Reihe ist kein Kursverlauf gespeichert")
     end = asset[-1][0]
     start = end - timedelta(days=round(years * DAYS_PER_YEAR))
-    days = [d for d, _ in asset if d >= start]
+    base = rules.level_on(asset, start, SERIES_MAX_GAP_DAYS * 4)  # same base day as the matrix
+    days = [d for d, _ in asset if d >= (base[0] if base else start)]
     path = rules.chain_path(series, links, days, SERIES_MAX_GAP_DAYS)
     if len(path) < MIN_PATH:
         raise ChartError("Zu wenige gemeinsame Beobachtungen für diesen Zeitraum")
@@ -316,8 +321,8 @@ def chain(session: Session, key: str, years: float) -> dict[str, Any]:
         "observed": {name: day.isoformat() for name, day in (used[1] if used else {}).items()},
         "commodity": universe.commodity(key),
         "note": (
-            f"{ACCOUNTING} Die Glieder multiplizieren sich zum Kurs; ihre Beiträge sind "
-            "Logarithmus-Punkte und addieren sich exakt zur Gesamtänderung. Für andere Reihen "
+            f"{ACCOUNTING} Die Glieder multiplizieren sich zum Kurs; ihre Beiträge sind Punkte "
+            f"und addieren sich exakt zur Gesamtänderung. {POINTS} Für andere Reihen "
             f"gilt der letzte Wert, der höchstens {SERIES_MAX_GAP_DAYS} Tage alt ist."
         ),
     }
@@ -487,6 +492,8 @@ DRIVERS: dict[str, tuple[str, ...]] = {
     "SP500": ("NETLIQ", "DFII10"),
 }
 RATE_UNITS = ("%", "Prozentpunkte")
+OVERLAPPING_UNIT = "Vorjahresmonat"  # yearly rates of monthly data share eleven months
+WEAK_T = 2.0  # below this the slope cannot be told from zero
 ESTIMATE = (
     "Schätzung aus vergangenen Änderungen, keine Regel: Steigungen schwanken mit dem Zeitraum, "
     "und ein Zusammenhang ist keine Ursache."
@@ -527,10 +534,17 @@ def _slope(universe: Universe, target: str, driver: str, start: date) -> dict[st
         rules.sensitivity(part, b, min_obs=SENSITIVITY_MIN_OBS // 2, **kind)
         for part in ([p for p in a if p[0] < middle], [p for p in a if p[0] >= middle])
     ]
+    first = halves[0]["beta"] if halves[0] else None
+    second = halves[1]["beta"] if halves[1] else None
+    flips = first is not None and second is not None and (first > 0) != (second > 0)
+    overlapping = any(OVERLAPPING_UNIT in universe.unit(name) for name in (target, driver))
     return {
         **whole,
-        "first_half": halves[0]["beta"] if halves[0] else None,
-        "second_half": halves[1]["beta"] if halves[1] else None,
+        "t": whole["t"] if math.isfinite(whole["t"]) else None,
+        "first_half": first,
+        "second_half": second,
+        "weak": abs(whole["t"]) < WEAK_T or flips,
+        "overlapping": overlapping,
         "unit": ("% je 1 %" if kind["relative_target"] else "Punkte je 1 %")
         if kind["relative_driver"]
         else ("% je Prozentpunkt" if kind["relative_target"] else "Punkte je Prozentpunkt"),
@@ -613,7 +627,7 @@ def ladder(session: Session, key: str, driver: str, years: float) -> dict[str, A
             "Vom Treiber erklärt = Summe aus (Änderung des Treibers × Empfindlichkeit), wobei die "
             "Empfindlichkeit an jedem Tag nur aus früheren Änderungen geschätzt ist. Der Rest ist "
             "der eigene Anteil. Beide addieren sich zur Gesamtänderung seit dem ersten Tag mit "
-            f"mindestens {SENSITIVITY_MIN_OBS} Beobachtungen. {ESTIMATE}"
+            f"mindestens {SENSITIVITY_MIN_OBS} Beobachtungen. {POINTS} {ESTIMATE}"
         ),
         "dependents": [row for _, row in rows],
         "note": (
@@ -671,8 +685,10 @@ def sheet(session: Session, key: str, years: float) -> dict[str, Any]:
         "years": years,
         "note": (
             "„Ungewöhnlich“ misst die Änderung des letzten Monats in Standardabweichungen aller "
-            "Monatsänderungen des gezeigten Zeitraums: ab etwa ±2 ist die Bewegung selten. Es ist "
-            "eine Beschreibung der Vergangenheit, kein Signal."
+            "Monatsänderungen des gezeigten Zeitraums. Ab etwa ±2 ist die Stufe markiert; bei "
+            "Kursen kommen grosse Ausschläge allerdings häufiger vor, als diese Zahl nahelegt. "
+            "Welche Reihe hinter welcher steht, ist hinterlegt, nicht gemessen: Ist die "
+            "Empfindlichkeit grau, zeigen die Daten des Zeitraums keinen belastbaren Zusammenhang."
         ),
     }
 

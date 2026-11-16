@@ -254,3 +254,44 @@ und Importen je Nutzer.
 
 **In diesem Durchlauf umgesetzt**: Rohöl, Erdgas und Holz im Rohstoffkatalog; Makro-Reihen für
 Erdgas, Baubeginne und Hypothekenzins; Verhältnis Holz ÷ Gold; Umschalter Hell/Dunkel.
+
+
+## Achter Durchlauf: Pilot der Charts mit fünf Personas (17. November 2026)
+
+Fünf Unteragenten haben die Anwendung im Browser bedient (Demo-Daten): Anfängerin,
+Junior-Minen-Spekulant, Makro-Traderin, Profi-Analyst, langfristige Sparerin.
+
+| Ansicht | Urteil | Begründung |
+|---|---|---|
+| Massstab-Matrix | behalten (5 von 5) | beantwortet „echt oder nur der Dollar?“ auf einen Blick |
+| Hebelkette | behalten (4), ändern (1) | Summen stimmen; Kette ist fest, nicht wählbar |
+| Eigenwert | behalten (2), ändern (3) | trifft die Frage „Metall oder Firma?“; Sprache zu fachlich, bei schwacher Schätzung Rauschen |
+| Ganze Leiter | behalten (3), ändern (2) | zeigt, was sich bewegt; reihte Treiber auch ohne belastbaren Zusammenhang auf |
+| Weg | behalten (1), ändern (4) | ohne Zeitmarken schwer lesbar, auf dem Telefon unbrauchbar |
+| Raum (3-D) | ändern (1), Spielerei (1) | Drehung funktioniert, bringt gegenüber dem Weg keine zusätzliche Information |
+| Zyklusuhr | ändern (2), rauswerfen (3) | Beschriftung zu klein, wenige Umläufe, Zeiträume mit einem Wert |
+| Linse | behalten/ausbauen (1), nichts für Laien (1) | Einheitenprüfung besser als TradingView; Monats- gegen Tagesreihe ergibt fast nichts |
+| Regimekarte | behalten (1), ändern (2) | „Kauf/Verkauf“ in der Legende wirkte wie ein Signal |
+
+**Sofort umgesetzt**: schwache Schätzungen grau mit t-Wert statt „hängt an“; Hinweis bei
+überlappenden Jahresraten; „Punkte“ erklärt und der Eigenwert in einem Satz mit Prozent; Hebelkette
+und Matrix nutzen denselben Ausgangstag; die Auswahl bleibt beim Wechsel des Reiters; die Leiter
+endet, wo sich der Kreis schliesst; grössere Schrift an der Zyklusuhr, Zeiträume unter drei Werten
+nicht aufgeführt; Legende der Regimekarte spricht von „deinem“ Kauf; Auswahlfelder laufen auf dem
+Telefon nicht mehr aus dem Bildschirm.
+
+**Offen – Muss**
+
+1. Einfache Sprache: ein Satz „Was bewegt meine Aktie?“ oben und „Was heisst das?“ an jeder Zahl (3 Personas).
+2. Linse: Monatsreihen gegen Tages- und Wochenreihen verrechnen (letzter veröffentlichter Wert, gekennzeichnet), Frequenzwahl.
+3. Mehrere Treiber zugleich (Regression auf zwei bis drei Faktoren) und eine eigene Treibertabelle des Nutzers.
+4. Unternehmensseite: „Kasse heute 0“ neben „Kasse 9 Mio.“ und „Reichweite 0 Monate“ neben „8 Monate“ erklären oder abgleichen; Kursverlauf und Bohrergebnisse mit Datum.
+5. Nenner-Umschalter in der Makro-Ansicht ist nicht auffindbar (2 Personas).
+6. Monatszusammenfassung „Was hat sich für mein Depot geändert?“.
+
+**Offen – Soll**: Überlagerung zweier Reihen; weitere Funktionen (Korrelation, z-Wert, Vergleiche);
+Aliase und Vorschläge beim Tippen; Unsicherheitsband an der Steigung; CSV-Export; Regime mit
+Schwellen beschriften; Weg auf dem Telefon; Jahreszahlen überlagern Achsentitel im Weg und im Raum.
+
+**Entscheidung offen**: Zyklusuhr und Raum behalten oder entfernen. Drei von fünf würden die
+Zyklusuhr streichen; ein belastbares Urteil braucht echte Daten mit mehreren Umläufen.

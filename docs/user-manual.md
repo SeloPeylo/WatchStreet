@@ -407,6 +407,11 @@ Inflation gegen Energie. Welche Treiber hinter einer Reihe stehen, ist eine hint
 
 ![Eigenwert](screenshots/38_eigenwert.png)
 
+Ist eine Empfindlichkeit grau („kein belastbarer Zusammenhang im Zeitraum“), lässt sich die Steigung
+nicht von null unterscheiden (t-Wert unter 2) oder sie wechselt zwischen den Hälften das Vorzeichen.
+Bei Jahresraten von Monatsdaten überlappen die Beobachtungen; die Anwendung weist darauf hin, dass
+Anzahl und t-Wert dort überschätzt sind.
+
 Unter Weg, Zyklusuhr und Eigenwert steht, was am betrachteten Wert hängt, mit der geschätzten
 Empfindlichkeit (Steigung der Änderungen), dem erklärten Anteil, der Zahl der Beobachtungen und der
 Steigung in beiden Hälften des Zeitraums.
@@ -421,7 +426,7 @@ eigene Skala: vergleichbar sind die Prozentzahlen, nicht die Formen.
 
 **Hebelkette** – zerlegt die Kursänderung in Glieder, die sich zum Kurs multiplizieren: Währung
 (nur bei Aktien ausserhalb des Dollars), Goldpreis, Rohstoff gemessen in Gold, Unternehmen gemessen
-im Rohstoff. Die Beiträge sind Logarithmus-Punkte und addieren sich exakt zur Gesamtänderung; der
+im Rohstoff. Die Beiträge sind Punkte (Logarithmus der Änderung mal 100, bei kleinen Änderungen etwa Prozent) und addieren sich exakt zur Gesamtänderung; der
 untere Chart zeigt, wann welcher Beitrag kam. Das ist Buchhaltung, keine Ursachenaussage: „gemessen
 in“, nicht „wegen“. Der Rohstoff ist der häufigste Hauptrohstoff der Objekte des Unternehmens.
 

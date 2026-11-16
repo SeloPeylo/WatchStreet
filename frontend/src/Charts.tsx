@@ -98,7 +98,7 @@ function Chain({ series, subject, setSubject }: { series: Json[]; subject: strin
         <>
           <div className="box">
             <h2>{data.label}: {signed(data.total_pct)} in {data.currency}</h2>
-            <p className="small muted">{day(data.from)} bis {day(data.to)} · entspricht {signed(data.total_log, "")} Logarithmus-Punkten. Die Balken hängen aneinander und enden bei der Gesamtänderung.</p>
+            <p className="small muted">{day(data.from)} bis {day(data.to)} · entspricht {signed(data.total_log, "")} Punkten. Die Balken hängen aneinander und enden bei der Gesamtänderung.</p>
             <div className="waterfall">
               {bars.steps.map((s: Json, i: number) => (
                 <div key={s.label} className="wrow" data-testid="chain-link">
@@ -143,7 +143,7 @@ function Lines({ path, labels }: { path: Json[]; labels: string[] }) {
         {labels.map((label, i) => <path key={label} fill="none" stroke={LINK_COLORS[i % LINK_COLORS.length]} strokeWidth="1.8" vectorEffect="non-scaling-stroke" d={path.map((p, j) => `${j ? "L" : "M"}${x(j).toFixed(1)},${y(p.values[i]).toFixed(1)}`).join(" ")} />)}
         {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={0} y2={H} stroke="var(--muted)" vectorEffect="non-scaling-stroke" />}
       </svg>
-      <div className="small muted">{day(path[0].day)} bis {day(path[path.length - 1].day)} · Logarithmus-Punkte seit Beginn; die Linien addieren sich an jedem Tag zur Kursänderung.</div>
+      <div className="small muted">{day(path[0].day)} bis {day(path[path.length - 1].day)} · Punkte seit Beginn (etwa Prozent); die Linien addieren sich an jedem Tag zur Kursänderung.</div>
     </>
   );
 }
@@ -266,7 +266,7 @@ function Regime({ series }: { series: Json[] }) {
             <text x={W / 2} y={H - 10} textAnchor="middle" fontSize="11" fill="var(--muted)">{data.x.label} ({data.x.unit}) · {num(geo.x0)} bis {num(geo.x1)}</text>
             <text x={14} y={H / 2} textAnchor="middle" fontSize="11" fill="var(--muted)" transform={`rotate(-90 14 ${H / 2})`}>{data.y.label} ({data.y.unit}) · {num(geo.y0)} bis {num(geo.y1)}</text>
           </svg>
-          <p className="small muted">Linie: Weg von {day(data.from)} (blass) bis heute (kräftig, Ring). ▲ grün = Kauf, ▽ = Verkauf, ▲ gelb = Anpassung aus dem Entscheidungsprotokoll{geo.marks.length === 0 ? " – in diesem Zeitraum gibt es keine Einträge" : ""}. {data.note}</p>
+          <p className="small muted">Linie: Weg von {day(data.from)} (blass) bis heute (kräftig, Ring). ▲ grün = dein Kauf, ▽ = dein Verkauf, ▲ gelb = deine Anpassung – Einträge aus deinem Entscheidungsprotokoll, keine Empfehlung{geo.marks.length === 0 ? " – in diesem Zeitraum gibt es keine Einträge" : ""}. {data.note}</p>
         </div>
       )}
     </div>
@@ -349,8 +349,10 @@ function Space({ data, space }: { data: Json; space: boolean }) {
 
 function Slope({ slope }: { slope: Json | null }) {
   if (!slope) return <span className="muted">zu wenige gemeinsame Änderungen</span>;
-  const stable = slope.first_half != null && slope.second_half != null && Math.sign(slope.first_half) === Math.sign(slope.second_half);
-  return <span title={`Bestimmtheitsmass ${num(slope.r2)} · ${slope.n} Änderungen`}><b>{signed(slope.beta, "")}</b> {slope.unit} <span className="muted">· erklärt {num(slope.r2 * 100)} % · n = {slope.n} · Hälften {signed(slope.first_half, "")} / {signed(slope.second_half, "")}{stable ? "" : " (Vorzeichen wechselt)"}</span></span>;
+  const detail = `erklärt ${num(slope.r2 * 100)} % · t = ${slope.t == null ? "–" : num(slope.t)} · n = ${slope.n} · Hälften ${signed(slope.first_half, "")} / ${signed(slope.second_half, "")}`;
+  const overlap = slope.overlapping ? " · Jahresraten überlappen: n und t sind überschätzt" : "";
+  if (slope.weak) return <span className="muted" data-testid="slope-weak" title={`${signed(slope.beta, "")} ${slope.unit} · ${detail}${overlap}`}>kein belastbarer Zusammenhang im Zeitraum ({signed(slope.beta, "")} {slope.unit}, t = {slope.t == null ? "–" : num(slope.t)}{overlap})</span>;
+  return <span><b>{signed(slope.beta, "")}</b> {slope.unit} <span className="muted">· {detail}{overlap}</span></span>;
 }
 
 /** The whole ladder on one sheet: every rung with its latest move and how unusual that move is. */
@@ -371,7 +373,7 @@ function Sheet({ subject, years, open }: { subject: string; years: number; open:
               <span className="small">letzter Monat: <b className={r.move == null ? "" : r.move >= 0 ? "up" : "down"}>{signed(r.move, ` ${r.move_unit}`)}</b><br />
                 <span className={rare ? "pill warn" : "muted"}>{r.unusual == null ? "zu wenige Werte" : `${signed(r.unusual, "")} Standardabweichungen${rare ? " – selten" : ""}`}</span></span>
             </div>
-            {r.next && <div className="rungstep small">↓ hängt an <b>{r.next}</b>: <Slope slope={r.slope} /></div>}
+            {r.next && <div className="rungstep small">↓ hinterlegter Treiber <b>{r.next}</b>: <Slope slope={r.slope} /></div>}
           </div>
         );
       })}
@@ -415,7 +417,7 @@ function Clock({ subject, driver, years }: { subject: string; driver: string; ye
           onMouseMove={(e) => { const box = e.currentTarget.getBoundingClientRect(); const [mx, my] = [((e.clientX - box.left) / box.width) * S, ((e.clientY - box.top) / box.height) * S]; let best = 0, dist = Infinity; geo.screen.forEach(([x, y]: [number, number], i: number) => { const d = (x - mx) ** 2 + (y - my) ** 2; if (d < dist) { dist = d; best = i; } }); setHover(dist < 30 ** 2 ? data.points[best] : null); }}>
           <path d={wedge} fill="var(--accent)" opacity="0.1" />
           {[0.22, 0.61, 1].map((share) => <circle key={share} cx={C} cy={C} r={R * share} fill="none" stroke="var(--line)" />)}
-          {data.sectors.map((name: string, i: number) => { const [x, y] = geo.ray(i * width + width / 2, R); const [tx, ty] = geo.ray(i * width, R + 26); return <g key={name}><line x1={C} y1={C} x2={x} y2={y} stroke="var(--line)" strokeDasharray="2 4" /><text x={tx} y={ty} textAnchor="middle" dominantBaseline="middle" fontSize="11" fill={i === data.today ? "var(--text)" : "var(--muted)"} fontWeight={i === data.today ? 700 : 400}>{name}</text></g>; })}
+          {data.sectors.map((name: string, i: number) => { const [x, y] = geo.ray(i * width + width / 2, R); const [tx, ty] = geo.ray(i * width, R + 26); return <g key={name}><line x1={C} y1={C} x2={x} y2={y} stroke="var(--line)" strokeDasharray="2 4" /><text x={tx} y={ty} textAnchor="middle" dominantBaseline="middle" fontSize="15" fill={i === data.today ? "var(--text)" : "var(--muted)"} fontWeight={i === data.today ? 700 : 400}>{name}</text></g>; })}
           {data.points.slice(1).map((p: Json, i: number) => <line key={p.day} x1={geo.screen[i][0]} y1={geo.screen[i][1]} x2={geo.screen[i + 1][0]} y2={geo.screen[i + 1][1]} stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" opacity={0.15 + 0.85 * ((i + 1) / data.points.length)} />)}
           {hover && <circle cx={geo.at(hover)[0]} cy={geo.at(hover)[1]} r="4" fill="var(--accent)" />}
           <circle cx={geo.at(last)[0]} cy={geo.at(last)[1]} r="8" fill="none" stroke="var(--text)" strokeWidth="2" />
@@ -427,9 +429,9 @@ function Clock({ subject, driver, years }: { subject: string; driver: string; ye
           <p className="small">Heute: <b>{data.sectors[data.today]}</b> ({data.driver.label}).</p>
           <table className="small" data-testid="clock-episodes">
             <thead><tr><th>Zeitraum</th><th>Werte</th><th>{data.subject.label} in dieser Zeit</th></tr></thead>
-            <tbody>{data.episodes.map((e: Json) => <tr key={e.from}><td>{day(e.from)} – {day(e.to)}</td><td>{e.n}</td><td className={e.change_pct == null ? "" : e.change_pct >= 0 ? "up" : "down"}>{signed(e.change_pct)}</td></tr>)}</tbody>
+            <tbody>{data.episodes.filter((e: Json) => e.n >= 3).map((e: Json) => <tr key={e.from}><td>{day(e.from)} – {day(e.to)}</td><td>{e.n}</td><td className={e.change_pct == null ? "" : e.change_pct >= 0 ? "up" : "down"}>{signed(e.change_pct)}</td></tr>)}</tbody>
           </table>
-          <p className="small muted">Die Änderung gilt während des Zeitraums, nicht danach. {data.episodes.length < 4 ? "Das sind zu wenige Zeiträume für irgendeine Regel. " : ""}</p>
+          <p className="small muted">Die Änderung gilt während des Zeitraums, nicht danach. Zeiträume mit weniger als drei Werten sind nicht aufgeführt. {data.episodes.filter((e: Json) => e.n >= 3).length < 4 ? "Das sind zu wenige Zeiträume für irgendeine Regel. " : ""}</p>
         </div>
       </div>
       <p className="small muted">{data.note} Die Bewegung des Treibers ist über {data.span} Beobachtungen gemessen.</p>
@@ -439,8 +441,9 @@ function Clock({ subject, driver, years }: { subject: string; driver: string; ye
 
 const LADDER_VIEWS: [string, string][] = [["sheet", "Ganze Leiter"], ["path", "Weg"], ["clock", "Zyklusuhr"], ["own", "Eigenwert"]];
 
-function Ladder({ series, start }: { series: Json[]; start: string }) {
+function Ladder({ series, start, setStart }: { series: Json[]; start: string; setStart: (v: string) => void }) {
   const [trail, setTrail] = useState<string[]>([start]);
+  useEffect(() => { setTrail((t) => (t[0] === start ? t : [start])); }, [start]);
   const [driver, setDriver] = useState("");
   const [years, setYears] = useState(3);
   const [view, setView] = useState("sheet");
@@ -458,7 +461,7 @@ function Ladder({ series, start }: { series: Json[]; start: string }) {
     <div data-testid="ladder">
       <p className="small muted">Jeder Wert wird gegen das gezeigt, was hinter ihm steht: die Aktie gegen ihren Rohstoff, der Rohstoff gegen Realzins und Dollar, diese gegen Inflation und Liquidität, die Inflation gegen Energie.</p>
       <div className="row small" style={{ marginBottom: 8 }}>
-        <SeriesSelect testid="ladder-subject" series={series} value={key} set={(v) => { setDriver(""); setTrail([v]); }} />
+        <SeriesSelect testid="ladder-subject" series={series} value={key} set={(v) => { setDriver(""); setTrail([v]); setStart(v); }} />
         <span className="row" data-testid="ladder-trail">{trail.map((k, i) => <span key={k}>{i > 0 && " → "}<button className={i === trail.length - 1 ? "on" : ""} onClick={() => go(k)}>{label(k)}</button></span>)}</span>
         <span className="right row">{LADDER_VIEWS.map(([k, name]) => <button key={k} data-testid={`view-${k}`} className={view === k ? "on" : ""} onClick={() => setView(k)}>{name}</button>)}<Years value={years} set={setYears} /></span>
       </div>
@@ -471,13 +474,17 @@ function Ladder({ series, start }: { series: Json[]; start: string }) {
             {data.drivers.length > 0 ? <span className="small muted">gegen</span> : <span className="small muted">Für diese Reihe ist kein Treiber hinterlegt – hier endet die Leiter.</span>}
             {data.drivers.map((d: Json) => <button key={d.key} className={data.driver?.key === d.key ? "on" : ""} data-testid={`driver-${d.key}`} onClick={() => setDriver(d.key)}>{d.label}</button>)}
             {view === "path" && <label className="small"><input type="checkbox" data-testid="ladder-space" checked={space} onChange={() => setSpace(!space)} /> Raum (Zeit als dritte Achse)</label>}
-            {data.driver?.has_drivers && <button className="primary right" data-testid="ladder-deeper" onClick={() => go(data.driver.key)}>Eine Stufe tiefer: {data.driver.label} →</button>}
+            {data.driver?.has_drivers && !trail.includes(data.driver.key) && <button className="primary right" data-testid="ladder-deeper" onClick={() => go(data.driver.key)}>Eine Stufe tiefer: {data.driver.label} →</button>}
+            {data.driver && trail.includes(data.driver.key) && <span className="small muted right">Hier schliesst sich der Kreis: {data.driver.label} steht schon in der Spur.</span>}
           </div>
           {view === "path" && (data.path.length > 1 ? <Space data={data} space={space} /> : data.driver && <div className="muted small chartempty">Keine gemeinsamen Werte in diesem Zeitraum.</div>)}
           {view === "path" && data.driver && <p className="small" data-testid="ladder-slope">Empfindlichkeit von {data.subject.label} auf {data.driver.label}: <Slope slope={data.slope} /></p>}
           {view === "own" && (ownLast ? (
             <div data-testid="own">
-              <p>Seit {day(data.own[0].day)}: <b>{signed(ownLast.values[0] + ownLast.values[1], "")}</b> Logarithmus-Punkte gesamt, davon <b style={{ color: LINK_COLORS[0] }}>{signed(ownLast.values[0], "")}</b> von {data.driver.label} erklärt und <b style={{ color: LINK_COLORS[1] }} data-testid="own-part">{signed(ownLast.values[1], "")}</b> eigener Anteil von {data.subject.label}.</p>
+              <p data-testid="own-plain"><b>In einem Satz:</b> Seit {day(data.own[0].day)} hat sich {data.subject.label} um <b>{signed((Math.exp((ownLast.values[0] + ownLast.values[1]) / 100) - 1) * 100)}</b> verändert. {data.slope?.weak
+                ? <>{data.driver.label} erklärt davon im Zeitraum nichts Belastbares – die Änderung liegt rechnerisch fast ganz am Wert selbst.</>
+                : <>Rechnerisch kommen <b style={{ color: LINK_COLORS[0] }}>{signed(ownLast.values[0], "")}</b> Punkte von {data.driver.label} und <b style={{ color: LINK_COLORS[1] }}>{signed(ownLast.values[1], "")}</b> Punkte vom Wert selbst.</>}</p>
+              <p className="small muted">Gesamt {signed(ownLast.values[0] + ownLast.values[1], "")} Punkte = <span style={{ color: LINK_COLORS[0] }}>{signed(ownLast.values[0], "")}</span> von {data.driver.label} erklärt + <span style={{ color: LINK_COLORS[1] }} data-testid="own-part">{signed(ownLast.values[1], "")}</span> eigener Anteil.</p>
               <Lines path={data.own} labels={[`von ${data.driver.label} erklärt`, `eigener Anteil (${data.subject.label})`]} />
               <p className="small muted">{data.own_note}</p>
             </div>
@@ -493,7 +500,7 @@ function Ladder({ series, start }: { series: Json[]; start: string }) {
           {data.dependents.length === 0 ? <p className="small muted">Nichts Hinterlegtes.</p> : (
             <table className="small" data-testid="ladder-dependents">
               <thead><tr><th>Wert</th><th>Empfindlichkeit auf {data.subject.label} (Schätzung)</th></tr></thead>
-              <tbody>{data.dependents.map((d: Json) => <tr key={d.key}><td><button className="link" onClick={() => { setDriver(""); setTrail([d.key]); }}>{d.label}</button></td><td><Slope slope={d.slope} /></td></tr>)}</tbody>
+              <tbody>{data.dependents.map((d: Json) => <tr key={d.key}><td><button className="link" onClick={() => { setDriver(""); setTrail([d.key]); setStart(d.key); }}>{d.label}</button></td><td><Slope slope={d.slope} /></td></tr>)}</tbody>
             </table>
           )}
         </div>
@@ -518,7 +525,7 @@ export function Charts() {
         {TABS.map(([key, label]) => <button key={key} data-testid={`tab-${key}`} className={tab === key ? "on" : ""} onClick={() => setTab(key)}>{label}</button>)}
         <span className="muted small">Alles hier ist Rechnung auf gespeicherten Werten – keine Prognose, kein Signal.</span>
       </div>
-      {tab === "ladder" && subject && <Ladder series={series} start={subject} />}
+      {tab === "ladder" && subject && <Ladder series={series} start={subject} setStart={setSubject} />}
       {tab === "matrix" && <Matrix openChain={(key) => { if (key !== "gold") { setSubject(key); setTab("chain"); } }} />}
       {tab === "chain" && <Chain series={series} subject={subject} setSubject={setSubject} />}
       {tab === "lens" && <Lens series={series} subject={subject} setSubject={setSubject} />}

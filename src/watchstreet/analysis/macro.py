@@ -203,7 +203,14 @@ def sensitivity(
     if var_x == 0 or var_y == 0:
         return None
     cov = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys, strict=True))
-    return {"beta": cov / var_x, "r2": cov * cov / (var_x * var_y), "n": float(n)}
+    r2 = cov * cov / (var_x * var_y)
+    # t value of the slope; meaningless for overlapping or autocorrelated changes (caller's note)
+    t = (
+        math.copysign(math.sqrt(r2 * (n - 2) / (1 - r2)), cov)
+        if r2 < 1
+        else math.copysign(math.inf, cov)
+    )
+    return {"beta": cov / var_x, "r2": r2, "n": float(n), "t": t}
 
 
 def own_path(
