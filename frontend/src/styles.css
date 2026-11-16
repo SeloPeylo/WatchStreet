@@ -110,3 +110,16 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; } td.n { text-align
 .chartaxis span { position: absolute; right: 0; transform: translateY(-50%); font-size: 11px; color: var(--muted); width: 64px; text-align: left; }
 .chartyears span { position: absolute; bottom: 4px; transform: translateX(-50%); font-size: 11px; color: var(--muted); }
 .chartread { height: 22px; } .chartempty { padding: 40px 0; }
+.charts .tabs { margin-bottom: 12px; } .charts .box { margin-bottom: 12px; }
+.matrix th { white-space: nowrap; } .matrix td { min-width: 150px; }
+.cell { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; width: 100%; background: none; border: 1px solid transparent; padding: 4px 6px; }
+.cell .spark { grid-column: 1; height: 26px; } .cell .range { grid-column: 1 / 3; position: relative; height: 5px; background: var(--chip); border-radius: 3px; }
+.cell .range i { position: absolute; top: -2px; width: 3px; height: 9px; margin-left: -1px; background: var(--text); border-radius: 1px; }
+.waterfall { display: grid; gap: 6px; margin: 10px 0; } .wrow { display: grid; grid-template-columns: minmax(180px, 280px) 1fr 170px; gap: 10px; align-items: center; }
+.wrow.total { border-top: 1px solid var(--line); padding-top: 6px; font-weight: 600; }
+.wlabel i, .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
+.wbar { position: relative; height: 18px; background: var(--chip); border-radius: 3px; } .wbar b { position: absolute; top: 2px; bottom: 2px; min-width: 2px; border-radius: 2px; }
+.wbar .zero { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--muted); }
+.wvalue { text-align: right; font-variant-numeric: tabular-nums; }
+.lines { width: 100%; height: 260px; display: block; cursor: crosshair; } .regime { width: 100%; height: auto; max-height: 70vh; display: block; }
+@media (max-width: 760px) { .wrow { grid-template-columns: 1fr; gap: 2px; } .wvalue { text-align: left; } }

@@ -10,7 +10,7 @@ const H = 320;
 const PAD = { left: 8, right: 70, top: 10, bottom: 22 };
 const YEAR_MS = 365.25 * 24 * 3600 * 1000;
 
-function Spark({ values }: { values: number[] }) {
+export function Spark({ values }: { values: number[] }) {
   if (values.length < 2) return <svg className="spark" />;
   const lo = Math.min(...values);
   const hi = Math.max(...values);
@@ -19,7 +19,7 @@ function Spark({ values }: { values: number[] }) {
 }
 
 /** Line chart with value axis, year marks and a crosshair that names day and value. */
-function Chart({ points, log, years }: { points: { day: string; value: number }[]; log: boolean; years: number }) {
+export function Chart({ points, log, years }: { points: { day: string; value: number }[]; log: boolean; years: number }) {
   const [hover, setHover] = useState<number | null>(null);
   const shown = useMemo(() => {
     if (points.length === 0 || years === 0) return points;

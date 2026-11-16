@@ -363,6 +363,57 @@ Tag und Wert ablesen.
 * **Entscheidungsprotokoll:** Jeder Kauf und Verkauf hält Realzins, Rendite 10 Jahre, Leitzins,
   Dollar-Index, VIX, Nettoliquidität und Inflationsrate mit ihrem Beobachtungstag fest.
 
+## 10c. Charts
+
+Der Bereich „Charts“ zeigt Preise nicht als eine Linie, sondern in vier Sichten. Alles ist Rechnung
+auf gespeicherten Werten: keine Prognose, kein Signal, keine Lückenfüllung. Die Anwendung speichert
+dafür Wochenschlusskurse aller Aktien, die im Depot, auf der Beobachtungsliste oder an einem
+Unternehmen hängen.
+
+**Massstab-Matrix** – Zeilen sind Aktien und Rohstoffe, Spalten die Massstäbe US-Dollar, Gold,
+Verbraucherpreise, Geldmenge M2 und Rohöl. Jede Zelle zeigt den Verlauf über bis zu zehn Jahre, die
+Änderung über ein Jahr und als Strich die Lage des heutigen Werts in der eigenen Spanne. Ein Klick
+auf eine Zelle vergrössert sie; ein Klick auf den Namen öffnet die Hebelkette. Jede Zelle hat ihre
+eigene Skala: vergleichbar sind die Prozentzahlen, nicht die Formen.
+
+![Massstab-Matrix](screenshots/31_massstab_matrix.png)
+
+**Hebelkette** – zerlegt die Kursänderung in Glieder, die sich zum Kurs multiplizieren: Währung
+(nur bei Aktien ausserhalb des Dollars), Goldpreis, Rohstoff gemessen in Gold, Unternehmen gemessen
+im Rohstoff. Die Beiträge sind Logarithmus-Punkte und addieren sich exakt zur Gesamtänderung; der
+untere Chart zeigt, wann welcher Beitrag kam. Das ist Buchhaltung, keine Ursachenaussage: „gemessen
+in“, nicht „wegen“. Der Rohstoff ist der häufigste Hauptrohstoff der Objekte des Unternehmens.
+
+![Hebelkette](screenshots/32_hebelkette.png)
+
+**Linse** – eine Formel über Reihen, die sich speichern lässt. `$objekt` steht für das gewählte
+Objekt, sodass dieselbe Linse auf jede Aktie und jeden Preis passt.
+
+| Schreibweise | Bedeutung |
+|---|---|
+| `$objekt / gold` | Objekt in Unzen Gold |
+| `copper / gold`, `DGS10 - DGS2` | Verhältnis oder Differenz zweier Reihen (Schlüssel stehen in der Auswahl in eckigen Klammern) |
+| `ma(x, n)` | Mittel über n Beobachtungen |
+| `lag(x, n)`, `chg(x, n)` | Wert bzw. Änderung in % gegenüber n Beobachtungen zuvor |
+| `yoy(x)` | Änderung in % gegenüber dem Wert ein Jahr zuvor |
+| `log(x)` | natürlicher Logarithmus |
+
+Die Anwendung rechnet die Einheit mit (Dollar ÷ Dollar je Unze = Unzen) und lehnt Summen
+verschiedener Einheiten ab. Zwei Reihen werden nur an Tagen verrechnet, an denen beide einen
+eigenen Wert haben; wie viele Beobachtungen dadurch wegfallen, steht unter dem Chart. Eine Monatsreihe
+und eine Tagesreihe haben deshalb nur wenige gemeinsame Tage – für Verbraucherpreise und M2 gibt es
+die Matrix-Spalten.
+
+![Linse](screenshots/33_linse.png)
+
+**Regimekarte** – eine Ebene aus zwei Makrogrössen (voreingestellt Realzins × Dollar-Index). Die
+Linie ist der Weg der Welt durch diese Ebene, blass am Anfang, kräftig am Ende, der Ring ist heute.
+Käufe (▲ grün), Verkäufe (▽) und Anpassungen (▲ gelb) aus dem Entscheidungsprotokoll liegen an der
+Stelle, an der die Welt an dem Tag stand. Die Karte färbt nichts nach späterer Rendite und sagt
+nichts über die Zukunft.
+
+![Regimekarte](screenshots/34_regimekarte.png)
+
 ## 11. Quellen
 
 Alle gespeicherten Dokumente. Ein Bericht lässt sich in der Charakterkarte unter „Quellen“ per Adresse
@@ -509,11 +560,16 @@ vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehr
   `intel/connectors/claims.py`. Die Bilder 26 und 27 stammen aus einem Lauf mit echten Registern
   und werden vom Abnahmeskript nicht neu erzeugt.
 * Makro: Gespeichert wird der jeweils aktuelle Stand einer Reihe. Spätere Revisionen (CPI, M2)
-  überschreiben den alten Wert; „wie damals veröffentlicht“ gibt es noch nicht. Aktienkurse und
-  Depotwert lassen sich noch nicht in Gold oder inflationsbereinigt zeigen, weil die Anwendung keine
-  Kursverläufe von Aktien speichert. Annahmen einer These lassen sich noch nicht an eine Makroreihe
-  mit Schwelle binden. FRED führt den S&P 500 nur für zehn Jahre und keine Währungen von Chile
+  überschreiben den alten Wert; „wie damals veröffentlicht“ gibt es noch nicht. Annahmen einer
+  These lassen sich noch nicht an eine Makroreihe mit Schwelle binden. FRED führt den S&P 500 nur für zehn Jahre und keine Währungen von Chile
   oder Peru.
+* Charts: Aktienkurse sind Wochenschlusskurse ab dem ersten Abruf des Anbieters, ohne Dividenden und
+  Aktiensplits. Wechselkurse gibt es für Kanadischen Dollar, Australischen Dollar und Euro; Aktien
+  in anderen Währungen erscheinen in der Matrix ohne Werte. Der Depotwert als Ganzes lässt sich noch
+  nicht in einem Massstab zeigen, der Massstab ist noch keine Einstellung der ganzen Anwendung, und
+  aus einer Linse lässt sich noch keine Annahme einer These machen. Geprüft ist der Bereich nur mit
+  Demo-Daten; deren Makroreihen sind künstliche Wellen, die Regimekarte sieht deshalb glatter aus
+  als mit echten Daten.
 * Rohöl, Erdgas und Holz: Felder, Sägewerke, Waldbesitz und Royalty-Halter sind noch keine Objekte;
   das dafür nötige Modell (Eigentümer und Betreiber getrennt) steht in `docs/spec/product-vision.md`.
   Erdgas wird nie in Barrel umgerechnet.

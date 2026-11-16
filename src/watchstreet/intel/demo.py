@@ -63,6 +63,7 @@ DEMO_MACRO: dict[str, tuple[float, float]] = {
 DEMO_MACRO_YEARS = 4
 DEMO_MACRO_PERIOD = {"daily": 60.0, "weekly": 12.0, "monthly": 3.0}
 DEMO_MACRO_DRIFT = {"daily": 0.0004, "weekly": 0.002, "monthly": 0.009}
+DEMO_MACRO_PHASES = 7
 WEDNESDAY, SATURDAY = 2, 5
 
 
@@ -109,6 +110,7 @@ class DemoTransport(httpx.BaseTransport):
         today = datetime.now(UTC).date()
         day = date(today.year - DEMO_MACRO_YEARS, 1, 1)
         rows = ["observation_date," + series_id]
+        phase = sum(map(ord, series_id)) % DEMO_MACRO_PHASES  # series do not move in lockstep
         index = 0
         while day <= today:
             wanted = (
@@ -121,7 +123,7 @@ class DemoTransport(httpx.BaseTransport):
             if wanted:
                 index += 1
                 wave = (
-                    math.sin(index / DEMO_MACRO_PERIOD[frequency])
+                    math.sin(index / DEMO_MACRO_PERIOD[frequency] + phase)
                     + index * DEMO_MACRO_DRIFT[frequency]
                 )
                 rows.append(f"{day.isoformat()},{level * (1 + swing * wave):.4f}")

@@ -1090,3 +1090,105 @@ def test_macro_view_tracks_series_and_other_denominators(client, container, sess
     assert client.get(f"{API}/macro/chart", params={"key": "nope"}).status_code == 404
     assert client.post(f"{API}/macro/refresh").status_code == 202
     assert macro.snapshot(session, date(2100, 1, 1))["DFII10"]["unit"] == "%"
+
+
+def test_charts_matrix_and_lever_chain(client, container, session):
+    from watchstreet.models import SharePrice, Stock
+    from watchstreet.services import charts, macro
+
+    macro.sync(session, container.fetcher)
+    session.commit()
+    keys = {s["key"]: s for s in client.get(f"{API}/charts/series").json()}
+    assert keys["S:DACC"]["share"] and keys["S:DACC"]["money"] and not keys["DFII10"]["money"]
+
+    grid = client.get(f"{API}/charts/matrix").json()
+    rows = {r["key"]: r for r in grid["rows"]}
+    assert [y["key"] for y in grid["yardsticks"]] == ["usd", "gold", "real", "m2", "oil"]
+    assert rows["gold"]["cells"]["gold"]["state"] == "identity"
+    cell = rows["S:DACC"]["cells"]["gold"]
+    assert cell["state"] == "ok" and 0 <= cell["position"] <= 1 and cell["points"]
+    assert rows["S:DACC"]["cells"]["real"]["state"] == "ok"
+
+    chain = client.get(f"{API}/charts/chain", params={"key": "S:DACC", "years": 1}).json()
+    assert [link["label"] for link in chain["links"]] == [
+        "Goldpreis in US-Dollar", "Kupfer, gemessen in Gold", "Unternehmen, gemessen in Kupfer",
+    ]  # fmt: skip
+    assert sum(link["log"] for link in chain["links"]) == pytest.approx(chain["total_log"])
+    assert sum(chain["path"][-1]["values"]) == pytest.approx(chain["total_log"])
+    silver = client.get(f"{API}/charts/chain", params={"key": "silver"}).json()
+    assert [link["label"] for link in silver["links"]][-1] == "Silber, gemessen in Gold"
+    for key, status in (("gold", 400), ("DFII10", 400), ("nope", 400)):
+        assert client.get(f"{API}/charts/chain", params={"key": key}).status_code == status
+    assert (
+        client.get(f"{API}/charts/chain", params={"key": "copper", "years": 0}).status_code == 422
+    )
+
+    # a share listed in Canadian dollars gets a currency link, and the chain still adds up
+    stock = session.scalars(select(Stock).where(Stock.symbol == "DAUM")).one()
+    stock.currency = "CAD"
+    session.commit()
+    cad = client.get(f"{API}/charts/chain", params={"key": "S:DAUM", "years": 1}).json()
+    assert cad["links"][0]["label"] == "Währung: CAD je US-Dollar" and cad["currency"] == "CAD"
+    assert sum(link["log"] for link in cad["links"]) == pytest.approx(cad["total_log"])
+    stock.currency = "CLP"
+    session.commit()
+    assert client.get(f"{API}/charts/chain", params={"key": "S:DAUM"}).status_code == 400
+    assert client.get(f"{API}/charts/matrix").json()["rows"][1]["cells"]["usd"]["state"] == "thin"
+    session.add(Stock(symbol="NOPX", name="Ohne Kurs"))
+    session.commit()
+    assert client.get(f"{API}/charts/chain", params={"key": "S:NOPX"}).status_code == 400
+    assert charts.Universe(session).commodity("S:DACC") == "copper"
+    assert session.scalars(select(SharePrice).where(SharePrice.symbol == "DACC")).first()
+
+
+def test_charts_lens_and_regime_map(client, container, session):
+    from watchstreet.services import macro
+
+    macro.sync(session, container.fetcher)
+    session.commit()
+    lens = client.post(
+        f"{API}/charts/lens", json={"expression": "$objekt / gold", "subject": "S:DACC"}
+    ).json()
+    assert lens["unit"] == "oz" and lens["points"] and lens["terms"][0]["key"] == "S:DACC"
+    for body in (
+        {"expression": "$objekt / gold"},
+        {"expression": "$anderes / gold", "subject": "S:DACC"},
+        {"expression": "$objekt + DFII10", "subject": "S:DACC"},
+        {"expression": "nope", "subject": "S:DACC"},
+    ):
+        assert client.post(f"{API}/charts/lens", json=body).status_code == 400
+    saved = client.post(
+        f"{API}/charts/lenses", json={"name": "in Gold", "expression": "$objekt / gold"}
+    )
+    assert saved.status_code == 200
+    client.post(f"{API}/charts/lenses", json={"name": "in Gold", "expression": "$objekt / silver"})
+    listed = client.get(f"{API}/charts/lenses").json()
+    assert [(row["name"], row["expression"]) for row in listed] == [("in Gold", "$objekt / silver")]
+    assert (
+        client.post(f"{API}/charts/lenses", json={"name": "x", "expression": "("}).status_code
+        == 400
+    )
+    assert (
+        client.post(f"{API}/charts/lenses", json={"name": " ", "expression": "gold"}).status_code
+        == 400
+    )
+    assert client.delete(f"{API}/charts/lenses/{listed[0]['id']}").status_code == 204
+    assert client.delete(f"{API}/charts/lenses/{listed[0]['id']}").status_code == 404
+
+    body = {
+        "symbol": "DJEX", "quantity": 10, "avg_price": 0.3,
+        "intent": "Optionalität auf Kupfer", "exit_condition": "Verkauf unter 0,15 je Aktie",
+    }  # fmt: skip
+    assert client.post(f"{API}/portfolio/holdings", json=body).status_code == 200
+    plane = client.get(f"{API}/charts/regime").json()
+    assert plane["x"]["key"] == "DFII10" and len(plane["path"]) > 50
+    assert plane["decisions"] and plane["decisions"][0]["symbol"] == "DJEX"
+    assert plane["path"][-1]["day"] == plane["to"]
+    assert (
+        client.get(f"{API}/charts/regime", params={"x": "DFII10", "y": "DFII10"}).status_code == 400
+    )
+    assert client.get(f"{API}/charts/regime", params={"x": "nope"}).status_code == 400
+    assert client.get(f"{API}/charts/regime", params={"x": "M2SL", "y": "DFII10"}).status_code in (
+        200,
+        400,
+    )

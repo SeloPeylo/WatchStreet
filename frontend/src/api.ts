@@ -141,8 +141,10 @@ const compact = new Intl.NumberFormat("de-DE", { notation: "compact", maximumFra
 const plain = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 2 });
 const coarse = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
 
+const small = new Intl.NumberFormat("de-DE", { maximumSignificantDigits: 3 });
 export function num(value: number | null | undefined): string {
   if (value === null || value === undefined) return "–";
+  if (value !== 0 && Math.abs(value) < 1) return small.format(value); // ratios such as copper in gold
   return Math.abs(value) >= 100000 ? compact.format(value) : plain.format(value);
 }
 

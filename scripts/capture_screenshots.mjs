@@ -184,6 +184,34 @@ await page.waitForTimeout(400);
 await page.screenshot({ path: path.join(OUT, "30_dunkel.png") });
 await page.getByTestId("theme").click(); // back to automatic
 
+// charts: every price in every yardstick, the lever chain adds up, a lens is saved, the regime map
+await page.getByRole("button", { name: "Charts", exact: true }).click();
+await page.getByTestId("cell-S:DACC-gold").click();
+await page.getByTestId("matrix-detail").getByText("in Gold").waitFor();
+await page.screenshot({ path: path.join(OUT, "31_massstab_matrix.png") });
+await page.getByTestId("matrix").getByRole("button", { name: "Demo Andes Copper Corp (DACC)" }).click();
+await page.getByTestId("chain").getByText("Unternehmen, gemessen in Kupfer").first().waitFor();
+if ((await page.getByTestId("chain-link").count()) !== 3) throw new Error("lever chain needs three links");
+await page.screenshot({ path: path.join(OUT, "32_hebelkette.png") });
+await page.getByTestId("tab-lens").click();
+await page.getByTestId("lens-unit").getByText("oz").waitFor();
+const expected = problems.length;
+await page.getByTestId("lens-input").fill("$objekt + DFII10");
+await page.getByTestId("lens-run").click();
+await page.getByTestId("lens-error").getByText("Einheiten passen nicht").waitFor();
+problems.splice(expected); // the refused formula is answered with 400 on purpose
+await page.getByTestId("lens-input").fill("ma($objekt / copper, 4)");
+await page.getByTestId("lens-run").click();
+await page.getByTestId("lens-unit").getByText("lb").waitFor();
+await page.getByTestId("lens-name").fill("in Kupfer, geglättet");
+await page.getByTestId("lens-save").click();
+await page.getByTestId("saved-in Kupfer, geglättet").waitFor();
+await page.screenshot({ path: path.join(OUT, "33_linse.png") });
+await page.getByTestId("tab-regime").click();
+await page.getByTestId("regime").locator("svg.regime").waitFor();
+await page.getByTestId("regime-read").getByText("Heute").waitFor();
+await page.screenshot({ path: path.join(OUT, "34_regimekarte.png") });
+
 // a phone: the panel sits below the map, nothing is cut off to the right
 const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 await phone.addInitScript(offlineMap);

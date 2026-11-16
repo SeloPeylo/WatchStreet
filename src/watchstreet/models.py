@@ -506,6 +506,30 @@ class MacroPoint(Base):
     value: Mapped[float] = mapped_column(Float)
 
 
+class SharePrice(Base):
+    """One close of a listed share in its listing currency."""
+
+    __tablename__ = "share_prices"
+    __table_args__ = (UniqueConstraint("symbol", "day"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    day: Mapped[date] = mapped_column(Date)
+    close: Mapped[float] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(32), default="")
+
+
+class Lens(Base):
+    """A saved formula over series; ``$objekt`` is the slot for whatever it is applied to."""
+
+    __tablename__ = "lenses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+    expression: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
 class ChangeEntry(Base):
     """What changed and when; feeds the 'since your last visit' report."""
 

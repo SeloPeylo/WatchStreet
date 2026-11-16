@@ -140,7 +140,12 @@ Regeln, damit das nicht in die Irre führt:
 * Keine Lückenfüllung ohne Kennzeichnung; Monatsreihen als Stufen, mit Veröffentlichungsverzug.
 * Verschiedene Einheiten nie auf einer Achse.
 
-Reihenfolge: (1) Kursverläufe der Aktien speichern, (2) Hebelkette exakt für eine Aktie – sie
+Stand: Kursverläufe, Hebelkette (exakt, ohne Vergleichskorb), Massstab-Matrix, Linsen mit
+Einheitenprüfung und Regimekarte sind als erste Fassung gebaut (Bereich „Charts“). Offen: Massstab
+als Einstellung der ganzen Anwendung, Depot als Zeile, Annahme aus dem Chart, Veröffentlichungsverzug
+je Reihe, Monatsreihen als Stufen.
+
+Ursprüngliche Reihenfolge: (1) Kursverläufe der Aktien speichern, (2) Hebelkette exakt für eine Aktie – sie
 verallgemeinert die vorhandene Aufteilung „Dollar = Goldpreis × in Gold“, (3) Massstab-Matrix und
 Massstab als Einstellung, (4) Linsen mit Einheiten, (5) Annahme aus dem Chart, (6) Regimekarte.
 

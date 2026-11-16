@@ -5,6 +5,7 @@ a combined value exists only where every input has a value of its own.
 """
 
 import math
+from bisect import bisect_right
 from collections import defaultdict
 from datetime import date
 
@@ -97,3 +98,74 @@ def decompose(
         "denominator_pct": (math.exp(carrier) - 1) * PERCENT,
         "in_denominator_pct": (math.exp(total - carrier) - 1) * PERCENT,
     }
+
+
+def level_on(points: Points, day: date, max_gap_days: int) -> tuple[date, float] | None:
+    """Last observation on or before ``day`` that is not older than ``max_gap_days``."""
+    index = bisect_right(points, (day, math.inf)) - 1
+    if index < 0 or (day - points[index][0]).days > max_gap_days:
+        return None
+    return points[index]
+
+
+def monthly_ratio(prices: Points, index: Points) -> Points:
+    """Monthly mean of a price divided by a monthly series, for the months both cover."""
+    level = {(day.year, day.month): value for day, value in index}
+    return [
+        (day, value / level[(day.year, day.month)])
+        for day, value in monthly_mean(prices)
+        if level.get((day.year, day.month))
+    ]
+
+
+def range_position(points: Points) -> float | None:
+    """Where the last value sits between the lowest (0) and highest (1) value of the series."""
+    if not points:
+        return None
+    values = [v for _, v in points]
+    low, high = min(values), max(values)
+    return (values[-1] - low) / (high - low) if high > low else None
+
+
+# One link of a lever chain: the level is the product of ``top`` divided by the product of
+# ``bottom``. The links of a chain multiply to the asset price, so their log changes add up to
+# the log change of the price exactly.
+Link = tuple[str, tuple[str, ...], tuple[str, ...]]
+
+
+def chain_levels(
+    series: dict[str, Points], links: list[Link], day: date, max_gap_days: int
+) -> tuple[list[float], dict[str, date]] | None:
+    """Level of every link on ``day`` and the observation day used per input."""
+    values: dict[str, float] = {}
+    used: dict[str, date] = {}
+    for _, top, bottom in links:
+        for name in (*top, *bottom):
+            if name in values:
+                continue
+            hit = level_on(series.get(name, []), day, max_gap_days)
+            if hit is None or hit[1] <= 0:
+                return None
+            used[name], values[name] = hit
+    levels = [
+        math.prod(values[n] for n in top) / math.prod(values[n] for n in bottom)
+        for _, top, bottom in links
+    ]
+    return levels, used
+
+
+def chain_path(
+    series: dict[str, Points], links: list[Link], days: list[date], max_gap_days: int
+) -> list[tuple[date, list[float]]]:
+    """Cumulative log change of every link from the first usable day on."""
+    base: list[float] | None = None
+    out: list[tuple[date, list[float]]] = []
+    for day in days:
+        hit = chain_levels(series, links, day, max_gap_days)
+        if hit is None:
+            continue
+        levels = hit[0]
+        if base is None:
+            base = levels
+        out.append((day, [math.log(now / then) for now, then in zip(levels, base, strict=True)]))
+    return out

@@ -9,7 +9,7 @@ frontend/ (React, TypeScript, MapLibre)  ──HTTP──▶  /api/v1 (FastAPI)
                                                      │
 web (api_*, payloads, deps, security)                ▼
   └▶ services (world, facts, proposals, tickets, theses, engine, events, prices, changes, portfolio,
-               companies, registry, imports, macro)
+               companies, registry, imports, macro, charts)
         └▶ pure logic: economics · temporal · analysis
               └▶ adapters: market (Yahoo, demo) · intel (fetch, documents, connectors) · catalogs
                     └▶ models ▶ db
@@ -65,6 +65,14 @@ tables (irreversible) and keeps stocks, holdings and the watchlist.
 observations (`MacroPoint`), derives net liquidity, annual rates and ratios with the pure rules in
 `analysis/macro`, and re-expresses prices in gold or in real terms. `intel/connectors/claims` is
 the table of mineral-tenure registers; answers are shown, never stored.
+
+## Charts
+
+`services/charts` builds four views on stored observations: the yardstick matrix, the lever chain
+(`analysis/macro.chain_path`: links multiply to the price, so their log changes add up exactly),
+lenses (`analysis/expression`: a small series algebra with unit checks, saved in `Lens`) and the
+regime map with the decisions of the journal. Weekly share closes are stored in `SharePrice` by
+`services/prices.sync_history`. Nothing is fitted or forecast.
 
 ## Not built yet
 

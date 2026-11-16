@@ -10,7 +10,7 @@ from watchstreet.commodities import COMMODITIES
 from watchstreet.constants import PRICE_HISTORY_INTERVAL
 from watchstreet.market.base import MarketDataError
 from watchstreet.market.service import MarketService
-from watchstreet.models import PricePoint
+from watchstreet.models import PricePoint, SharePrice, Stock
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,7 @@ def history(session: Session, commodity: str) -> list[PricePoint]:
 
 
 def sync_history(session: Session, market: MarketService) -> int:
-    """Store weekly closes of every commodity; existing days are left untouched."""
+    """Store weekly closes of every commodity and share; existing days are left untouched."""
     added = 0
     for commodity in COMMODITIES:
         try:
@@ -72,5 +72,24 @@ def sync_history(session: Session, market: MarketService) -> int:
                 PricePoint(commodity=commodity.key, day=day, close=candle.close, source=market.name)
             )
             added += 1
+    added += _sync_shares(session, market)
     session.flush()
+    return added
+
+
+def _sync_shares(session: Session, market: MarketService) -> int:
+    """Weekly closes of every share the user holds, watches or has a company for."""
+    added = 0
+    for symbol in session.scalars(select(Stock.symbol)):
+        try:
+            candles = market.candles(symbol, PRICE_HISTORY_INTERVAL)
+        except MarketDataError:
+            continue
+        known = set(session.scalars(select(SharePrice.day).where(SharePrice.symbol == symbol)))
+        fresh = {c.time.date(): c.close for c in candles if c.time.date() not in known}
+        session.add_all(
+            SharePrice(symbol=symbol, day=day, close=close, source=market.name)
+            for day, close in fresh.items()
+        )
+        added += len(fresh)
     return added

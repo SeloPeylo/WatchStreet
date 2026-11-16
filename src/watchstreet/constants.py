@@ -130,3 +130,15 @@ MACRO_REVISION_DAYS = 400
 MACRO_SYNC_KEY = "macro_synced"
 MACRO_SPARK_POINTS = 60
 MACRO_CHANGE_DAYS = 365
+
+# Charts: a formula is short; an observation older than the gap is not used for another day;
+# a matrix cell needs this many shared observations before it shows a change.
+EXPRESSION_MAX_CHARS = 300
+EXPRESSION_MAX_NODES = 80
+SERIES_MAX_GAP_DAYS = 10
+MATRIX_MIN_POINTS = 12
+MATRIX_YEARS = 10
+MATRIX_CELL_POINTS = 260
+REGIME_DEFAULT_YEARS = 5
+REGIME_MAX_POINTS = 400
+LENS_NAME_CHARS = 80
