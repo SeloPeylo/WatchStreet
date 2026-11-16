@@ -1,7 +1,7 @@
 # WatchStreet – Spezifikation und Designplan „Investment World Explorer“
 
 **Stand:** 10. November 2026
-**Status:** Entwurf zur Freigabe. Ersetzt nach Freigabe `docs/architecture.md` als Zielbild.
+**Status:** fachliches Zielmodell des Explorers; in weiten Teilen umgesetzt. Das Zielbild der öffentlichen Plattform steht in [`product-vision.md`](product-vision.md).
 **Grundlage:** Requirements-Engineering-Session (D01–D12, Szenarien A–D), Design-Briefs A (World Explorer), B (Research Cockpit), C (Strategy Explorer), Bestand im Branch `claude/stock-portfolio-tracker-zyazxn`.
 **Sprache:** Oberfläche Deutsch, Code Englisch.
 
@@ -464,51 +464,8 @@ Optionales Passwort mit signiertem Sitzungs-Cookie; Same-Origin-Prüfung für sc
 
 ## 8. Umgang mit dem Bestand
 
-Angaben nach Kenntnisstand des Branches; vor dem Löschen wird je Modul per Suche geprüft, dass keine Abhängigkeit übrig bleibt.
-
-### 8.1 Bleibt (unverändert oder mit kleinen Anpassungen)
-
-| Modul | Anmerkung |
-|---|---|
-| `agents/` (Runner, Tool-Schleife, Factory) | unverändert |
-| `harness/executor`, `scheduler`, `worker.py` | + Lease/Heartbeat, Subjektbezug |
-| `services/tickets.py`, `followups.py` | Leitplanken bleiben; Folgeaufträge werden Vorschläge |
-| `intel/fetch.py`, `intel/documents.py`, Zitatprüfung | Kern von „no source, no fact“ |
-| `intel/connectors/` (EDGAR, RSS, GDELT, USGS) | liefern Dokumente und Ereignisse |
-| `market/` (Yahoo, Demo, Indikatoren) | Aktien- und Rohstoffpreise |
-| `db.py`, `migrate.py`, `container.py`, `config.py`, `constants.py`, `errors.py`, `timeutil.py`, `geo.py` | |
-| `profiles/derive.py` (NAV, Marge, Restlaufzeit) | wandert nach `economics/` |
-| Docker, Compose, Makefile, CI, Sonar, pre-commit | + Frontend-Stufe |
-| Holdings/Watchlist-Services | als Bereich „Portfolio“ |
-
-### 8.2 Wird umgebaut
-
-| Bestand | Ziel |
-|---|---|
-| `Datapoint` | `Fact` (Bandbreite, Zeitachsen, Herkunft, Basis, Formel) – Migration mit Datenübernahme |
-| `Entity` / `Relation` | `Asset`, `Company`, `Stake`, `StatusPeriod` |
-| `Thesis` (je Aktie) | eigenständige These mit Annahmen und Evidenz-Links |
-| `Insight` | `Finding` mit epistemischem Status |
-| `IntelItem`, `MarketEvent`, Tripwires | `Event` + `event_links`; Tripwires werden Regeln der Stufe 1 |
-| `Briefing` | Lagebericht aus `change_log` |
-| `Ticket` | Subjektbezug, Vorschlagsstufe davor |
-| Workflows `research_datapoints`, `read_filing`, `sec_sync`, `intel_triage`, `briefing` | `fill_metric`, `read_document`, Konnektor-Job, Stufe 2, `situation_report` |
-| `services/scenarios.py`, `cockpit.py`, `mapdata.py`, `exposure.py` | hinter der neuen API, auf Asset-Ebene |
-| Automatische Tickets beim Anlegen einer Position | werden Vorschläge (Human-in-the-loop) |
-
-### 8.3 Wird entfernt
-
-| Bestand | Grund |
-|---|---|
-| Jinja-Seiten und Routen der Oberfläche (`routes_*`, `templates/`, `panels/`) ausser Handbuch | ersetzt durch SPA + API |
-| `static/map.js`, `graph.js`, `candles.js`, `tables.js`, `live.js`, `symbols.js`, `app.css` | ersetzt durch Frontend-Komponenten |
-| Profile `tech`, `utility`, `financial`, `reit`, `healthcare`, `oil_gas` samt Kriterientabellen | ausserhalb des Fokus Minenanalyse; bei Bedarf neu |
-| Workflows `technical_snapshot`, `valuation_score`, `thesis_check`, `event_review`, `initial_*`, `topic_analysis`, `classify_stock` | aktienzentriert; Funktion geht in Stufe 1 bzw. neue Workflows über |
-| `Score` und die Scoring-Tabellen | Bewertungspunkte passen nicht zu Evidence-first; ersetzt durch offene Kennzahlen |
-| Kraftgerichtete Netzansicht | Beziehungen erscheinen auf Karte und im Panel; Rückkehr nur bei Bedarf |
-| Screenshots 01–27, alte Handbuchkapitel | Neuaufnahme nach P1 |
-
-Die Migrationen `0001`/`0002` bleiben eingefroren; der Umbau kommt als neue Revisionen. Vor dem Entfernen wird der Stand als Tag `v0-dashboard` markiert.
+Der Umbau vom früheren aktienzentrierten Dashboard ist abgeschlossen; dessen Stand liegt unter dem
+Tag `v0-dashboard`. Was heute gebaut ist, beschreibt `docs/architecture.md`.
 
 ---
 
@@ -557,19 +514,10 @@ Grundsatz: Ohne geprüfte Quelle startet die Anwendung mit leerem Bestand plus g
 
 ## 11. Umsetzungsplan
 
-Jede Phase endet lauffähig, mit grünem `make check`, Migration und aktualisiertem Handbuch.
-
-| Phase | Inhalt | Ergebnis |
-|---|---|---|
-| **0 Fundament** | Tag `v0-dashboard`; Entfernen laut 8.3; neues Schema (Abschnitt 3) mit Datenübernahme; `economics/`, `temporal/`; API-Gerüst + OpenAPI; Frontend-Gerüst, Build-Stufe, CSP, Login | leere, sichere Hülle; Backend-Tests grün |
-| **P0 Karte** | Rohstoffleiste, Karte mit Layern/Clustering, Charakterkarten beider Varianten, Herkunfts-Chips, Herleitungsdialog, Suche, Demo-Datensatz (Au/Ag/Cu/U) | Schritte 2–3 der Strecke |
-| **P1 Vergleich & Szenario** | Auswahlleiste, Vergleich, Preisregler, Farbmodi, Zeitleiste mit Preis | Szenario A |
-| **P2 Recherchekreislauf** | Vorschläge, Backlog, Start, SSE, Workflows `fill_metric`, `estimate_cost`, `strategic_question`, `read_document`, Dokument per URL, Wissensstatus, Lagebericht, Thesen-Board | Kupferstrecke vollständig, Szenario B |
-| **P3 Lebenslauf** | Meilensteine, Stichtagssicht, Replay, synchronisierter Vergleich, Inflations- und Äquivalentspalten, Workflow `lifecycle` | Szenario C |
-| **P4 Engine** | Regeltabelle Stufe 1, Nutzenwert, Vergleichsgruppen, `explain_pattern`, Treiberreihen | Szenario D |
-| **Betrieb** (parallel ab P0) | Worker-Lease, Health, Runbook, Live-Prüfung aller Konnektoren, Docker-Lauf, echter Modelllauf | einsatzbereit |
-
-Reihenfolge P0–P4 folgt dem Vorschlag der Session; sie ist dort ausdrücklich noch nicht bestätigt.
+Die Phasen 0 bis P4 dieses Plans sind umgesetzt, soweit `docs/architecture.md` und das
+Benutzerhandbuch es beschreiben. Die weitere Reihenfolge steht in
+[`product-vision.md`](product-vision.md), Abschnitt 7; offene Anforderungen in
+[`requirements-review-2026-11.md`](requirements-review-2026-11.md).
 
 ---
 
@@ -592,7 +540,6 @@ Reihenfolge P0–P4 folgt dem Vorschlag der Session; sie ist dort ausdrücklich 
 | – | Position der Auswahlleiste | unter der Karte |
 | – | Portfolio-Bereich | bleibt, verschlankt |
 
-**Vor Beginn von Phase 0 zu bestätigen:** kombinierte UX-Variante, Wechsel auf SPA mit Build-Schritt, Entfernungsliste 8.3 (insbesondere Scoring und Nicht-Minen-Profile).
 
 ---
 

@@ -174,6 +174,16 @@ await page.getByTestId("chart-note").getByText("Keine Kaufkraftbereinigung").wai
 await page.getByTestId("split").getByText("1 Jahr").waitFor();
 await page.screenshot({ path: path.join(OUT, "29_makro_nenner.png") });
 
+// the new commodities are in the bar; the theme switch goes automatic -> light -> dark and is kept
+await page.getByTestId("commodities").getByText("Erdgas").waitFor();
+await page.getByTestId("tile-LUMBER_GOLD").waitFor();
+await page.getByTestId("theme").click();
+await page.getByTestId("theme").click();
+if ((await page.locator("html").getAttribute("data-theme")) !== "dark") throw new Error("dark theme not applied");
+await page.waitForTimeout(400);
+await page.screenshot({ path: path.join(OUT, "30_dunkel.png") });
+await page.getByTestId("theme").click(); // back to automatic
+
 // a phone: the panel sits below the map, nothing is cut off to the right
 const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 await phone.addInitScript(offlineMap);

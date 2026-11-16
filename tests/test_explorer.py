@@ -35,7 +35,15 @@ def _metric(card: dict, key: str) -> dict:
 
 def test_commodities_and_map(client):
     bar = client.get(f"{API}/commodities").json()
-    assert [c["key"] for c in bar] == ["gold", "silver", "copper", "uranium"] and bar[0]["price"]
+    assert [c["key"] for c in bar] == [
+        "gold",
+        "silver",
+        "copper",
+        "uranium",
+        "oil",
+        "gas",
+        "lumber",
+    ] and bar[0]["price"]
     world = client.get(f"{API}/map").json()
     assert len(world["features"]) == 19 and all(
         f["properties"]["is_demo"] for f in world["features"]

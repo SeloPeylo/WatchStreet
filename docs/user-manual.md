@@ -15,7 +15,7 @@ markiert.
 
 | Bereich | Zweck |
 |---|---|
-| Kopfzeile | Rohstoffleiste mit Preis, Navigation, Suche, Glocke für Ergebnisse |
+| Kopfzeile | Navigation, Rohstoffleiste mit Preis, Suche, Umschalter Hell/Dunkel, Glocke für Ergebnisse |
 | Karte | Minen und Projekte; Form = Status, Farbe = gewählter Farbmodus |
 | Rechtes Panel | Übersicht oder Charakterkarte des gewählten Objekts |
 | Auswahlleiste | mehrfach ausgewählte Objekte für den Vergleich |
@@ -23,12 +23,19 @@ markiert.
 
 Der gesamte Ansichtszustand steht in der Adresse; eine Ansicht lässt sich als Link weitergeben.
 
+**Darstellung:** Der Knopf neben der Glocke schaltet zwischen „Automatisch“ (wie das System, ◐),
+„Hell“ (☀) und „Dunkel“ (☾). Die Wahl bleibt in diesem Browser gespeichert.
+
+![Dunkle Darstellung](screenshots/30_dunkel.png)
+
 **Tastatur:** `Esc` schliesst das Panel, `c` öffnet den Vergleich, `Umschalt+Klick` auf einen Marker
 fügt ihn der Auswahl hinzu.
 
 ## 2. Rohstoff wählen und Karte lesen
 
 Ein Klick auf einen Rohstoff in der Kopfzeile filtert die Karte. Ein zweiter Klick hebt den Filter auf.
+Geführt werden Gold, Silber, Kupfer, Uran, Rohöl, Erdgas und Holz. Für Rohöl, Erdgas und Holz gibt
+es bisher Preis, Szenario und Makro-Reihen, aber noch keine Objekte auf der Karte.
 
 * **Hintergrund** (Auswahl links auf der Karte): „Karte“ zeigt Orte, Strassen und Gewässer
   (OpenStreetMap), „Gelände“ zusätzlich Höhenlinien und Relief (OpenTopoMap, bis etwa Massstab
@@ -325,8 +332,9 @@ holt sie mit jedem Lauf, „Jetzt aktualisieren“ fordert einen Lauf an.
 | Inflation | Verbraucherpreisindex und Jahresrate |
 | Dollar und Währungen | breiter Dollar-Index (handelsgewichtet, nicht der DXY), Euro, Kanadischer und Australischer Dollar |
 | Risiko | VIX |
-| Märkte und Rohstoffe | S&P 500, Rohöl, Gold, Silber, Kupfer, Uran |
-| Verhältnisse | Gold ÷ Silber, Kupfer ÷ Gold, Uran ÷ Gold, S&P 500 ÷ Gold, Rohöl ÷ Gold |
+| Bau und Wohnen (Holznachfrage) | Baubeginne für Wohnungen in den USA, Hypothekenzins 30 Jahre |
+| Märkte und Rohstoffe | S&P 500, Rohöl (WTI), Erdgas (Henry Hub), Gold, Silber, Kupfer, Uran, Rohöl-, Erdgas- und Holz-Terminkontrakt |
+| Verhältnisse | Gold ÷ Silber, Kupfer ÷ Gold, Uran ÷ Gold, S&P 500 ÷ Gold, Rohöl ÷ Gold, Holz ÷ Gold |
 
 Jede Kachel zeigt den letzten Wert, den Tag der Beobachtung, die Frequenz und die Veränderung in
 einem Jahr. Ein Klick öffnet den grossen Chart: Zeitraum wählen, logarithmische Skala, mit der Maus
@@ -506,6 +514,11 @@ vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehr
   Kursverläufe von Aktien speichert. Annahmen einer These lassen sich noch nicht an eine Makroreihe
   mit Schwelle binden. FRED führt den S&P 500 nur für zehn Jahre und keine Währungen von Chile
   oder Peru.
+* Rohöl, Erdgas und Holz: Felder, Sägewerke, Waldbesitz und Royalty-Halter sind noch keine Objekte;
+  das dafür nötige Modell (Eigentümer und Betreiber getrennt) steht in `docs/spec/product-vision.md`.
+  Erdgas wird nie in Barrel umgerechnet.
+* Die Anwendung ist für eine Person gebaut (ein Passwort, ein Depot). Anmeldung über Google,
+  getrennte Nutzer, Abonnement und Werbung sind Zielbild, nicht Stand.
 * Noch nicht vorhanden: Marker-Clustering, Standortbilder, Inflations- und
   Rohstoffäquivalent-Spalten im Vergleich.
 * Die Zitatprüfung stellt sicher, dass ein Zitat wörtlich im Dokument steht, nicht, dass es die Zahl

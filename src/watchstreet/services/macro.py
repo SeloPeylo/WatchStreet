@@ -31,6 +31,7 @@ GROUPS: tuple[tuple[str, str], ...] = (
     ("inflation", "Inflation"),
     ("dollar", "Dollar und Währungen"),
     ("risk", "Risiko"),
+    ("housing", "Bau und Wohnen (Holznachfrage)"),
     ("markets", "Märkte und Rohstoffe"),
     ("ratios", "Verhältnisse"),
 )
@@ -119,6 +120,7 @@ DERIVED: tuple[Item, ...] = (
     _ratio("URANIUM_GOLD", "Uran ÷ Gold", "uranium", "gold", "Unzen Gold je Pfund Uran"),
     _ratio("SP500_GOLD", "S&P 500 ÷ Gold", "SP500", "gold", "Unzen Gold je Indexpunkt"),
     _ratio("OIL_GOLD", "Rohöl ÷ Gold", "DCOILWTICO", "gold", "Unzen Gold je Barrel"),
+    _ratio("LUMBER_GOLD", "Holz ÷ Gold", "lumber", "gold", "Unzen Gold je 1.000 Board Feet"),
 )
 
 

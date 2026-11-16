@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { feature } from "topojson-client";
 import type { Commodity, Json } from "./api";
 import { STATUS_LABEL, day, get, num } from "./api";
+import { THEME_EVENT } from "./theme";
 
 export const SHAPES: Record<string, string> = {
   production: "circle",
@@ -230,8 +231,16 @@ export function MapView(props: Props) {
   };
 
   useEffect(() => {
-    const css = getComputedStyle(document.documentElement);
-    const color = (name: string) => css.getPropertyValue(name).trim();
+    const color = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const repaint = () => {
+      if (!m.getLayer("land")) return;
+      m.setPaintProperty("sea", "background-color", color("--sea"));
+      m.setPaintProperty("land", "fill-color", color("--land"));
+      m.setPaintProperty("borders", "line-color", color("--border"));
+    };
+    const system = window.matchMedia("(prefers-color-scheme: dark)");
+    window.addEventListener(THEME_EVENT, repaint);
+    system.addEventListener("change", repaint);
     const m = new maplibregl.Map({
       container: node.current!,
       style: { version: 8, sources: {}, layers: [{ id: "sea", type: "background", paint: { "background-color": color("--sea") } }] },
@@ -324,7 +333,11 @@ export function MapView(props: Props) {
       ready.current = true;
       draw();
     });
-    return () => m.remove();
+    return () => {
+      window.removeEventListener(THEME_EVENT, repaint);
+      system.removeEventListener("change", repaint);
+      m.remove();
+    };
   }, []);
 
   useEffect(draw, [props.features, props.events, props.mode, props.commodities, props.selected.join(","), props.company]);

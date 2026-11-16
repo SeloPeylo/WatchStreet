@@ -15,10 +15,6 @@ from watchstreet.constants import (
 from watchstreet.domain import KnowledgeStatus
 
 
-def missing_metrics(required: Sequence[str], present: Sequence[str]) -> list[str]:
-    return [key for key in required if key not in present]
-
-
 def robust_outliers(values: Mapping[int, float]) -> list[int]:
     """Ids whose value lies outside median +/- k * MAD; too small groups give no result."""
     if len(values) < MIN_PEER_GROUP:

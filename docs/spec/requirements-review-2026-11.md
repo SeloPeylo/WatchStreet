@@ -201,3 +201,56 @@ Auftrag: Was braucht eine Makro-Ebene, damit sie nicht in die Irre führt?
 
 **Nicht bauen**: Signale, Ampeln, Liquiditäts-Score, Prognosen, Überlagerung mit frei skalierter
 zweiter Achse, vorwärts gefüllte Monatswerte, „fairer Wert“ von Gold aus M2.
+
+
+## Siebter Durchlauf: öffentliche Plattform, Öl und Gas, Holz, neue Charts (alle vier Sichten)
+
+Rollenspiel im Stil von vier bekannten Denkweisen (Rohstoff-Finanzierer, Prinzipien-Investor,
+Inversion, Makro) – keine Aussagen der realen Personen. Auftrag: Was fehlt, damit jede dieser
+Sichten das System empfehlen würde, wenn es öffentlich wird? Das Zielbild dazu steht in
+[`product-vision.md`](product-vision.md).
+
+**Worin sich alle vier einig sind**
+
+* Der Prüfmassstab („keine Quelle, kein Fakt“) ist in allen Stufen gleich; bezahlt wird Tiefe, nicht Nachsicht.
+* Werbende und Emittenten haben keinen Zugang zum Inhalt.
+* Die Entscheidungsebene stützt die eigene Überlegung des Nutzers und gibt nie ein Urteil ab.
+* Landeigentümer und Royalty-Halter brauchen ein eigenes Modell neben den Betreibern.
+* Energie verbindet alle Rohstoffe.
+
+**Rangfolge der Anforderungen**
+
+1. Werbe-Firewall: kein Geld von Emittenten, Brokern oder aus dem Handel; die Werbeanfrage trägt keine Nutzerdaten. Prüfbar an der Anfrage und an einer Sperrliste in der Konfiguration.
+2. Lizenzregister je Datenquelle; nicht lizenzierte Reihen sind im öffentlichen Betrieb verborgen.
+3. Eigentümer/Betreiber-Modell mit Verlauf je Aktie (ein Unternehmen, das seine Aktienzahl verdoppelt, zeigt halbierte Fläche je Aktie).
+4. Gleiche Prüfung in allen Stufen, dazu eine veröffentlichte, stichprobenartig von Hand ermittelte Fehlerquote der Agenten-Fakten.
+5. Kennzahlensätze für Öl und Gas sowie Holz (siehe Zielbild, Abschnitt 6); Gas wird nie in Barrel umgerechnet.
+6. Hebel-Chart als exakte Zerlegung in jedem Nenner, Rest immer sichtbar; keine angepasste Korrelation.
+7. Entscheidungsebene = eigene Prinzipien als prüfbare Regeln + „so verliere ich hier Geld“ vor dem Kauf + getrennt bewertetes Protokoll (Überlegung / Ergebnis).
+8. Diskussion nur an Objekt oder Fakt, mit Offenlegung, ohne Zustimmungsknöpfe; Gewicht nach aufgelösten eigenen Annahmen.
+
+**Weitere Muss-Punkte einzelner Sichten**
+
+* Schuldenplan aus Berichten: Fälligkeiten, Auflagen, Absicherungen, je mit Zitat.
+* Treiber-Tabelle über das Depot (Realzins, Dollar, Öl, Baubeginne): Wie viele wirklich verschiedene Wetten halte ich?
+* Ein Energieszenario rechnet die Kosten von Minen und Sägewerken und die Margen der Förderer gemeinsam neu.
+* Kapitalzyklus je Rohstoff: Investitionen gegen Abschreibungen, Bohranlagen, Lager, eröffnete und geschlossene Kapazität – je mit Veröffentlichungsdatum.
+
+**Widersprüche (Entscheidung offen)**
+
+* Diskussion: gewichtet einführen – oder ganz lassen, weil Privatanleger-Foren selten helfen.
+* Anzeige „Kapitalmangel“ (eingeworbenes Geld je Rohstoff gegen Preis und Grenzkosten): gewünscht als Werkzeug für antizyklisches Handeln, aber nahe an einem Signal, das die sechste Runde ausschliesst.
+* Korrelationen über das Depot gewünscht; im Hebel-Chart verboten.
+* Eine Sperre „ausserhalb meines Kompetenzkreises“ vor einem Kauf bremst das Wachstum der Plattform.
+
+**Nicht bauen**: bezahlte Profile oder Recherche für Emittenten; Vermittlungsprovisionen von
+Brokern; Benachrichtigungen, die auf Verweildauer optimiert sind; Zustimmungsknöpfe,
+„meistgehalten“-Listen, Ranglisten nach Rendite; ein Hebel-Finder, der Fenster und Reihen nach
+der besten Übereinstimmung absucht.
+
+**Voraussetzung, die keine der vier Sichten nannte**: Die Anwendung ist für eine Person gebaut.
+Vor jedem öffentlichen Schritt steht die Trennung von Depot, Thesen, Protokoll, eigenen Einträgen
+und Importen je Nutzer.
+
+**In diesem Durchlauf umgesetzt**: Rohöl, Erdgas und Holz im Rohstoffkatalog; Makro-Reihen für
+Erdgas, Baubeginne und Hypothekenzins; Verhältnis Holz ÷ Gold; Umschalter Hell/Dunkel.

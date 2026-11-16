@@ -49,11 +49,6 @@ def normalize_country(raw: str) -> str:
     return next((name for name in known if name.lower() == lowered), "")
 
 
-def country_point(raw: str) -> tuple[float, float] | None:
-    name = normalize_country(raw)
-    return countries().get(name)
-
-
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     p1, p2 = math.radians(lat1), math.radians(lat2)
     dphi, dlambda = p2 - p1, math.radians(lon2 - lon1)

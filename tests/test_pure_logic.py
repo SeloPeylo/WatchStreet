@@ -8,7 +8,6 @@ import pytest
 from watchstreet.analysis.rules import (
     KnowledgeInputs,
     knowledge_status,
-    missing_metrics,
     peer_range,
     robust_outliers,
     value_score,
@@ -82,7 +81,6 @@ def test_as_known_never_shows_later_publications():
 
 
 def test_rules():
-    assert missing_metrics(("a", "b"), ("a",)) == ["b"]
     assert robust_outliers({1: 2.05, 2: 1.85, 3: 2.6, 4: 4.4}) == [4]
     assert robust_outliers({1: 1.0, 2: 9.0}) == [] and robust_outliers({1: 1, 2: 1, 3: 1}) == []
     assert peer_range([1.0, 2.0]) is None and peer_range([1.0, 2.0, 3.0, 4.0, 5.0]) == (2.0, 4.0)

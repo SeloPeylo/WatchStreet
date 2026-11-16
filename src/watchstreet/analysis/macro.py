@@ -9,7 +9,6 @@ from collections import defaultdict
 from datetime import date
 
 Points = list[tuple[date, float]]
-MONTHS_PER_YEAR = 12
 PERCENT = 100.0
 
 

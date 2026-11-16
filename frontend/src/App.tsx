@@ -7,6 +7,7 @@ import { Companies, Manual, Portfolio, Sources, System } from "./Pages";
 import { Macro } from "./Macro";
 import { Research } from "./Research";
 import { useViewState } from "./state";
+import { THEME_ICON, THEME_LABEL, applyTheme, nextTheme, storedTheme } from "./theme";
 
 const NAV: [string, string][] = [["/", "Explorer"], ["/companies", "Unternehmen"], ["/macro", "Makro"], ["/research", "Research"], ["/portfolio", "Portfolio"], ["/sources", "Quellen"], ["/system", "System"], ["/manual", "Handbuch"]];
 const POLL_MS = 4000;
@@ -50,6 +51,7 @@ function Shell({ canLogout, onLogout }: { canLogout: boolean; onLogout: () => vo
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Json[]>([]);
   const [demo, setDemo] = useState(false);
+  const [theme, setTheme] = useState(storedTheme);
   const signature = useRef("");
   const refresh = useCallback(() => setTick((t) => t + 1), []);
   const notify = useCallback((text: string) => {
@@ -113,6 +115,8 @@ function Shell({ canLogout, onLogout }: { canLogout: boolean; onLogout: () => vo
         </div>
         <div className="bell">
           {canLogout && <button onClick={onLogout} title="Abmelden" style={{ marginRight: 6 }}>Abmelden</button>}
+          <button data-testid="theme" title={`Darstellung: ${THEME_LABEL[theme]}`} style={{ marginRight: 6 }}
+            onClick={() => { const next = nextTheme(theme); applyTheme(next); setTheme(next); }}>{THEME_ICON[theme]}</button>
           <button data-testid="bell" onClick={() => setBellOpen(!bellOpen)}>🔔 {bell.running > 0 ? `${bell.running} läuft` : ""}</button>
           {bell.unseen.length > 0 && <span className="count">{bell.unseen.length}</span>}
           {bellOpen && (

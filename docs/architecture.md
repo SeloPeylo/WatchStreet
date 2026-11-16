@@ -8,14 +8,15 @@ Target design: [`spec/world-explorer-spec.md`](spec/world-explorer-spec.md). Thi
 frontend/ (React, TypeScript, MapLibre)  ──HTTP──▶  /api/v1 (FastAPI)
                                                      │
 web (api_*, payloads, deps, security)                ▼
-  └▶ services (world, facts, proposals, tickets, theses, engine, events, prices, changes, portfolio)
+  └▶ services (world, facts, proposals, tickets, theses, engine, events, prices, changes, portfolio,
+               companies, registry, imports, macro)
         └▶ pure logic: economics · temporal · analysis
               └▶ adapters: market (Yahoo, demo) · intel (fetch, documents, connectors) · catalogs
                     └▶ models ▶ db
 worker ▶ harness (scan, executor) ▶ workflows.research ▶ agents (offline, llama.cpp, OpenAI-compatible, Anthropic, CLI)
 ```
 
-`import-linter` enforces these layers in `make check` (`pyproject.toml`, six contracts).
+`import-linter` enforces these layers in `make check` (contracts in `pyproject.toml`).
 
 ## Principles in code
 
@@ -58,8 +59,18 @@ financings, royalty burdens, a price sensitivity and a ten-question checklist.
 Alembic migrations in `src/watchstreet/migrations/versions`. `0003` replaces the former dashboard
 tables (irreversible) and keeps stocks, holdings and the watchlist.
 
-## Not built yet (see spec)
+## Macro and claims
 
-Marker clustering, satellite images, persons, saved scenarios, inflation and commodity-equivalent
-columns, relation rules against driver series (oil/silver), login, server-sent events (the UI polls),
-news connectors (RSS, GDELT, EDGAR exist as modules but are not wired to events).
+`intel/connectors/fred` is the declarative table of macro series; `services/macro` stores
+observations (`MacroPoint`), derives net liquidity, annual rates and ratios with the pure rules in
+`analysis/macro`, and re-expresses prices in gold or in real terms. `intel/connectors/claims` is
+the table of mineral-tenure registers; answers are shown, never stored.
+
+## Not built yet
+
+Where the product is heading (public site, several users, sign-in, subscription, advertising,
+oil and gas, timber, the next chart model) is described in
+[`spec/product-vision.md`](spec/product-vision.md). Smaller gaps: marker clustering, satellite
+images, saved scenarios, server-sent events (the UI polls). `intel/connectors/edgar` is tested
+against recorded answers but not yet called by a workflow; it is kept for reading debt schedules
+and filings.

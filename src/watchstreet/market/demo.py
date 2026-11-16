@@ -38,6 +38,9 @@ DEMO_COMMODITY_PRICES: dict[str, float] = {
     "SI=F": 31.0,
     "HG=F": 4.3,
     "UX=F": 78.0,
+    "CL=F": 75.0,
+    "NG=F": 3.2,
+    "LBR=F": 560.0,
     # shares of the synthetic demo companies
     "DACC": 38.0,
     "DPMT": 21.0,

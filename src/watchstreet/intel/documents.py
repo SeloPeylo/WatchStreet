@@ -15,14 +15,12 @@ from sqlalchemy.orm import Session
 from watchstreet.constants import (
     MAX_DOCUMENT_CHARS,
     MAX_SEARCH_HITS,
-    MAX_SECTIONS,
     MIN_QUOTE_CHARS,
     READ_CHUNK_CHARS,
     SEARCH_SNIPPET_CHARS,
 )
 from watchstreet.models import Document
 
-SECTION_RE = re.compile(r"^(item\s+\d+[a-c]?\.?[^\n]{0,80}|part\s+[ivx]+[^\n]{0,60})$", re.I | re.M)
 QUOTE_MARKS = str.maketrans(
     {
         "\u201c": '"',
@@ -115,10 +113,3 @@ def search(doc: Document, query: str) -> list[Snippet]:
 def read_chunk(doc: Document, offset: int = 0, length: int = READ_CHUNK_CHARS) -> str:
     offset = max(0, offset)
     return doc.text[offset : offset + min(length, READ_CHUNK_CHARS)]
-
-
-def outline(doc: Document) -> list[Snippet]:
-    """Headings such as 'Item 1A. Risk Factors' with their character offsets."""
-    return [Snippet(m.start(), m.group(0).strip()) for m in SECTION_RE.finditer(doc.text)][
-        :MAX_SECTIONS
-    ]

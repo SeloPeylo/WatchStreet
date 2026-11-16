@@ -13,9 +13,7 @@ import httpx
 from watchstreet.intel.connectors.fred import SERIES as FRED_SERIES
 
 DEMO_IP = "93.184.216.34"
-DEMO_NEWS_HOST = "https://news.demo.example"
 DEMO_CIKS = {"NEM": 9_000_001, "AAPL": 9_000_002, "XOM": 9_000_003, "NVDA": 9_000_004}
-DEMO_NEWS_TOPICS = ("Carlin", "Cadia", "Boddington", "Orica Limited", "Caterpillar Inc.")
 DEMO_BANNER = "DEMO DOCUMENT - synthetic text for software testing, not a real filing."
 MS_PER_S = 1000
 
@@ -39,16 +37,6 @@ def _json(data: object) -> httpx.Response:
     return httpx.Response(200, json=data)
 
 
-def _rss(items: list[tuple[str, str, str]]) -> httpx.Response:
-    body = "".join(
-        f"<item><title>{t}</title><link>{u}</link><description>{d}</description>"
-        "<pubDate>Thu, 30 Oct 2025 12:00:00 GMT</pubDate></item>"
-        for t, u, d in items
-    )
-    xml = f'<?xml version="1.0"?><rss version="2.0"><channel><title>demo</title>{body}</channel></rss>'
-    return httpx.Response(200, text=xml, headers={"content-type": "application/rss+xml"})
-
-
 # Synthetic levels (published unit) and relative swing of the demo macro series.
 DEMO_MACRO: dict[str, tuple[float, float]] = {
     "WALCL": (6_800_000.0, 0.04),
@@ -68,6 +56,9 @@ DEMO_MACRO: dict[str, tuple[float, float]] = {
     "DEXUSAL": (0.66, 0.04),
     "SP500": (6_000.0, 0.1),
     "DCOILWTICO": (75.0, 0.15),
+    "HOUST": (1_400.0, 0.1),
+    "MORTGAGE30US": (6.5, 0.1),
+    "DHHNGSP": (3.2, 0.3),
 }
 DEMO_MACRO_YEARS = 4
 DEMO_MACRO_PERIOD = {"daily": 60.0, "weekly": 12.0, "monthly": 3.0}
@@ -81,8 +72,6 @@ class DemoTransport(httpx.BaseTransport):
     def handle_request(self, request: httpx.Request) -> httpx.Response:  # noqa: PLR0911
         url = urlparse(str(request.url))
         host, path = url.hostname or "", url.path
-        if host == "api.gdeltproject.org":
-            return self._gdelt(parse_qs(url.query).get("query", [""])[0])
         if host == "fred.stlouisfed.org":
             return self._fred(parse_qs(url.query).get("id", [""])[0])
         if host == "earthquake.usgs.gov":
@@ -108,45 +97,8 @@ class DemoTransport(httpx.BaseTransport):
             return httpx.Response(
                 200, text="demo quake page", headers={"content-type": "text/plain"}
             )
-        return _rss(
-            [
-                (
-                    "Demo: Zentralbank hält Leitzins stabil",
-                    f"{DEMO_NEWS_HOST}/macro/rates",
-                    "Synthetische Demo-Meldung.",
-                ),
-                (
-                    "Demo: Rohstoffpreise geben nach",
-                    f"{DEMO_NEWS_HOST}/commodities/prices",
-                    "Synthetische Demo-Meldung.",
-                ),
-            ]
-        )
-
-    @staticmethod
-    def _gdelt(query: str) -> httpx.Response:
-        term = query.strip('"') or "Markt"
-        if term not in DEMO_NEWS_TOPICS:
-            return _json({"articles": []})
-        seen = datetime(2025, 10, 30, 9, 0, tzinfo=UTC).strftime("%Y%m%dT%H%M%SZ")
-        slug = term.lower().replace(" ", "-")
-        return _json(
-            {
-                "articles": [
-                    {
-                        "url": f"{DEMO_NEWS_HOST}/{slug}/{i}",
-                        "title": title.format(term=term),
-                        "seendate": seen,
-                        "domain": "news.demo.example",
-                    }
-                    for i, title in enumerate(
-                        (
-                            "Demo: {term} meldet Streik an wichtigem Standort",
-                            "Demo: Analysten diskutieren Kostenentwicklung bei {term}",
-                        )
-                    )
-                ]
-            }
+        return httpx.Response(
+            404, text="demo: unknown host", headers={"content-type": "text/plain"}
         )
 
     @staticmethod
