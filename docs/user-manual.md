@@ -38,7 +38,7 @@ Geführt werden Gold, Silber, Kupfer, Uran, Rohöl, Erdgas und Holz. Für Rohöl
 es bisher Preis, Szenario und Makro-Reihen, aber noch keine Objekte auf der Karte.
 
 * **Hintergrund** (Auswahl links auf der Karte): „Karte“ zeigt Orte, Strassen und Gewässer
-  (OpenStreetMap), „Gelände“ zusätzlich Höhenlinien und Relief (OpenTopoMap, bis etwa Massstab
+  (OpenFreeMap, Daten von OpenStreetMap), „Gelände“ zusätzlich Höhenlinien und Relief (OpenTopoMap, bis etwa Massstab
   1:25 000) – gedacht für den Blick auf benachbarte Vorkommen im Umkreis weniger Kilometer. Der
   Massstab steht unten rechts. Die Kacheln lädt dein Browser direkt beim Kartenanbieter; dieser
   sieht dabei deine IP-Adresse und den Kartenausschnitt, aber keine Inhalte aus WatchStreet.

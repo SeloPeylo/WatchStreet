@@ -13,7 +13,7 @@ SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 # MapLibre needs blob: workers and injects inline styles; scripts stay strictly same-origin.
 # The background map is the one thing the browser loads from elsewhere (see frontend MapView).
 MAP_TILE_HOSTS = " ".join(
-    ["https://tile.openstreetmap.org", "https://*.tile.opentopomap.org"]
+    ["https://tiles.openfreemap.org", "https://*.tile.opentopomap.org"]
     + [f"https://{host}" for host in CLAIM_HOSTS]
 )
 CONTENT_SECURITY_POLICY = (

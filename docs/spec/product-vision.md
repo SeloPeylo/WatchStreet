@@ -66,7 +66,7 @@ Datenlizenz. Das Abonnement trägt sich selbst, solange die Zahl der Läufe begr
 |---|---|---|
 | Yahoo Finance (Kurse) | nur private Nutzung | Anbieter mit Anzeigerecht; bis dahin Kurse nur für angemeldete Einzelnutzer im Eigenbetrieb |
 | FRED | Reihen mit fremdem Urheberrecht (z. B. S&P 500) dürfen nicht weitergegeben werden; die Bedingungen verbieten das Zwischenspeichern für Dritte | je Reihe prüfen; amtliche Reihen direkt bei der Behörde holen (Fed, BLS, Treasury, EIA, Census) |
-| openstreetmap.org, OpenTopoMap (Kacheln) | kein Anspruch, Sperre ohne Ankündigung | Kacheln selbst hosten oder kaufen |
+| OpenTopoMap (Geländekacheln) | kein Anspruch, Sperre ohne Ankündigung; die Strassenkarte kommt seit dem 17.11. von OpenFreeMap (frei, auch gewerblich) | Kacheln selbst hosten oder kaufen |
 | Register Ontario | keine offene Lizenz gefunden | bis zur Klärung nicht öffentlich zeigen |
 | Register Westaustralien, British Columbia, BLM; USGS | offen bzw. gemeinfrei | Quellenangabe |
 

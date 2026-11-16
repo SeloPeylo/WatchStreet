@@ -36,13 +36,12 @@ const SIZE = 26;
 const DETAIL_ZOOM = 12; // close enough to tell neighbouring deposits apart
 
 /** Background maps. Tiles come from the provider straight to the browser; "plain" needs no network. */
+// "streets" is a vector style from OpenFreeMap (free for any use, no key); its layers are merged
+// into this map so that markers, claims and the plain background keep working unchanged.
+const STREET_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const STREET_PREFIX = "streets-";
 export const BASEMAPS: Record<string, { label: string; tiles: string[]; maxzoom: number; attribution: string }> = {
-  streets: {
-    label: "Karte (Orte, Strassen)",
-    tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-    maxzoom: 19,
-    attribution: "© OpenStreetMap-Mitwirkende",
-  },
+  streets: { label: "Karte (Orte, Strassen)", tiles: [], maxzoom: 19, attribution: "" },
   terrain: {
     label: "Gelände (Höhenlinien)",
     tiles: ["a", "b", "c"].map((host) => `https://${host}.tile.opentopomap.org/{z}/{x}/{y}.png`),
@@ -196,6 +195,7 @@ export function MapView(props: Props) {
   const ready = useRef(false);
   const pins = useRef<maplibregl.Marker[]>([]);
   const claimLayers = useRef<string[]>([]);
+  const streetLayers = useRef<[string, "visible" | "none"][]>([]);
   const latest = useRef(props);
   latest.current = props;
 
@@ -258,6 +258,20 @@ export function MapView(props: Props) {
       m.addSource("countries", { type: "geojson", data: unwrapped(feature(topology, topology.objects.countries) as Json) });
       m.addLayer({ id: "land", type: "fill", source: "countries", paint: { "fill-color": color("--land") } });
       m.addLayer({ id: "borders", type: "line", source: "countries", paint: { "line-color": color("--border"), "line-width": 0.6 } });
+      try {
+        const style = await (await fetch(STREET_STYLE)).json();
+        m.setGlyphs(style.glyphs);
+        m.setSprite(style.sprite);
+        for (const [name, source] of Object.entries(style.sources)) m.addSource(STREET_PREFIX + name, source as maplibregl.SourceSpecification);
+        const shown = latest.current.basemap === "streets";
+        for (const layer of style.layers as Json[]) {
+          const own = layer.layout?.visibility ?? "visible";
+          streetLayers.current.push([STREET_PREFIX + layer.id, own]);
+          m.addLayer({ ...layer, id: STREET_PREFIX + layer.id, ...(layer.source ? { source: STREET_PREFIX + layer.source } : {}), layout: { ...layer.layout, visibility: shown ? own : "none" } });
+        }
+      } catch {
+        // without the street map the plain background stays; the page works offline
+      }
       for (const [key, base] of Object.entries(BASEMAPS)) {
         if (base.tiles.length === 0) continue;
         m.addSource(`base-${key}`, { type: "raster", tiles: base.tiles, tileSize: 256, maxzoom: base.maxzoom, attribution: base.attribution });
@@ -353,6 +367,9 @@ export function MapView(props: Props) {
     if (!m || !ready.current) return;
     for (const key of Object.keys(BASEMAPS)) {
       if (m.getLayer(`base-${key}`)) m.setLayoutProperty(`base-${key}`, "visibility", key === props.basemap ? "visible" : "none");
+    }
+    for (const [id, own] of streetLayers.current) {
+      if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", props.basemap === "streets" ? own : "none");
     }
   }, [props.basemap]);
 
