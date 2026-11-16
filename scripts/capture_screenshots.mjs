@@ -186,13 +186,28 @@ await page.getByTestId("theme").click(); // back to automatic
 
 // charts: every price in every yardstick, the lever chain adds up, a lens is saved, the regime map
 await page.getByRole("button", { name: "Charts", exact: true }).click();
+await page.getByTestId("sheet").getByText("Stufe 6").waitFor();
+await page.screenshot({ path: path.join(OUT, "35_treiberleiter.png") });
+await page.getByTestId("view-path").click();
 await page.getByTestId("ladder-slope").getByText("Empfindlichkeit").waitFor();
+await page.getByTestId("ladder-space").check();
+const plot = page.getByTestId("ladder-plot");
+const frame = await plot.boundingBox();
+await page.mouse.move(frame.x + 500, frame.y + 300);
+await page.mouse.down();
+await page.mouse.move(frame.x + 420, frame.y + 260, { steps: 5 });
+await page.mouse.up();
+if ((await plot.getAttribute("data-yaw")) === "35") throw new Error("dragging did not turn the view");
+await page.screenshot({ path: path.join(OUT, "36_weg_im_raum.png") });
+await page.getByTestId("view-clock").click();
+await page.getByTestId("clock-episodes").waitFor();
+await page.screenshot({ path: path.join(OUT, "37_zyklusuhr.png") });
+await page.getByTestId("view-own").click();
+await page.getByTestId("own-part").waitFor();
+await page.screenshot({ path: path.join(OUT, "38_eigenwert.png") });
+await page.getByTestId("view-path").click();
 await page.getByTestId("ladder-deeper").click();
 await page.getByTestId("ladder-dependents").getByText("Demo Andes Copper Corp").waitFor();
-await page.getByTestId("ladder-deeper").click();
-await page.getByTestId("ladder-trail").getByText("Dollar-Index").waitFor();
-await page.getByTestId("ladder-space").check();
-await page.screenshot({ path: path.join(OUT, "35_treiberleiter.png") });
 await page.getByTestId("tab-matrix").click();
 await page.getByTestId("cell-S:DACC-gold").click();
 await page.getByTestId("matrix-detail").getByText("in Gold").waitFor();

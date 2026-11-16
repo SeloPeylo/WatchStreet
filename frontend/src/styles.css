@@ -123,3 +123,10 @@ th { color: var(--muted); font-weight: 600; font-size: 12px; } td.n { text-align
 .wvalue { text-align: right; font-variant-numeric: tabular-nums; }
 .lines { width: 100%; height: 260px; display: block; cursor: crosshair; } .regime { width: 100%; height: auto; max-height: 70vh; display: block; }
 @media (max-width: 760px) { .wrow { grid-template-columns: 1fr; gap: 2px; } .wvalue { text-align: left; } }
+.regime.turn { cursor: grab; touch-action: none; user-select: none; } .regime.turn:active { cursor: grabbing; }
+.rung { display: grid; grid-template-columns: minmax(180px, 1.4fr) minmax(130px, 1fr) minmax(160px, 1.4fr) minmax(200px, 1.4fr); gap: 14px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.rung.rare { border-color: var(--warn); box-shadow: inset 3px 0 0 var(--warn); } .rung .range { display: block; position: relative; height: 5px; background: var(--chip); border-radius: 3px; }
+.rung .range i { position: absolute; top: -2px; width: 3px; height: 9px; margin-left: -1px; background: var(--text); border-radius: 1px; }
+.rungstep { padding: 6px 10px 6px 24px; color: var(--muted); } .pill.warn { background: var(--warn); color: #fff; }
+.clockgrid { display: grid; grid-template-columns: minmax(320px, 640px) 1fr; gap: 20px; align-items: start; } .clock { width: 100%; height: auto; display: block; cursor: crosshair; }
+@media (max-width: 900px) { .clockgrid, .rung { grid-template-columns: 1fr; } }

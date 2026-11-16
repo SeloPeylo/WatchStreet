@@ -144,3 +144,8 @@ REGIME_MAX_POINTS = 400
 LENS_NAME_CHARS = 80
 SENSITIVITY_MIN_OBS = 26  # changes needed before a slope is shown at all
 DRIVER_PATH_POINTS = 300
+# Observations per span: about a quarter for the cycle clock, about a month for "what moves now".
+CYCLE_SPAN: dict[str, int] = {"daily": 63, "weekly": 13, "monthly": 3}
+MOVE_SPAN: dict[str, int] = {"daily": 21, "weekly": 4, "monthly": 1}
+CYCLE_SECTORS = 8
+LADDER_MAX_RUNGS = 8

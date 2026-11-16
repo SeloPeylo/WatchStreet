@@ -17,13 +17,17 @@ from watchstreet.analysis.expression import ExpressionError, Operand, evaluate
 from watchstreet.analysis.macro import Link, Points
 from watchstreet.commodities import BY_KEY as COMMODITY
 from watchstreet.constants import (
+    CYCLE_SECTORS,
+    CYCLE_SPAN,
     DAYS_PER_YEAR,
     DRIVER_PATH_POINTS,
+    LADDER_MAX_RUNGS,
     LENS_NAME_CHARS,
     MACRO_CHANGE_DAYS,
     MATRIX_CELL_POINTS,
     MATRIX_MIN_POINTS,
     MATRIX_YEARS,
+    MOVE_SPAN,
     PERCENT,
     REGIME_MAX_POINTS,
     SENSITIVITY_MIN_OBS,
@@ -542,11 +546,12 @@ def ladder(session: Session, key: str, driver: str, years: float) -> dict[str, A
     chosen = driver or (declared[0] if declared else "")
     if chosen and (not universe.known(chosen) or chosen == key):
         raise ChartError("Unbekannter Treiber")
-    own = universe.in_usd(key) if universe.money(key) else universe.points(key)
-    if not own:
+    stored = _grid(universe, key)
+    if not stored:
         raise ChartError("Für diese Reihe ist nichts gespeichert")
-    start = own[-1][0] - timedelta(days=round(years * DAYS_PER_YEAR))
+    start = stored[-1][0] - timedelta(days=round(years * DAYS_PER_YEAR))
     path: list[dict[str, Any]] = []
+    own: list[dict[str, Any]] = []
     slope = None
     if chosen:
         a, b = _pair(universe, key, chosen)
@@ -558,6 +563,17 @@ def ladder(session: Session, key: str, driver: str, years: float) -> dict[str, A
             shown.append(shared[-1])
         path = [{"day": d.isoformat(), "x": x, "y": y} for d, x, y in shown]
         slope = _slope(universe, key, chosen, start)
+        if _relative(universe, key) and _relative(universe, chosen):
+            own = [
+                {
+                    "day": d.isoformat(),
+                    "values": [explained * PERCENT, (total - explained) * PERCENT],
+                    "slope": used,
+                }
+                for d, total, explained, used in rules.own_path(
+                    [p for p in a if p[0] >= start], b, SENSITIVITY_MIN_OBS
+                )
+            ]
     dependents = [
         name
         for name in (*(SHARE_PREFIX + s for s in sorted(universe.shares)), *DRIVERS)
@@ -592,9 +608,153 @@ def ladder(session: Session, key: str, driver: str, years: float) -> dict[str, A
         "to": path[-1]["day"] if path else None,
         "path": path,
         "slope": slope,
+        "own": own,
+        "own_note": (
+            "Vom Treiber erklärt = Summe aus (Änderung des Treibers × Empfindlichkeit), wobei die "
+            "Empfindlichkeit an jedem Tag nur aus früheren Änderungen geschätzt ist. Der Rest ist "
+            "der eigene Anteil. Beide addieren sich zur Gesamtänderung seit dem ersten Tag mit "
+            f"mindestens {SENSITIVITY_MIN_OBS} Beobachtungen. {ESTIMATE}"
+        ),
         "dependents": [row for _, row in rows],
         "note": (
             "Die Treiber sind eine hinterlegte Annahme über die Welt, kein Befund; der Weg zeigt, "
             f"ob die Daten dazu passen. {ESTIMATE}"
+        ),
+    }
+
+
+def _grid(universe: Universe, key: str) -> Points:
+    return universe.in_usd(key) if universe.money(key) else universe.points(key)
+
+
+def sheet(session: Session, key: str, years: float) -> dict[str, Any]:
+    """The whole ladder below a series on one sheet, with what moved unusually of late."""
+    universe = Universe(session)
+    if not universe.known(key):
+        raise ChartError("Unbekannte Reihe")
+    chain_keys = [key]
+    while len(chain_keys) < LADDER_MAX_RUNGS:
+        following = [d for d in _drivers(universe, chain_keys[-1]) if universe.known(d)]
+        if not following or following[0] in chain_keys:
+            break
+        chain_keys.append(following[0])
+    rungs = []
+    for index, name in enumerate(chain_keys):
+        points = _grid(universe, name)
+        if points:
+            start = points[-1][0] - timedelta(days=round(years * DAYS_PER_YEAR))
+            points = [p for p in points if p[0] >= start]
+        span = MOVE_SPAN[universe.frequency(name)]
+        move = (
+            rules.unusual_move(points, span, relative=_relative(universe, name)) if points else None
+        )
+        step = max(len(points) // MATRIX_CELL_POINTS, 1)
+        upper = chain_keys[index + 1] if index + 1 < len(chain_keys) else ""
+        rungs.append(
+            {
+                "key": name,
+                "label": universe.label(name),
+                "unit": USD if universe.is_share(name) else universe.unit(name),
+                "value": points[-1][1] if points else None,
+                "day": points[-1][0].isoformat() if points else None,
+                "spark": [v for _, v in points[::step]],
+                "position": rules.range_position(points),
+                "move": move[0] if move else None,
+                "move_unit": "%" if _relative(universe, name) else "Punkte",
+                "unusual": move[1] if move else None,
+                "slope": _slope(universe, name, upper, points[0][0]) if upper and points else None,
+                "next": universe.label(upper) if upper else "",
+            }
+        )
+    return {
+        "rungs": rungs,
+        "years": years,
+        "note": (
+            "„Ungewöhnlich“ misst die Änderung des letzten Monats in Standardabweichungen aller "
+            "Monatsänderungen des gezeigten Zeitraums: ab etwa ±2 ist die Bewegung selten. Es ist "
+            "eine Beschreibung der Vergangenheit, kein Signal."
+        ),
+    }
+
+
+SECTOR_LABELS = (
+    "hoch, kaum Bewegung", "hoch und steigend", "mittel, steigt stark", "tief und steigend",
+    "tief, kaum Bewegung", "tief und fallend", "mittel, fällt stark", "hoch und fallend",
+)  # fmt: skip
+
+
+def _episodes(rows: list[dict[str, Any]], sector: int) -> list[dict[str, Any]]:
+    """Stretches of consecutive observations in one sector, with the subject's change in each."""
+    out: list[dict[str, Any]] = []
+    run: list[dict[str, Any]] = []
+    for row in [*rows, {"sector": -1}]:
+        if row["sector"] == sector:
+            run.append(row)
+        elif run:
+            first, last = run[0], run[-1]
+            change = (last["y"] / first["y"] - 1) * PERCENT if first["y"] else None
+            out.append(
+                {"from": first["day"], "to": last["day"], "n": len(run), "change_pct": change}
+            )
+            run = []
+    return out
+
+
+def cycle(session: Session, key: str, driver: str, years: float) -> dict[str, Any]:
+    """The subject on the cycle clock of its driver: equal phases lie on the same ray."""
+    universe = Universe(session)
+    if not universe.known(key):
+        raise ChartError("Unbekannte Reihe")
+    declared = [d for d in _drivers(universe, key) if universe.known(d)]
+    chosen = driver or (declared[0] if declared else "")
+    if not chosen or not universe.known(chosen) or chosen == key:
+        raise ChartError("Für diese Reihe ist kein Treiber hinterlegt")
+    a, b = _pair(universe, key, chosen)
+    if not a or not b:
+        raise ChartError("Für diese Reihen ist nichts gespeichert")
+    start = min(a[-1][0], b[-1][0]) - timedelta(days=round(years * DAYS_PER_YEAR))
+    monthly = "monthly" in (universe.frequency(key), universe.frequency(chosen))
+    span = CYCLE_SPAN["monthly" if monthly else universe.frequency(chosen)]
+    phases = rules.cycle([p for p in b if p[0] >= start], span)
+    own = dict(a)
+    width = 360 / CYCLE_SECTORS
+    rows: list[dict[str, Any]] = []
+    for day, level, momentum in phases:
+        if day not in own:
+            continue
+        angle = math.degrees(math.atan2(momentum, level)) % 360
+        rows.append(
+            {
+                "day": day.isoformat(),
+                "level": level,
+                "momentum": momentum,
+                "angle": angle,
+                "sector": int(((angle + width / 2) % 360) // width),
+                "y": own[day],
+            }
+        )
+    if len(rows) < MIN_PATH:
+        raise ChartError("Zu wenige gemeinsame Werte für eine Zyklusuhr in diesem Zeitraum")
+    today = int(rows[-1]["sector"])
+
+    def meta(name: str) -> dict[str, Any]:
+        unit = USD if universe.is_share(name) else universe.unit(name)
+        return {"key": name, "label": universe.label(name), "unit": unit}
+
+    return {
+        "subject": meta(key),
+        "driver": meta(chosen),
+        "drivers": [meta(name) for name in declared],
+        "points": rows,
+        "sectors": list(SECTOR_LABELS),
+        "today": today,
+        "episodes": _episodes(rows, today),
+        "span": span,
+        "note": (
+            "Winkel = Phase des Treibers (rechts hoch, links tief, oben steigend, unten fallend), "
+            "Abstand vom Mittelpunkt = Wert des Gegenstands. Zeiträume in derselben Phase liegen "
+            "auf demselben Strahl. „Hoch“ und „tief“ beziehen sich auf den Durchschnitt des "
+            "gezeigten Zeitraums – das ist Rückschau, keine Prognose, und wenige Umläufe sind "
+            "wenige Beobachtungen."
         ),
     }

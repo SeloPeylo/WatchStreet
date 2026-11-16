@@ -70,6 +70,16 @@ def ladder(session: SessionDep, key: str, driver: str = "", years: float = 3.0) 
     return charts.ladder(session, key, driver, _years(years))
 
 
+@router.get("/sheet")
+def sheet(session: SessionDep, key: str, years: float = 3.0) -> dict[str, Any]:
+    return charts.sheet(session, key, _years(years))
+
+
+@router.get("/cycle")
+def cycle(session: SessionDep, key: str, driver: str = "", years: float = 5.0) -> dict[str, Any]:
+    return charts.cycle(session, key, driver, _years(years))
+
+
 @router.get("/regime")
 def regime(
     session: SessionDep,

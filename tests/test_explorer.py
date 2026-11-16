@@ -1230,3 +1230,54 @@ def test_driver_ladder_walks_from_share_to_what_stands_behind_it(client, contain
     assert rules.sensitivity(target[:10], driver, min_obs=26, **kind) is None
     flat = [(d, 1.0) for d in days]
     assert rules.sensitivity(target, flat, min_obs=26, **kind) is None
+
+
+def test_ladder_sheet_cycle_clock_and_own_part(client, container, session):
+    from datetime import date, timedelta
+
+    from watchstreet.analysis import macro as rules
+    from watchstreet.services import macro
+
+    macro.sync(session, container.fetcher)
+    session.commit()
+    sheet = client.get(f"{API}/charts/sheet", params={"key": "S:DACC"}).json()
+    keys = [r["key"] for r in sheet["rungs"]]
+    assert keys[:3] == ["S:DACC", "copper", "DTWEXBGS"] and len(set(keys)) == len(keys)
+    assert sheet["rungs"][0]["slope"] and sheet["rungs"][-1]["slope"] is None
+    assert sheet["rungs"][0]["move_unit"] == "%" and sheet["rungs"][3]["move_unit"] == "Punkte"
+    assert client.get(f"{API}/charts/sheet", params={"key": "nope"}).status_code == 400
+
+    clock = client.get(f"{API}/charts/cycle", params={"key": "gold"}).json()
+    assert clock["driver"]["key"] == "DFII10" and len(clock["sectors"]) == 8
+    assert all(0 <= p["angle"] < 360 and 0 <= p["sector"] < 8 for p in clock["points"])
+    assert clock["episodes"][-1]["to"] == clock["points"][-1]["day"]
+    assert sum(e["n"] for e in clock["episodes"]) == sum(
+        p["sector"] == clock["today"] for p in clock["points"]
+    )
+    for params in ({"key": "NETLIQ"}, {"key": "nope"}, {"key": "gold", "driver": "gold"}):
+        assert client.get(f"{API}/charts/cycle", params=params).status_code == 400
+
+    share = client.get(f"{API}/charts/ladder", params={"key": "S:DACC"}).json()
+    assert share["own"] and len(share["own"][-1]["values"]) == 2
+    assert client.get(f"{API}/charts/ladder", params={"key": "gold"}).json()["own"] == []
+
+    # own part: a target that is exactly twice the driver's moves plus its own steady drift
+    days = [date(2025, 1, 6) + timedelta(weeks=i) for i in range(80)]
+    driver, target, x, y = [], [], 100.0, 50.0
+    for i, d in enumerate(days):
+        step = 0.02 if i % 3 else -0.03
+        x *= 1 + step
+        y *= (1 + step) ** 2 * 1.001
+        driver.append((d, x))
+        target.append((d, y))
+    path = rules.own_path(target, driver, 26)
+    assert path[0][0] == days[27] and path[-1][3] == pytest.approx(2.0, abs=0.01)
+    total, explained = path[-1][1], path[-1][2]
+    assert total - explained == pytest.approx(len(path) * 0.0009995, rel=0.05)  # only the drift
+    assert rules.own_path(target[:10], driver, 26) == []
+    wave = [(d, float(i % 8)) for i, d in enumerate(days)]
+    assert len(rules.cycle(wave, 4)) == 76 and rules.cycle(wave[:4], 4) == []
+    assert rules.cycle([(d, 1.0) for d in days], 4) == []
+    assert rules.unusual_move(wave, 4, relative=True) is None  # zeros cannot be relative
+    move, score = rules.unusual_move(target, 4, relative=True)
+    assert move > 0 and abs(score) < 3

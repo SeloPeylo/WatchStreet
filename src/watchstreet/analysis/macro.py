@@ -204,3 +204,76 @@ def sensitivity(
         return None
     cov = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys, strict=True))
     return {"beta": cov / var_x, "r2": cov * cov / (var_x * var_y), "n": float(n)}
+
+
+def own_path(
+    target: Points, driver: Points, min_obs: int
+) -> list[tuple[date, float, float, float]]:
+    """What the driver explains of the target and what remains the target's own.
+
+    Returns ``(day, total, explained, slope)`` as cumulative log changes from the first day a
+    slope exists. Each step uses a slope fitted only on *earlier* changes, so nothing is
+    explained with knowledge of the future; ``total - explained`` is the target's own part.
+    """
+    other = dict(driver)
+    shared = [
+        (day, v, other[day]) for day, v in target if day in other and v > 0 and other[day] > 0
+    ]
+    n = sum_x = sum_y = sum_xx = sum_xy = 0.0
+    total = explained = 0.0
+    out: list[tuple[date, float, float, float]] = []
+    for (_, y0, x0), (day, y1, x1) in pairwise(shared):
+        x, y = math.log(x1 / x0), math.log(y1 / y0)
+        var = n * sum_xx - sum_x * sum_x
+        if n >= min_obs and var > 0:
+            slope = (n * sum_xy - sum_x * sum_y) / var
+            total += y
+            explained += slope * x
+            out.append((day, total, explained, slope))
+        n, sum_x, sum_y, sum_xx, sum_xy = (
+            n + 1,
+            sum_x + x,
+            sum_y + y,
+            sum_xx + x * x,
+            sum_xy + x * y,
+        )
+    return out
+
+
+def _standardised(values: list[float]) -> list[float] | None:
+    mean = sum(values) / len(values)
+    spread = math.sqrt(sum((v - mean) ** 2 for v in values) / len(values))
+    return [(v - mean) / spread for v in values] if spread > 0 else None
+
+
+def cycle(points: Points, span: int) -> list[tuple[date, float, float]]:
+    """Where a series stands in its own cycle: ``(day, level, momentum)`` in standard deviations.
+
+    Level is the distance from the mean of the window shown, momentum the change over ``span``
+    observations. Both use the whole window, so the classification is hindsight, not a forecast.
+    """
+    if len(points) <= span + 1:
+        return []
+    level = _standardised([v for _, v in points])
+    momentum = _standardised([points[i][1] - points[i - span][1] for i in range(span, len(points))])
+    if level is None or momentum is None:
+        return []
+    return [(points[i][0], level[i], momentum[i - span]) for i in range(span, len(points))]
+
+
+def unusual_move(points: Points, span: int, *, relative: bool) -> tuple[float, float] | None:
+    """Latest change over ``span`` observations and how unusual it is among all such changes."""
+    values = [v for _, v in points]
+    if relative and min(values, default=0) <= 0:
+        return None
+    moves = [
+        math.log(values[i] / values[i - span]) if relative else values[i] - values[i - span]
+        for i in range(span, len(values))
+    ]
+    if len(moves) <= span:
+        return None
+    scores = _standardised(moves)
+    if scores is None:
+        return None
+    latest = (math.exp(moves[-1]) - 1) * PERCENT if relative else moves[-1]
+    return latest, scores[-1]

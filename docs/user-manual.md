@@ -373,15 +373,43 @@ Unternehmen hängen.
 
 **Treiberleiter** – zeigt jeden Wert gegen das, was hinter ihm steht: die Aktie gegen ihren
 Rohstoff, den Rohstoff gegen Realzins und Dollar, diese gegen Inflation und Liquidität, die
-Inflation gegen Energie. Die Zeit ist keine Achse, sondern der Weg durch die Ebene (blass = früher,
-Ring = heute). „Eine Stufe tiefer“ macht den Treiber selbst zum Gegenstand; die Spur oben führt
-zurück. „Raum“ stellt die Zeit als dritte Achse dar, der Regler dreht die Ansicht. Unter dem Chart
-steht, was am betrachteten Wert hängt, mit der geschätzten Empfindlichkeit (Steigung der
-Änderungen), dem erklärten Anteil, der Zahl der Beobachtungen und der Steigung in beiden Hälften
-des Zeitraums. Welche Treiber hinter einer Reihe stehen, ist eine hinterlegte Annahme
-(`DRIVERS` in `services/charts.py`), kein Befund; die Empfindlichkeit ist eine Schätzung, keine Regel.
+Inflation gegen Energie. Welche Treiber hinter einer Reihe stehen, ist eine hinterlegte Annahme
+(`DRIVERS` in `services/charts.py`), kein Befund. Vier Ansichten:
 
-![Treiberleiter](screenshots/35_treiberleiter.png)
+* **Ganze Leiter** – alle Stufen untereinander: letzter Wert, Verlauf, Lage in der Spanne, Änderung
+  des letzten Monats und wie ungewöhnlich sie ist (in Standardabweichungen aller Monatsänderungen
+  des Zeitraums; ab ±2 ist die Stufe markiert). So sieht man, auf welcher Stufe sich gerade etwas
+  bewegt. Zwischen den Stufen steht die geschätzte Empfindlichkeit.
+
+![Ganze Leiter](screenshots/35_treiberleiter.png)
+
+* **Weg** – der Wert gegen seinen Treiber; die Zeit ist keine Achse, sondern der Weg (blass =
+  früher, Ring = heute). „Raum“ stellt die Zeit als dritte Achse dar: mit der Maus ziehen dreht die
+  Ansicht, Doppelklick stellt sie zurück; der Würfel wird bei jedem Winkel neu in den Rahmen
+  eingepasst, die graue Linie am Boden ist der Schatten des Wegs. „Eine Stufe tiefer“ macht den
+  Treiber selbst zum Gegenstand; die Spur oben führt zurück.
+
+![Weg im Raum](screenshots/36_weg_im_raum.png)
+
+* **Zyklusuhr** – der Winkel ist die Phase des Treibers (rechts hoch, links tief, oben steigend,
+  unten fallend), der Abstand vom Mittelpunkt der Wert des Gegenstands. Zeiträume in derselben
+  Phase liegen auf demselben Strahl übereinander. Daneben stehen die früheren Zeiträume in der
+  heutigen Phase mit der Änderung des Gegenstands *während* dieser Zeit. „Hoch“ und „tief“ beziehen
+  sich auf den Durchschnitt des gezeigten Zeitraums: Rückschau, keine Prognose.
+
+![Zyklusuhr](screenshots/37_zyklusuhr.png)
+
+* **Eigenwert** – trennt, was der Treiber an der Kursänderung erklärt, von dem, was der Wert selbst
+  beigetragen hat. An jedem Tag gilt: erklärt = Änderung des Treibers × Empfindlichkeit, wobei die
+  Empfindlichkeit nur aus früheren Änderungen geschätzt ist; der Rest ist der eigene Anteil. Beide
+  addieren sich zur Gesamtänderung. Bei einer Minenaktie gegen ihren Rohstoff ist der eigene Anteil
+  das, was am Unternehmen selbst liegt – als Schätzung, nicht als Bewertung.
+
+![Eigenwert](screenshots/38_eigenwert.png)
+
+Unter Weg, Zyklusuhr und Eigenwert steht, was am betrachteten Wert hängt, mit der geschätzten
+Empfindlichkeit (Steigung der Änderungen), dem erklärten Anteil, der Zahl der Beobachtungen und der
+Steigung in beiden Hälften des Zeitraums.
 
 **Massstab-Matrix** – Zeilen sind Aktien und Rohstoffe, Spalten die Massstäbe US-Dollar, Gold,
 Verbraucherpreise, Geldmenge M2 und Rohöl. Jede Zelle zeigt den Verlauf über bis zu zehn Jahre, die
