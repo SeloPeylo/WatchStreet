@@ -1,7 +1,7 @@
 """The explorer end to end on the synthetic demo world: API, research loop, engine, portfolio."""
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import httpx
 import pytest
@@ -13,7 +13,17 @@ from watchstreet.harness.executor import execute_ticket
 from watchstreet.harness.scan import run_scan, scan_due
 from watchstreet.intel.connectors.usgs import Quake
 from watchstreet.intel.fetch import Fetcher
-from watchstreet.models import Asset, Company, Document, Event, Fact, Finding, Proposal, Ticket
+from watchstreet.models import (
+    Asset,
+    Company,
+    Decision,
+    Document,
+    Event,
+    Fact,
+    Finding,
+    Proposal,
+    Ticket,
+)
 from watchstreet.services import proposals
 from watchstreet.services.events import record_quakes
 from watchstreet.services.facts import FactError, FactInput, record_fact
@@ -706,7 +716,7 @@ def test_company_research_finds_debt_with_scale_and_engine_flags_short_runway(
     report = run_scan(container)
     assert report.findings >= 4
     detail = client.get(f"{API}/companies/{junior}").json()
-    assert "rund 8 Monate" in detail["findings"][0]["text"]
+    assert "rechnerisch aufgebraucht seit" in detail["findings"][0]["text"]
     assert [p["template"] for p in detail["proposals"]] == ["financing"]
     body = {
         "subject_type": "company",
@@ -868,6 +878,55 @@ def test_funding_gap_ev_and_user_entries_for_people_and_financings(client, sessi
 def _cash(client, company_id):
     metrics = client.get(f"{API}/companies/{company_id}").json()["metrics"]
     return next(m["value"] for m in metrics if m["metric"] == "cash")
+
+
+def test_exhausted_cash_is_explained_not_printed_as_a_bare_zero(client, session):
+    junior = _company_id(session, "Demo Junior Explorers Ltd")
+    derived = {m["metric"]: m for m in client.get(f"{API}/companies/{junior}").json()["derived"]}
+    for key in ("cash_today", "runway_months"):
+        row = derived[key]
+        assert row["value"] == 0.0 and row["exhausted"] and row["stale"]
+        assert row["text"].startswith("rechnerisch aufgebraucht seit ")
+        assert "Bilanz vom 31.12.2025 ist älter als die Reichweite" in row["note"]
+        assert "vermutlich fehlt eine Finanzierung" in row["note"]
+    day = derived["cash_empty"]["text"].removeprefix("seit ")
+    assert derived["cash_today"]["text"].endswith(day)  # one date everywhere
+    assert derived["cash_empty"]["note"] == derived["cash_today"]["note"]
+    listed = next(c for c in client.get(f"{API}/companies").json() if c["id"] == junior)
+    assert listed["cash_exhausted"] and listed["cash_empty"] == derived["cash_empty"]["text"]
+
+
+def test_cash_runway_and_empty_date_share_one_basis(client, session):
+    junior = _company_id(session, "Demo Junior Explorers Ltd")
+    raise_ = {"day": "2026-03-01", "amount": 30e6, "price": 0.4}
+    assert client.post(f"{API}/companies/{junior}/financings", json=raise_).status_code == 201
+    derived = {m["metric"]: m for m in client.get(f"{API}/companies/{junior}").json()["derived"]}
+    cash_now, runway = derived["cash_today"], derived["runway_months"]
+    assert cash_now["value"] > 0 and "exhausted" not in cash_now and "note" not in runway
+    assert runway["value"] == pytest.approx(cash_now["value"] / 3.5e6 * 3)
+    assert derived["cash_empty"]["text"].startswith("am ") and "note" not in derived["cash_empty"]
+
+
+def test_engine_finding_uses_todays_estimate_and_names_the_exhausted_case(
+    client, container, session
+):
+    junior = _company_id(session, "Demo Junior Explorers Ltd")
+    run_scan(container)
+    exhausted = client.get(f"{API}/companies/{junior}").json()["findings"][0]["text"]
+    assert "rechnerisch aufgebraucht seit " in exhausted
+    assert "Bilanz vom 31.12.2025 ist älter als die Reichweite" in exhausted
+    assert "vermutlich fehlt eine Finanzierung" in exhausted and "rund 8 Monate" not in exhausted
+
+
+def test_engine_finding_counts_from_today_when_a_raise_is_on_file(client, container, session):
+    junior = _company_id(session, "Demo Junior Explorers Ltd")
+    spent = 3.5e6 * (datetime.now(UTC).date() - date(2025, 12, 31)).days / (30.44 * 3)
+    # leaves three months of burn today
+    raise_ = {"day": "2026-03-01", "amount": spent - 5.5e6, "price": 0.4}
+    assert client.post(f"{API}/companies/{junior}/financings", json=raise_).status_code == 201
+    run_scan(container)
+    text = client.get(f"{API}/companies/{junior}").json()["findings"][0]["text"]
+    assert "reicht ab heute rund 3 Monate" in text and "aufgebraucht seit" not in text
 
 
 def test_company_view_is_honest_about_dates_duplicates_and_coverage(client, session):
@@ -1180,6 +1239,12 @@ def test_charts_lens_and_regime_map(client, container, session):
         "intent": "Optionalität auf Kupfer", "exit_condition": "Verkauf unter 0,15 je Aktie",
     }  # fmt: skip
     assert client.post(f"{API}/portfolio/holdings", json=body).status_code == 200
+    # The bundled snapshot ends on a fixed day while "today" moves on; a decision made today
+    # would fall outside the series' tolerance, so place it on the series' last day.
+    plane = client.get(f"{API}/charts/regime").json()
+    for decision in session.scalars(select(Decision)):
+        decision.day = date.fromisoformat(plane["to"])
+    session.commit()
     plane = client.get(f"{API}/charts/regime").json()
     assert plane["x"]["key"] == "DFII10" and len(plane["path"]) > 50
     assert plane["decisions"] and plane["decisions"][0]["symbol"] == "DJEX"
@@ -1281,3 +1346,157 @@ def test_ladder_sheet_cycle_clock_and_own_part(client, container, session):
     assert rules.unusual_move(wave, 4, relative=True) is None  # zeros cannot be relative
     move, score = rules.unusual_move(target, 4, relative=True)
     assert move > 0 and abs(score) < 3
+
+
+def test_lens_brings_mixed_frequencies_to_the_coarsest_grid(client, container, session):
+    from watchstreet.services import macro
+
+    macro.sync(session, container.fetcher)
+    session.commit()
+    # monthly index in the formula: everything is averaged to months
+    monthly = client.post(
+        f"{API}/charts/lens", json={"expression": "$objekt / CPIAUCSL", "subject": "S:DACC"}
+    ).json()
+    assert monthly["grid"] == "monthly" and len(monthly["points"]) > 12
+    assert all(p["day"].endswith("-01") for p in monthly["points"])
+    assert len(monthly["points"]) >= 30  # a few years of months, not "almost nothing survives"
+    assert "Monatsmitteln" in monthly["grid_note"] and "Verbraucherpreise" in monthly["grid_note"]
+    assert "nur monatlich erscheint" in monthly["grid_note"]
+    # weekly series only: weekly means, dated on Mondays
+    weekly = client.post(
+        f"{API}/charts/lens", json={"expression": "$objekt / gold", "subject": "S:DACC"}
+    ).json()
+    assert weekly["grid"] == "weekly" and weekly["points"]
+    assert all(date.fromisoformat(p["day"]).weekday() == 0 for p in weekly["points"])
+    # a single series keeps its own days and says nothing about averaging
+    single = client.post(
+        f"{API}/charts/lens", json={"expression": "yoy(CPIAUCSL)", "subject": ""}
+    ).json()
+    assert single["grid"] == "monthly" and single["grid_note"] == ""
+    # three-way mix: the monthly M2 decides
+    mixed = client.post(
+        f"{API}/charts/lens", json={"expression": "gold / M2SL * DFII10", "subject": ""}
+    )
+    assert mixed.status_code in (200, 400)
+    if mixed.status_code == 200:
+        assert mixed.json()["grid"] == "monthly"
+
+
+def test_ladder_joint_fit_and_own_driver_table(client, container, session):
+    from watchstreet.services import macro
+
+    macro.sync(session, container.fetcher)
+    session.commit()
+
+    def ladder(**params):
+        return client.get(f"{API}/charts/ladder", params={"key": "copper", **params})
+
+    default = ladder().json()
+    assert default["custom"] is False and default["max_drivers"] == 3
+    joint = default["joint"]  # copper declares two drivers and no single one was asked for
+    assert joint and [d["key"] for d in joint["drivers"]] == ["DTWEXBGS", "DFII10"]
+    assert 0 <= joint["r_squared"] <= 1 and joint["observations"] >= 26
+    assert sum(d["contribution_pct"] for d in joint["drivers"]) + joint["own_pct"] == pytest.approx(
+        joint["total_pct"]
+    )
+    assert (
+        joint["unit"] == "Punkte"
+        and joint["plain"]
+        and joint["grid"] in ("daily", "weekly", "monthly")
+    )
+    # asking for one driver means looking at exactly that one; the single payload is unchanged
+    one = ladder(driver="DFII10").json()
+    assert one["joint"] is None and one["driver"]["key"] == "DFII10" and one["slope"]
+    # explicit drivers win, in the given order; a lone one is a single driver
+    pair = ladder(drivers="DFII10,gold").json()
+    assert [d["key"] for d in pair["joint"]["drivers"]] == ["DFII10", "gold"]
+    assert pair["driver"]["key"] == "DFII10"
+    assert ladder(drivers="gold").json()["joint"] is None
+    both = ladder(driver="gold", drivers="DFII10,gold").json()
+    assert both["driver"]["key"] == "gold" and len(both["joint"]["drivers"]) == 2
+    for params in (
+        {"drivers": "DFII10,DTWEXBGS,gold,silver"},
+        {"drivers": "gold,gold"},
+        {"drivers": "copper,gold"},
+        {"drivers": "gold,nope"},
+    ):
+        assert ladder(**params).status_code == 400
+
+
+def test_own_driver_table(client, container, session):
+    from watchstreet.services import macro
+
+    macro.sync(session, container.fetcher)
+    session.commit()
+
+    def ladder(**params):
+        return client.get(f"{API}/charts/ladder", params={"key": "copper", **params})
+
+    assert client.get(f"{API}/charts/drivers/copper").json()["custom"] is False
+    got = client.put(f"{API}/charts/drivers/copper", json={"drivers": ["gold", "DFII10", "oil"]})
+    assert got.status_code == 200 and got.json()["custom"] is True
+    assert [d["key"] for d in got.json()["drivers"]] == ["gold", "DFII10", "oil"]
+    assert [d["key"] for d in got.json()["default"]] == ["DTWEXBGS", "DFII10"]
+    custom = ladder().json()
+    assert custom["custom"] is True and [d["key"] for d in custom["drivers"]] == [
+        "gold",
+        "DFII10",
+        "oil",
+    ]
+    assert custom["driver"]["key"] == "gold" and len(custom["joint"]["drivers"]) == 3
+    # the custom set also feeds what depends on a series
+    gold = client.get(f"{API}/charts/ladder", params={"key": "gold"}).json()
+    assert "copper" in [d["key"] for d in gold["dependents"]]
+    client.put(f"{API}/charts/drivers/copper", json={"drivers": ["DFII10"]})
+    assert [d["key"] for d in ladder().json()["drivers"]] == ["DFII10"]
+    for key, body in (
+        ("copper", {"drivers": []}),
+        ("copper", {"drivers": ["gold", "silver", "oil", "DFII10"]}),
+        ("copper", {"drivers": ["copper"]}),
+        ("copper", {"drivers": ["gold", "gold"]}),
+        ("copper", {"drivers": ["nope"]}),
+        ("nope", {"drivers": ["gold"]}),
+    ):
+        assert client.put(f"{API}/charts/drivers/{key}", json=body).status_code == 400
+    assert [d["key"] for d in ladder().json()["drivers"]] == ["DFII10"]  # refusals changed nothing
+    assert client.delete(f"{API}/charts/drivers/copper").status_code == 204
+    assert client.delete(f"{API}/charts/drivers/copper").status_code == 204  # idempotent
+    back = ladder().json()
+    assert back["custom"] is False and [d["key"] for d in back["drivers"]] == ["DTWEXBGS", "DFII10"]
+    assert client.get(f"{API}/charts/drivers/nope").status_code == 400
+    # a share can have its own set too
+    assert (
+        client.put(f"{API}/charts/drivers/S:DACC", json={"drivers": ["gold", "copper"]}).status_code
+        == 200
+    )
+    assert client.get(f"{API}/charts/ladder", params={"key": "S:DACC"}).json()["custom"] is True
+
+
+def test_every_chart_view_says_it_in_plain_german(client, container, session):
+    from watchstreet.services import macro
+
+    macro.sync(session, container.fetcher)
+    session.commit()
+    views = {
+        "matrix": {},
+        "chain": {"key": "S:DACC", "years": 1},
+        "regime": {},
+        "ladder": {"key": "S:DACC"},
+        "sheet": {"key": "S:DACC"},
+        "cycle": {"key": "gold"},
+    }
+    for view, params in views.items():
+        text = client.get(f"{API}/charts/{view}", params=params).json()["plain"]
+        assert isinstance(text, str) and len(text) > 20, view
+    lens = client.post(
+        f"{API}/charts/lens", json={"expression": "$objekt / gold", "subject": "S:DACC"}
+    ).json()
+    assert "Demo" in lens["plain"] or "DACC" in lens["plain"]
+    chain = client.get(f"{API}/charts/chain", params={"key": "S:DACC", "years": 1}).json()
+    assert chain["plain"].startswith(chain["label"]) and "Davon kamen" in chain["plain"]
+    # no driver stored: say so instead of inventing a relation
+    end = client.get(f"{API}/charts/ladder", params={"key": "NETLIQ"}).json()
+    assert "kein Treiber hinterlegt" in end["plain"]
+    # every ladder payload carries a sentence, also for a driver the data cannot support
+    odd = client.get(f"{API}/charts/ladder", params={"key": "gold", "driver": "COPPER_GOLD"}).json()
+    assert odd["plain"]

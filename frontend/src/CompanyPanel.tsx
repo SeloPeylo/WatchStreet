@@ -69,7 +69,7 @@ export function CompanyPanel({ id, state, update, tick, onChanged, notify }: Pro
       <div className="section">
         <h3>Bilanz und Kapitalstruktur</h3>
         <table><tbody>
-          {data.metrics.map((m: Metric) => <MetricRow key={m.metric} m={m} onOpen={() => setOpen(m.metric)} />)}
+          {data.metrics.map((m: Metric) => <MetricRow key={m.metric} m={m} fullDate onOpen={() => setOpen(m.metric)} />)}
         </tbody></table>
       </div>
 

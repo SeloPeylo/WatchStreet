@@ -311,6 +311,7 @@ def company_list(
                 "assets": len(view["assets"]),
                 "next_catalyst": catalyst.get("text", ""),
                 "cash_empty": derived["cash_empty"].get("text", ""),
+                "cash_exhausted": bool(derived["cash_today"].get("exhausted")),
                 "answered": sum(1 for q in view["checklist"] if q["answered"]),
                 "questions": len(view["checklist"]),
                 "unverified": any(m.get("unverified") for m in view["metrics"] + view["derived"]),

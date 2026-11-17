@@ -19,12 +19,11 @@ from watchstreet.domain import (
     StakeRole,
     SubjectType,
 )
-from watchstreet.economics.company import runway_months
 from watchstreet.geo import haversine_km
 from watchstreet.metrics import PRODUCING_STATUSES, key_metrics
 from watchstreet.models import Asset, Company, Fact, Finding
 from watchstreet.services.changes import log_change
-from watchstreet.services.companies import company_facts
+from watchstreet.services.companies import cash_outlook_of, exhausted_note, exhausted_since
 from watchstreet.services.proposals import create_proposal
 from watchstreet.services.world import (
     Bundle,
@@ -159,9 +158,8 @@ def _neighbour_rule(
 def _runway_rule(session: Session, ctx: ViewContext, report: EngineReport) -> None:
     """A company that runs out of cash within a year will have to raise money: say so."""
     for company in session.scalars(select(Company)):
-        facts = company_facts(session, company.id, ctx)
-        cash, burn = facts.get("cash"), facts.get("burn_rate")
-        months = runway_months(cash.value if cash else None, burn.value if burn else None)
+        outlook = cash_outlook_of(session, company.id, ctx)
+        months = outlook.runway_months
         if months is None or months >= SHORT_RUNWAY_MONTHS:
             continue
         exists = session.scalars(
@@ -173,10 +171,16 @@ def _runway_rule(session: Session, ctx: ViewContext, report: EngineReport) -> No
         ).first()
         if exists:
             continue
-        text = (
-            f"Die berichtete Kasse von {company.name} reicht ab dem Bilanzstichtag rund "
-            f"{months:.0f} Monate; ohne neue Finanzierung ist sie danach aufgebraucht."
-        )
+        if outlook.exhausted:
+            text = (
+                f"Die Kasse von {company.name} ist {exhausted_since(outlook)}; "
+                f"{exhausted_note(outlook)}."
+            )
+        else:
+            text = (
+                f"Die geschätzte Kasse von {company.name} reicht ab heute rund "
+                f"{months:.0f} Monate; ohne neue Finanzierung ist sie danach aufgebraucht."
+            )
         session.add(
             Finding(
                 subject_type=SubjectType.COMPANY,

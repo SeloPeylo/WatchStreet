@@ -1,10 +1,11 @@
 // Charts beyond one line: yardstick matrix, lever chain, lenses (formulas) and the regime map.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Json } from "./api";
-import { day, del, get, num, post } from "./api";
+import { day, del, get, num, post, put } from "./api";
 import { Chart, Spark } from "./Macro";
+import { Purchasing } from "./Purchasing";
 
-const TABS: [string, string][] = [["ladder", "Treiberleiter"], ["matrix", "Massstab-Matrix"], ["chain", "Hebelkette"], ["lens", "Linse"], ["regime", "Regimekarte"]];
+const TABS: [string, string][] = [["ladder", "Treiberleiter"], ["matrix", "Massstab-Matrix"], ["chain", "Hebelkette"], ["lens", "Linse"], ["regime", "Regimekarte"], ["purchasing", "Kaufkraft"]];
 const YEARS: [string, number][] = [["1 J", 1], ["3 J", 3], ["5 J", 5], ["10 J", 10]];
 const LINK_COLORS = ["var(--warn)", "var(--accent)", "var(--ok)", "var(--demo)", "var(--bad)"];
 const signed = (value: number | null | undefined, unit = " %") => (value == null ? "–" : `${value >= 0 ? "+" : ""}${num(value)}${unit}`);
@@ -13,10 +14,71 @@ function Years({ value, set, options = YEARS }: { value: number; set: (v: number
   return <>{options.map(([label, v]) => <button key={label} className={value === v ? "on" : ""} onClick={() => set(v)}>{label}</button>)}</>;
 }
 
-function SeriesSelect({ series, value, set, filter, testid }: { series: Json[]; value: string; set: (v: string) => void; filter?: (s: Json) => boolean; testid: string }) {
+/** The sentence a view opens with: what the numbers say, in everyday German (built by the server). */
+function Plain({ text }: { text?: string }) {
+  return text ? <p className="plain" data-testid="plain">{text}</p> : null;
+}
+
+/** Collapsible key to the numbers and columns of a view. */
+function Explain({ lines }: { lines: string[] }) {
+  return (
+    <details className="explain" data-testid="explain">
+      <summary>Was heisst das?</summary>
+      <ul className="small">{lines.map((line) => <li key={line}>{line}</li>)}</ul>
+    </details>
+  );
+}
+
+const EXPLAIN: Record<string, string[]> = {
+  matrix: [
+    "Jede Zeile ist ein Wert, den du hältst oder beobachtest. Jede Spalte ist ein Massstab, in dem sein Preis gemessen wird: Dollar, Gold, Preise im Laden verglichen mit früher, Geldmenge oder Rohöl.",
+    "Die Prozentzahl in einer Zelle ist die Änderung der letzten 12 Monate – gemessen in diesem Massstab, nicht in Dollar.",
+    "Der kleine Strich zeigt, wo der heutige Wert zwischen seinem tiefsten (links) und höchsten Stand (rechts) im gezeigten Zeitraum liegt.",
+    "Ein Preis, der in Dollar steigt und in Gold fällt, hat weniger zugelegt als Gold selbst.",
+  ],
+  chain: [
+    "Die Kursänderung wird in Stücke zerlegt, die sich zum Kurs multiplizieren, etwa Goldpreis, Rohstoff gemessen in Gold und Unternehmen gemessen im Rohstoff.",
+    "„Punkte“ sind fast dasselbe wie Prozent. Anders als Prozente kann man sie einfach zusammenzählen.",
+    "Jeder Balken beginnt dort, wo der vorige endet. Der letzte Balken (=) ist die Gesamtänderung des Kurses.",
+    "Das ist Rechnung, keine Begründung: „gemessen in“ heisst nicht „wegen“.",
+  ],
+  lens: [
+    "Eine Linse ist eine Formel. Das Ergebnis ist eine neue Linie, zum Beispiel der Preis in Unzen Gold.",
+    "„Einheit“ sagt, was die Zahl bedeutet, zum Beispiel oz = Unzen Gold.",
+    "Erscheinen die Reihen in verschiedenem Takt (täglich, wöchentlich, monatlich), wird alles auf den gröbsten Takt gemittelt; der Satz unter dem Titel sagt, welcher es war.",
+    "„Log“ zeigt die Linie auf einer Skala, auf der gleiche Prozentänderungen gleich hoch aussehen.",
+  ],
+  regime: [
+    "Jeder Punkt der Linie ist ein Tag: waagrecht steht die eine Grösse, senkrecht die andere.",
+    "Blass ist früher, kräftig mit Ring ist heute.",
+    "Die Dreiecke sind deine eigenen Käufe, Verkäufe und Anpassungen aus dem Entscheidungsprotokoll; sie liegen dort, wo die Welt an dem Tag stand.",
+    "Die Karte zeigt, wo beide Grössen standen – nicht, was als Nächstes kommt.",
+  ],
+  ladder: [
+    "„Treiber“ sind die Reihen, hinter denen der Wert vermutet wird. Das ist eine hinterlegte Annahme, kein Befund.",
+    "„Empfindlichkeit“: um wie viel sich der Wert im Schnitt bewegte, wenn sich der Treiber um 1 bewegte – berechnet aus den Änderungen des Zeitraums, eine Schätzung.",
+    "„erklärt x %“ (R²) sagt, wie viel der Bewegung zum Treiber passt. Ist der Wert klein, ist der Zusammenhang schwach und keine Regel.",
+    "„Beitrag im Zeitraum“ ist die Empfindlichkeit mal die Bewegung des Treibers; der „Eigenanteil“ ist der Rest, den der Wert selbst mitbrachte. Beides zusammen ergibt die Gesamtänderung.",
+  ],
+  sheet: [
+    "Jede Stufe ist eine Reihe; die nächste Stufe darunter ist das, was hinter ihr vermutet wird.",
+    "„Letzter Monat“ ist die Änderung der letzten vier Wochen. Darunter steht, wie ungewöhnlich sie im Vergleich zu allen Monaten des Zeitraums ist; ab etwa ±2 ist sie selten.",
+    "Der Strich zeigt, wo der heutige Wert zwischen Tief und Hoch des Zeitraums liegt.",
+    "Die Empfindlichkeit zwischen den Stufen ist eine Schätzung; ist sie grau, zeigen die Daten keinen belastbaren Zusammenhang.",
+  ],
+  cycle: [
+    "Die Uhr zeigt, in welcher Phase der Treiber gerade steht: hoch oder tief, steigend oder fallend, gemessen am Durchschnitt des Zeitraums.",
+    "Der Abstand vom Mittelpunkt ist der Wert des Gegenstands: weiter aussen heisst höher.",
+    "Die Tabelle nennt frühere Zeiträume in derselben Phase und wie sich der Gegenstand währenddessen änderte.",
+    "Das ist Rückschau, keine Vorhersage; wenige Zeiträume sind keine Regel.",
+  ],
+};
+
+function SeriesSelect({ series, value, set, filter, testid, placeholder }: { series: Json[]; value: string; set: (v: string) => void; filter?: (s: Json) => boolean; testid: string; placeholder?: string }) {
   const shown = filter ? series.filter(filter) : series;
   return (
     <select data-testid={testid} value={value} onChange={(e) => set(e.target.value)}>
+      {placeholder && <option value="">{placeholder}</option>}
       <optgroup label="Aktien">{shown.filter((s) => s.share).map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</optgroup>
       <optgroup label="Reihen">{shown.filter((s) => !s.share).map((s) => <option key={s.key} value={s.key}>{s.label} [{s.key}]</option>)}</optgroup>
     </select>
@@ -34,6 +96,7 @@ function Matrix({ openChain }: { openChain: (key: string) => void }) {
   const yardstick = open && data.yardsticks.find((y: Json) => y.key === open[1]);
   return (
     <div data-testid="matrix">
+      <Plain text={data.plain} />
       <p className="small muted">Zeilen: was du hältst oder beobachtest. Spalten: der Massstab. Jede Zelle zeigt den Verlauf über bis zu {data.years} Jahre, die Änderung über ein Jahr und – als Strich – wo der heutige Wert in der eigenen Spanne liegt (links tief, rechts hoch).</p>
       <div className="box" style={{ overflowX: "auto" }}>
         <table className="matrix">
@@ -60,6 +123,7 @@ function Matrix({ openChain }: { openChain: (key: string) => void }) {
         </table>
       </div>
       <p className="small muted">{data.note}</p>
+      <Explain lines={EXPLAIN.matrix} />
       {cell?.state === "ok" && (
         <div className="box" data-testid="matrix-detail">
           <div className="row"><h2 style={{ margin: 0 }}>{row.label} in {yardstick.label}</h2><span className="muted small">{yardstick.rule} · {day(cell.from)} bis {day(cell.to)} · {cell.n} Werte</span></div>
@@ -96,6 +160,7 @@ function Chain({ series, subject, setSubject }: { series: Json[]; subject: strin
       {error && <div className="note" data-testid="chain-error">{error}</div>}
       {data && bars && (
         <>
+          <Plain text={data.plain} />
           <div className="box">
             <h2>{data.label}: {signed(data.total_pct)} in {data.currency}</h2>
             <p className="small muted">{day(data.from)} bis {day(data.to)} · entspricht {signed(data.total_log, "")} Punkten. Die Balken hängen aneinander und enden bei der Gesamtänderung.</p>
@@ -114,6 +179,7 @@ function Chain({ series, subject, setSubject }: { series: Json[]; subject: strin
               </div>
             </div>
             <p className="small muted">{data.note}</p>
+            <Explain lines={EXPLAIN.chain} />
           </div>
           <div className="box">
             <h3>Wann kam welcher Beitrag?</h3>
@@ -189,16 +255,19 @@ function Lens({ series, subject, setSubject }: { series: Json[]; subject: string
       {error && <div className="note" data-testid="lens-error">{error}</div>}
       {data && (
         <div className="box">
+          <Plain text={data.plain} />
           <div className="row">
             <h2 style={{ margin: 0 }}><code>{data.expression}</code></h2>
             <span className="muted small" data-testid="lens-unit">Einheit: {data.unit}</span>
             <span className="right row small"><Years value={years} set={setYears} options={[...YEARS, ["Max", 0]]} /><label><input type="checkbox" checked={log} onChange={() => setLog(!log)} /> Log</label></span>
           </div>
+          {data.grid_note && <p className="small" data-testid="lens-grid">{data.grid_note}</p>}
           <Chart points={data.points} log={log} years={years} />
           <div className="row small" data-testid="lens-terms">
             {data.terms.map((t: Json) => <span key={t.name} className="pill" title={`letzter Wert ${day(t.last_day)}`}><b>{t.name}</b> = {t.label} · {t.unit} · {{ daily: "täglich", weekly: "wöchentlich", monthly: "monatlich" }[t.frequency as string] ?? t.frequency}</span>)}
           </div>
           <p className="small muted">{data.dropped > 0 && <>{data.dropped} Beobachtungen der längsten Reihe haben keinen gemeinsamen Tag und fehlen im Ergebnis. </>}{data.note}</p>
+          <Explain lines={EXPLAIN.lens} />
           <div className="row small">
             <input placeholder="Name der Linse" data-testid="lens-name" value={name} onChange={(e) => setName(e.target.value)} />
             <button disabled={!name.trim()} data-testid="lens-save" onClick={save}>Als Linse speichern</button>
@@ -245,6 +314,7 @@ function Regime({ series }: { series: Json[] }) {
       {error && <div className="note">{error}</div>}
       {data && geo && (
         <div className="box">
+          <Plain text={data.plain} />
           <div className="small chartread" data-testid="regime-read">
             {hover ? <><b>{day(hover.day)}</b>{hover.kind ? ` · ${DECISION[hover.kind] ?? hover.kind} ${hover.symbol}${hover.reason ? ` – ${hover.reason}` : ""}` : ""} · {data.x.label}: {num(hover.x)} · {data.y.label}: {num(hover.y)}</>
               : <>Heute ({day(data.to)}): {data.x.label} {num(data.path[data.path.length - 1].x)} {data.x.unit} · {data.y.label} {num(data.path[data.path.length - 1].y)} {data.y.unit}</>}
@@ -267,6 +337,7 @@ function Regime({ series }: { series: Json[] }) {
             <text x={14} y={H / 2} textAnchor="middle" fontSize="11" fill="var(--muted)" transform={`rotate(-90 14 ${H / 2})`}>{data.y.label} ({data.y.unit}) · {num(geo.y0)} bis {num(geo.y1)}</text>
           </svg>
           <p className="small muted">Linie: Weg von {day(data.from)} (blass) bis heute (kräftig, Ring). ▲ grün = dein Kauf, ▽ = dein Verkauf, ▲ gelb = deine Anpassung – Einträge aus deinem Entscheidungsprotokoll, keine Empfehlung{geo.marks.length === 0 ? " – in diesem Zeitraum gibt es keine Einträge" : ""}. {data.note}</p>
+          <Explain lines={EXPLAIN.regime} />
         </div>
       )}
     </div>
@@ -362,6 +433,7 @@ function Sheet({ subject, years, open }: { subject: string; years: number; open:
   if (!data) return <div className="muted small">Lade …</div>;
   return (
     <div className="box" data-testid="sheet">
+      <Plain text={data.plain} />
       {data.rungs.map((r: Json, i: number) => {
         const rare = r.unusual != null && Math.abs(r.unusual) >= 2;
         return (
@@ -378,6 +450,7 @@ function Sheet({ subject, years, open }: { subject: string; years: number; open:
         );
       })}
       <p className="small muted">{data.note}</p>
+      <Explain lines={EXPLAIN.sheet} />
     </div>
   );
 }
@@ -410,6 +483,7 @@ function Clock({ subject, driver, years }: { subject: string; driver: string; ye
   const wedge = (() => { const [a, b] = [data.today * width - width / 2, data.today * width + width / 2]; const [p, q] = [geo.ray(a, R), geo.ray(b, R)]; return `M${C},${C} L${p[0]},${p[1]} A${R},${R} 0 0 0 ${q[0]},${q[1]} Z`; })();
   return (
     <div className="box" data-testid="clock">
+      <Plain text={data.plain} />
       <div className="row"><h2 style={{ margin: 0 }}>{data.subject.label} auf der Zyklusuhr von {data.driver.label}</h2></div>
       <div className="small chartread" data-testid="clock-read"><b>{day(shown.day)}</b>{hover ? "" : " (letzter Wert)"} · Phase: {data.sectors[shown.sector]} · {data.subject.label}: {num(shown.y)} {data.subject.unit}</div>
       <div className="clockgrid">
@@ -435,6 +509,54 @@ function Clock({ subject, driver, years }: { subject: string; driver: string; ye
         </div>
       </div>
       <p className="small muted">{data.note} Die Bewegung des Treibers ist über {data.span} Beobachtungen gemessen.</p>
+      <Explain lines={EXPLAIN.cycle} />
+    </div>
+  );
+}
+
+const GRID_WORD: Record<string, string> = { daily: "Tageswerten", weekly: "Wochenmitteln", monthly: "Monatsmitteln" };
+
+/** Several drivers at once: each one's sensitivity and its contribution over the period, plus what is left to the series itself. */
+function Joint({ data }: { data: Json }) {
+  const joint = data.joint;
+  if (!joint) return data.joint_note ? <p className="small muted" data-testid="joint-note">{data.joint_note}</p> : null;
+  const tone = (v: number) => (v >= 0 ? "up" : "down");
+  return (
+    <div data-testid="joint">
+      <p className="small" data-testid="joint-plain">{joint.plain}</p>
+      <table className="small" data-testid="joint-table">
+        <thead><tr><th>Treiber</th><th>Empfindlichkeit</th><th>Beitrag im Zeitraum</th></tr></thead>
+        <tbody>
+          {joint.drivers.map((d: Json) => <tr key={d.key}><td>{d.label}</td><td>{signed(d.beta, "")} <span className="muted">{d.unit}</span></td><td className={tone(d.contribution_pct)}>{signed(d.contribution_pct, "")} {joint.unit}</td></tr>)}
+          <tr data-testid="joint-own"><td>Eigenanteil</td><td className="muted">–</td><td className={tone(joint.own_pct)}>{signed(joint.own_pct, "")} {joint.unit}</td></tr>
+          <tr className="total"><td><b>Gesamt</b></td><td></td><td><b>{signed(joint.total_pct, "")} {joint.unit}</b> <span className="muted">({signed(joint.real_change_pct)})</span></td></tr>
+        </tbody>
+      </table>
+      <p className="small muted" data-testid="joint-fit">Zusammen erklärt: <b>{num(joint.r_squared * 100)} %</b> der Bewegung (R²) · {joint.observations} Beobachtungen · gerechnet auf {GRID_WORD[joint.grid] ?? joint.grid}. Beiträge und Eigenanteil addieren sich zur Gesamtänderung. Schätzung aus vergangenen Änderungen, keine Regel.</p>
+    </div>
+  );
+}
+
+/** Add or remove drivers of the subject (at most `max`), save them as the series' own set or go back to the declared one. */
+function DriverEditor({ series, subject, data, done }: { series: Json[]; subject: string; data: Json; done: () => void }) {
+  const [draft, setDraft] = useState<string[]>(data.drivers.map((d: Json) => d.key));
+  const [error, setError] = useState("");
+  const label = (k: string) => series.find((s) => s.key === k)?.label ?? k;
+  const run = (job: Promise<Json>) => job.then(done).catch((e) => setError(e.message));
+  return (
+    <div className="box inner" data-testid="driver-editor">
+      <div className="row small">
+        <span className="muted">Treiber von {data.subject.label} (höchstens {data.max_drivers}):</span>
+        <span className="chips">{draft.map((k) => <span key={k} className="chip"><b>{label(k)}</b><button title="Entfernen" data-testid={`driver-remove-${k}`} onClick={() => setDraft(draft.filter((x) => x !== k))}>×</button></span>)}</span>
+        {draft.length < data.max_drivers && <SeriesSelect testid="driver-add" series={series} value="" placeholder="+ Treiber hinzufügen …" set={(k) => k && setDraft([...draft, k])} filter={(s) => s.key !== subject && !draft.includes(s.key)} />}
+      </div>
+      {error && <div className="note" data-testid="driver-error">{error}</div>}
+      <div className="row small">
+        <button className="primary" data-testid="driver-save" disabled={draft.length === 0} onClick={() => run(put(`/charts/drivers/${encodeURIComponent(subject)}`, { drivers: draft }))}>Speichern</button>
+        <button data-testid="driver-reset" disabled={!data.custom} title={data.custom ? "" : "Es ist schon der Standard"} onClick={() => run(del(`/charts/drivers/${encodeURIComponent(subject)}`))}>Zurück zum Standard</button>
+        <button onClick={done}>Abbrechen</button>
+        <span className="muted">Die Auswahl ist deine Annahme über die Welt, kein Befund; sie gilt auch für die ganze Leiter und die Zyklusuhr.</span>
+      </div>
     </div>
   );
 }
@@ -450,10 +572,14 @@ function Ladder({ series, start, setStart }: { series: Json[]; start: string; se
   const [space, setSpace] = useState(false);
   const [data, setData] = useState<Json | null>(null);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [version, setVersion] = useState(0);
+  const set = useRef<string[]>([]); // the drivers of the loaded series: kept in the request once one is picked, so the joint table stays
   const key = trail[trail.length - 1];
   useEffect(() => {
-    get("/charts/ladder", { key, driver, years: String(years) }).then((d) => { setData(d); setError(""); }).catch((e) => { setData(null); setError(e.message); });
-  }, [key, driver, years]);
+    get("/charts/ladder", { key, driver, years: String(years), drivers: driver ? set.current.join(",") : undefined }).then((d) => { set.current = d.drivers.map((x: Json) => x.key); setData(d); setError(""); }).catch((e) => { setData(null); setError(e.message); });
+  }, [key, driver, years, version]);
+  useEffect(() => { setEditing(false); }, [key]);
   const go = (next: string) => { setDriver(""); setTrail((t) => (t.includes(next) ? t.slice(0, t.indexOf(next) + 1) : [...t, next])); };
   const label = (k: string) => series.find((s) => s.key === k)?.label ?? k;
   const ownLast = data?.own?.length ? data.own[data.own.length - 1] : null;
@@ -472,11 +598,16 @@ function Ladder({ series, start, setStart }: { series: Json[]; start: string; se
           <div className="row">
             <h2 style={{ margin: 0 }}>{data.subject.label}</h2>
             {data.drivers.length > 0 ? <span className="small muted">gegen</span> : <span className="small muted">Für diese Reihe ist kein Treiber hinterlegt – hier endet die Leiter.</span>}
-            {data.drivers.map((d: Json) => <button key={d.key} className={data.driver?.key === d.key ? "on" : ""} data-testid={`driver-${d.key}`} onClick={() => setDriver(d.key)}>{d.label}</button>)}
+            <span className="chips" data-testid="driver-chips">{data.drivers.map((d: Json) => <button key={d.key} className={data.driver?.key === d.key ? "on" : ""} data-testid={`driver-${d.key}`} onClick={() => setDriver(d.key)}>{d.label}</button>)}</span>
+            {data.custom && <span className="pill small" title="Eigene Auswahl statt des hinterlegten Standards">eigene Auswahl</span>}
+            <button className="small" data-testid="driver-edit" onClick={() => setEditing(!editing)}>Treiber ändern</button>
             {view === "path" && <label className="small"><input type="checkbox" data-testid="ladder-space" checked={space} onChange={() => setSpace(!space)} /> Raum (Zeit als dritte Achse)</label>}
             {data.driver?.has_drivers && !trail.includes(data.driver.key) && <button className="primary right" data-testid="ladder-deeper" onClick={() => go(data.driver.key)}>Eine Stufe tiefer: {data.driver.label} →</button>}
             {data.driver && trail.includes(data.driver.key) && <span className="small muted right">Hier schliesst sich der Kreis: {data.driver.label} steht schon in der Spur.</span>}
           </div>
+          {editing && view !== "sheet" && <DriverEditor series={series} subject={key} data={data} done={() => { setEditing(false); setDriver(""); setVersion((v) => v + 1); }} />}
+          {view !== "clock" && <Plain text={data.plain} />}
+          {view !== "clock" && <Joint data={data} />}
           {view === "path" && (data.path.length > 1 ? <Space data={data} space={space} /> : data.driver && <div className="muted small chartempty">Keine gemeinsamen Werte in diesem Zeitraum.</div>)}
           {view === "path" && data.driver && <p className="small" data-testid="ladder-slope">Empfindlichkeit von {data.subject.label} auf {data.driver.label}: <Slope slope={data.slope} /></p>}
           {view === "own" && (ownLast ? (
@@ -490,6 +621,7 @@ function Ladder({ series, start, setStart }: { series: Json[]; start: string; se
             </div>
           ) : <div className="muted small chartempty" data-testid="own-empty">Der eigene Anteil lässt sich nur für Preise gegen Preise bilden und braucht genug gemeinsame Beobachtungen.</div>)}
           {view !== "clock" && <p className="small muted">{data.note}</p>}
+          {view !== "clock" && <Explain lines={EXPLAIN.ladder} />}
         </div>
       )}
       {data && view === "clock" && data.driver && <Clock subject={key} driver={data.driver.key} years={Math.max(years, 3)} />}
@@ -530,6 +662,7 @@ export function Charts() {
       {tab === "chain" && <Chain series={series} subject={subject} setSubject={setSubject} />}
       {tab === "lens" && <Lens series={series} subject={subject} setSubject={setSubject} />}
       {tab === "regime" && <Regime series={series} />}
+      {tab === "purchasing" && <Purchasing subject={subject} setSubject={setSubject} />}
     </div>
   );
 }

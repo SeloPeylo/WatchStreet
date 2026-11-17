@@ -170,6 +170,43 @@ SERIES: tuple[Series, ...] = (
         "Spotpreis, einige Tage Verzug",
         money=True,
     ),
+    Series(
+        "AHETPI",
+        "Stundenlohn USA (Arbeiter, ohne Aufsicht)",
+        "inflation",
+        "USD je Stunde",
+        "monthly",
+        "Durchschnitt der Produktions- und Nichtaufsichtskräfte, saisonbereinigt; rund eine "
+        "Woche nach Monatsende veröffentlicht, wird revidiert",
+    ),
+    Series(
+        "PCOPPUSDM",
+        "Kupfer (IMF, Monatsmittel)",
+        "markets",
+        "USD je Tonne",
+        "monthly",
+        "Monatsmittel der LME-Notierung, vom IMF veröffentlicht; rund einen Monat verzögert",
+        money=True,
+    ),
+    Series(
+        "PURANUSDM",
+        "Uran (IMF, Monatsmittel)",
+        "markets",
+        "USD je Pfund U3O8",
+        "monthly",
+        "Monatsmittel des Spotpreises, vom IMF veröffentlicht; dünner Markt, rund einen Monat "
+        "verzögert",
+        money=True,
+    ),
+    Series(
+        "NASDAQXAU",
+        "Gold- und Silberminen (PHLX XAU)",
+        "markets",
+        "Punkte (USD)",
+        "daily",
+        "Kursindex von rund 30 Minenaktien ohne Dividenden; FRED führt ihn ab September 2004",
+        money=True,
+    ),
 )
 BY_KEY = {s.key: s for s in SERIES}
 

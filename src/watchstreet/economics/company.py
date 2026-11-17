@@ -89,6 +89,42 @@ def cash_empty_on(as_at: date | None, months: float | None) -> date | None:
     return as_at + timedelta(days=round(months * DAYS_PER_MONTH))
 
 
+@dataclass(frozen=True)
+class CashOutlook:
+    """Everything said about the cash on one basis: the estimate for the reference day."""
+
+    cash_now: float | None
+    runway_months: float | None  # from the reference day on; 0 once the cash is used up
+    empty_on: date | None
+    exhausted: bool  # the estimate reached zero on or before the reference day
+    balance_day: date | None
+
+
+def cash_outlook(
+    cash: float | None,
+    raises: Sequence[Raise],
+    burn_per_quarter: float | None,
+    balance_day: date | None,
+    reference: date,
+) -> CashOutlook:
+    """Today's estimated cash, the runway from today and the day it runs out, all consistent.
+
+    ``exhausted`` means the balance sheet is older than the runway: the reported cash is used up
+    on paper, so a financing that is not on file has probably happened since.
+    """
+    days = (reference - balance_day).days if balance_day else None
+    now = cash_today(cash, sum(r.amount for r in raises), burn_per_quarter, days)
+    burning = burn_per_quarter is not None and burn_per_quarter > 0
+    empty_on = cash_empty_on(
+        balance_day, runway_months(pro_forma_cash(cash, raises), burn_per_quarter)
+    )
+    exhausted = burning and now is not None and now <= 0 and empty_on is not None
+    if exhausted and empty_on is not None:
+        empty_on = min(empty_on, reference)  # rounding to whole days must not put it in the future
+    runway = 0.0 if exhausted else runway_months(now, burn_per_quarter)
+    return CashOutlook(now, runway, empty_on, exhausted, balance_day)
+
+
 def ratio(numerator: float | None, denominator: float | None) -> float | None:
     if numerator is None or not denominator or denominator <= 0:
         return None

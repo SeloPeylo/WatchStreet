@@ -297,6 +297,21 @@ def _binary(op: str, left: Operand | float, right: Operand | float) -> Operand |
     return value
 
 
+def _names(node: Node) -> list[str]:
+    if isinstance(node, Name):
+        return [node.name]
+    if isinstance(node, Call):
+        return _names(node.arg)
+    if isinstance(node, Bin):
+        return [*_names(node.left), *_names(node.right)]
+    return []
+
+
+def series_names(text: str) -> list[str]:
+    """Series names a formula uses, once each, in order of appearance; evaluates nothing."""
+    return list(dict.fromkeys(_names(_Parser(text).parse())))
+
+
 def evaluate(text: str, resolve: Callable[[str], Operand]) -> Result:
     """Evaluate a formula. ``resolve`` raises ``ExpressionError`` for an unknown name."""
     terms: list[str] = []

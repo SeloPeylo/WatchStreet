@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from watchstreet.agents.base import AgentError, AgentRequest
 from watchstreet.analysis.imports import ignored_columns, parse_table, table_from_records
+from watchstreet.analysis.portfolio import exit_breaches
 from watchstreet.constants import (
     HEARTBEAT_STALE_AFTER,
     LAST_SCAN_KEY,
@@ -448,17 +449,9 @@ def _exposure(session: Session, stock_id: int) -> dict[str, Any]:
 
 
 def _alerts(row: Any, exposure: dict[str, Any], runway: float | None) -> list[str]:
-    """Exit thresholds the user set, checked against today's data."""
-    holding, alerts = row.holding, []
-    if holding.stop_price and row.price is not None and row.price <= holding.stop_price:
-        alerts.append(
-            f"Kurs {row.price:g} liegt auf oder unter deiner Schwelle {holding.stop_price:g}"
-        )
-    if holding.min_runway_months and runway is not None and runway < holding.min_runway_months:
-        alerts.append(
-            f"Reichweite rund {runway:.0f} Monate liegt unter deiner Schwelle "
-            f"{holding.min_runway_months:g}"
-        )
+    """Exit thresholds the user set, checked against today's data, and contradicted theses."""
+    holding = row.holding
+    alerts = exit_breaches(row.price, holding.stop_price, runway, holding.min_runway_months)
     alerts += [
         f"These „{t['title']}“: {t['contradicted']} Annahme(n) widerlegt"
         for t in exposure["theses"]
@@ -481,6 +474,12 @@ def portfolio_view(session: SessionDep, container: ContainerDep) -> dict[str, An
     watch = portfolio.watch_entries(session)
     total = sum(r.market_value or 0.0 for r in rows)
     exposures = {r.holding.id: _exposure(session, r.holding.stock_id) for r in rows}
+    runways = {
+        r.holding.id: _runway(
+            session, container, (exposures[r.holding.id]["company"] or {}).get("id")
+        )
+        for r in rows
+    }
     closed = [d for d in portfolio.decisions(session) if d.kind == "sell"]
     return {
         "total_value": total,
@@ -518,17 +517,12 @@ def portfolio_view(session: SessionDep, container: ContainerDep) -> dict[str, An
                 "stop_price": r.holding.stop_price,
                 "min_runway_months": r.holding.min_runway_months,
                 "weight": r.market_value / total if r.market_value and total else None,
-                "alerts": _alerts(
-                    r,
-                    exposures[r.holding.id],
-                    _runway(
-                        session, container, (exposures[r.holding.id]["company"] or {}).get("id")
-                    ),
-                ),
+                "alerts": _alerts(r, exposures[r.holding.id], runways[r.holding.id]),
                 **exposures[r.holding.id],
             }
             for r in rows
         ],
+        "month": asdict(portfolio.monthly_summary(session, rows, runways, utcnow().date())),
         "watchlist": [
             {
                 "id": w.id,

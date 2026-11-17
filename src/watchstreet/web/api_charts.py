@@ -18,6 +18,10 @@ class LensIn(BaseModel):
     subject: str = ""
 
 
+class DriversIn(BaseModel):
+    drivers: list[str]
+
+
 class LensSave(BaseModel):
     name: str = Field(min_length=1, max_length=LENS_NAME_CHARS)
     expression: str = Field(min_length=1, max_length=EXPRESSION_MAX_CHARS)
@@ -66,8 +70,25 @@ def delete_lens(session: SessionDep, lens_id: int) -> None:
 
 
 @router.get("/ladder")
-def ladder(session: SessionDep, key: str, driver: str = "", years: float = 3.0) -> dict[str, Any]:
-    return charts.ladder(session, key, driver, _years(years))
+def ladder(
+    session: SessionDep, key: str, driver: str = "", years: float = 3.0, drivers: str = ""
+) -> dict[str, Any]:
+    return charts.ladder(session, key, driver, _years(years), drivers)
+
+
+@router.get("/drivers/{key}")
+def get_drivers(session: SessionDep, key: str) -> dict[str, Any]:
+    return charts.driver_set(session, key)
+
+
+@router.put("/drivers/{key}")
+def put_drivers(session: SessionDep, key: str, body: DriversIn) -> dict[str, Any]:
+    return charts.save_driver_set(session, key, body.drivers)
+
+
+@router.delete("/drivers/{key}", status_code=204)
+def delete_drivers(session: SessionDep, key: str) -> None:
+    charts.delete_driver_set(session, key)
 
 
 @router.get("/sheet")

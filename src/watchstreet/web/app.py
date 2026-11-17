@@ -11,13 +11,20 @@ from fastapi.staticfiles import StaticFiles
 from watchstreet.config import load_settings
 from watchstreet.container import Container, build_container
 from watchstreet.errors import WatchStreetError
-from watchstreet.web import api_charts, api_explorer, api_macro, api_research, api_system
+from watchstreet.web import (
+    api_charts,
+    api_explorer,
+    api_macro,
+    api_purchasing,
+    api_research,
+    api_system,
+)
 from watchstreet.web.auth import Auth
 from watchstreet.web.security import security_middleware
 
 WEB_DIR = Path(__file__).parent
 APP_DIR = WEB_DIR / "static" / "app"  # output of `npm run build` in frontend/
-API_MODULES = (api_charts, api_explorer, api_macro, api_research, api_system)
+API_MODULES = (api_charts, api_explorer, api_macro, api_purchasing, api_research, api_system)
 NOT_BUILT = (
     "<h1>WatchStreet</h1><p>Die Oberfläche ist noch nicht gebaut. "
     "Bitte <code>make frontend</code> ausführen (im Docker-Image geschieht das automatisch). "

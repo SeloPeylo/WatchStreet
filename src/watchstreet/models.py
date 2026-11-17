@@ -11,7 +11,7 @@ from typing import Any
 from sqlalchemy import JSON, Date, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from watchstreet.constants import DEFAULT_PRIORITY
+from watchstreet.constants import DEFAULT_PRIORITY, DRIVER_KEY_CHARS, DRIVER_LIST_CHARS
 from watchstreet.db import UtcDateTime
 from watchstreet.domain import (
     ClaimKind,
@@ -527,6 +527,17 @@ class Lens(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(80), unique=True)
     expression: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
+class DriverSet(Base):
+    """The user's own drivers for one series (comma-separated keys, nearest first)."""
+
+    __tablename__ = "driver_sets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(DRIVER_KEY_CHARS), unique=True)
+    drivers: Mapped[str] = mapped_column(String(DRIVER_LIST_CHARS))
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
 

@@ -5,7 +5,8 @@ Projekt ist die Analyseeinheit; jede Zahl zeigt, woher sie stammt. WatchStreet g
 Anlageempfehlungen** und handelt nicht.
 
 Im Demo-Modus (`make demo`) sind alle Objekte, Werte und Ereignisse **synthetisch** und entsprechend
-markiert.
+markiert. Einzige Ausnahme sind die Makro-Reihen: sie sind echte Daten der FRED-Datenbank, siehe
+Abschnitt 10b.
 
 [TOC]
 
@@ -124,8 +125,8 @@ profitieren:
 
 ![Junior mit kurzer Reichweite](screenshots/20_junior_unternehmen.png)
 
-Reicht die Kasse weniger als zwölf Monate, legt die Regelprüfung eine Auffälligkeit und einen
-Recherchevorschlag zur Finanzierung an. „Belegt“ im Prüfkatalog heisst, dass etwas vorliegt, nicht,
+Reicht die geschätzte Kasse ab heute weniger als zwölf Monate, legt die Regelprüfung eine
+Auffälligkeit und einen Recherchevorschlag zur Finanzierung an. „Belegt“ im Prüfkatalog heisst, dass etwas vorliegt, nicht,
 dass die Antwort gut ist. Asset-NAV und das Verhältnis dazu sind einfache Modellrechnungen, keine
 Bewertung.
 
@@ -138,7 +139,17 @@ Alle abgeleiteten Werte – Nettokasse, Reichweite ab heute, Unternehmenswert, F
 stehen auf dieser einen Basis; Börsenwert und Verwässerungsüberhang rechnen mit den Aktien inklusive
 später ausgegebener Aktien und Warrants. Darunter steht „Kasse rechnerisch leer am …“ oder, wenn das
 Datum schon vorbei ist, „seit …“ mit Warnzeichen. Die berichteten Kennzahlen oben bleiben unverändert
-auf dem Bilanzstichtag. Abgeleitete Werte sind gerundet („rund 8 Monate“): Sie sind grob, und
+auf dem Bilanzstichtag, und der Bilanzstichtag steht jeweils mit vollem Datum darunter („Kasse 9 Mio.,
+Bilanzstichtag 31.12.2025“ neben „Kasse heute (geschätzt)“). Alle Reichweiten – auch die Auffälligkeit
+der Regelprüfung – rechnen ab der geschätzten Kasse von heute, nie ab der Bilanz.
+
+**Kasse rechnerisch aufgebraucht:** Erreicht die Schätzung null, steht dort keine nackte „0“. „Kasse
+heute (geschätzt)“ und „Reichweite ab heute“ lauten dann „rechnerisch aufgebraucht seit …“, mit dem
+Hinweis „Bilanz vom … ist älter als die Reichweite – vermutlich fehlt eine Finanzierung“. Gemeint ist:
+Das Unternehmen hat seit der Bilanz sehr wahrscheinlich Geld aufgenommen, das hier nicht erfasst ist.
+Trage die Finanzierung unter „Finanzierungen“ ein oder lege eine neuere Bilanz an, dann rechnet die
+Seite wieder mit einer positiven Kasse. In der Tabelle der Unternehmen steht dafür „aufgebraucht“ und
+„⚠ Bilanz zu alt“. Abgeleitete Werte sind gerundet („rund 8 Monate“): Sie sind grob, und
 Nachkommastellen würden etwas anderes vortäuschen. Bei einem Stichtag in der Vergangenheit werden kein
 Kurs und keine späteren Finanzierungen gezeigt.
 
@@ -304,6 +315,22 @@ ohne These ist als solche ausgewiesen.
   in Monaten setzen. Ist eine Schwelle berührt oder eine Annahme der These widerlegt, steht „⚠ Ausstieg
   prüfen“ an der Position. WatchStreet verkauft nichts; es weist nur darauf hin.
 
+### Dieser Monat
+
+Oben auf der Seite fasst der Kasten **Dieser Monat** den laufenden Kalendermonat zusammen, nur aus
+dem gespeicherten Entscheidungsprotokoll und den Beständen; nichts davon wird gespeichert, es wird
+bei jedem Öffnen neu berechnet. Er zeigt einen Satz vorweg, dann drei Teile:
+
+* **Entscheidungen im Monat:** jeder Kauf, jede Änderung und jeder Verkauf dieses Kalendermonats mit
+  Datum, Symbol, Art und Begründung.
+* **Ausstiegsbedingung verletzt:** Positionen, deren Kursschwelle erreicht oder unterschritten ist
+  oder deren Reichweite unter der Mindestreichweite liegt – dieselben Prüfungen wie das Warnzeichen
+  an der Position. Fehlt ein Kurs, gilt die Position nicht als verletzt. Der Freitext der
+  Ausstiegsbedingung wird nicht ausgewertet, weil WatchStreet ihn nicht prüfen kann.
+* **Seit über 90 Tagen ungeprüft:** Positionen, zu denen seit mehr als 90 Tagen kein Eintrag im
+  Protokoll steht (Kauf, Nachkauf, Änderung oder Verkauf). Das ist eine Erinnerung, keine Regel: Die
+  Zusammenfassung verkauft nichts und bewertet nichts neu.
+
 ## 10a. Unternehmen sichten
 
 Die Seite „Unternehmen“ zeigt alle erfassten Unternehmen in einer Tabelle: Kasse heute (geschätzt),
@@ -340,6 +367,18 @@ Jede Kachel zeigt den letzten Wert, den Tag der Beobachtung, die Frequenz und di
 einem Jahr. Ein Klick öffnet den grossen Chart: Zeitraum wählen, logarithmische Skala, mit der Maus
 Tag und Wert ablesen.
 
+**Makro im Demo-Modus:** Die Reihen sind echte FRED-Daten ab 2003 (Stand des Snapshots: 16.11.2026),
+als Datei im Programm mitgeliefert; der Demo-Modus ruft FRED nicht ab. Die Quelle ist die Federal
+Reserve Bank of St. Louis (FRED); die einzelnen Reihen gehören ihren Herausgebern, deren Namen auf
+der jeweiligen Seite von fred.stlouisfed.org stehen. Der Stand endet mit den letzten Veröffentlichungen
+je Reihe, also nicht heute: Tägliche und wöchentliche Reihen reichen bis wenige Tage vor dem Stand,
+Geldmenge M2 und Baubeginne bis September 2026, CPI bis Oktober 2026. Die Kurse von
+Rohstoffen und Aktien im Demo-Modus sind dagegen synthetisch und laufen bis heute. Echt sind
+dagegen die langen Monatsreihen für Gold (Weltbank, Pink Sheet, über das gemeinfreie Datenpaket
+`datasets/gold-prices`), Kupfer und Uran (IMF, über FRED), der Minenindex XAU und der Stundenlohn;
+sie speisen die Sicht „Kaufkraft“ (Abschnitt 10c). Den Snapshot erneuert man von Hand mit
+`python scripts/snapshot_macro_history.py`.
+
 ![Makro mit Nettoliquidität](screenshots/28_makro.png)
 
 ![Kupfer in Gold gemessen (Demo-Daten)](screenshots/29_makro_nenner.png)
@@ -355,21 +394,33 @@ Tag und Wert ablesen.
 * **Inflationsbereinigt** heisst: Monatsmittel des Preises, umgerechnet in Kaufkraft des letzten
   veröffentlichten CPI-Monats. Der Chart endet mit diesem Monat; fehlt ein CPI-Monat, fehlt der
   Punkt.
-* **Nenner:** Preise (Rohstoffe, S&P 500, Öl) lassen sich in Dollar, in Unzen Gold und
-  inflationsbereinigt zeigen. Darunter steht für ein und fünf Jahre die Zerlegung „Änderung in
-  Dollar = Goldpreis × Änderung in Gold gemessen“. Das ist eine Rechnung, keine Ursachenaussage.
-  Derselbe Umschalter steht im Explorer am Preisverlauf des gewählten Rohstoffs; Szenario und Karte
-  rechnen weiter in Dollar.
+* **Gemessen in:** Preise (Rohstoffe, S&P 500, Öl) lassen sich über drei Knöpfe unter der
+  Überschrift zeigen – in Dollar, in Unzen Gold oder inflationsbereinigt; der aktive Knopf ist
+  hervorgehoben. Es ist derselbe Preis, nur in einer anderen Einheit gemessen. Steigt der Kurs in
+  Gold nicht, obwohl er in Dollar steigt, ist der Dollar weniger wert geworden, nicht der Preis
+  gestiegen. Bei Reihen, die kein Preis sind (Zinsen, Bilanzsummen, Verhältnisse), fehlen die Knöpfe;
+  stattdessen steht „Diese Reihe ist kein Preis und lässt sich nicht umrechnen.“ Darunter steht für
+  ein und fünf Jahre die Zerlegung „Änderung in Dollar = Goldpreis × Änderung in Gold gemessen“. Das
+  ist eine Rechnung, keine Ursachenaussage. Derselbe Umschalter steht im Explorer am Preisverlauf des
+  gewählten Rohstoffs; Szenario und Karte rechnen weiter in Dollar.
 * **Entscheidungsprotokoll:** Jeder Kauf und Verkauf hält Realzins, Rendite 10 Jahre, Leitzins,
   Dollar-Index, VIX, Nettoliquidität und Inflationsrate mit ihrem Beobachtungstag fest.
 
 ## 10c. Charts
 
-Der Bereich „Charts“ zeigt Preise nicht als eine Linie, sondern in fünf Sichten. Alles ist Rechnung
+Der Bereich „Charts“ zeigt Preise nicht als eine Linie, sondern in sechs Sichten. Alles ist Rechnung
 auf gespeicherten Werten: keine Prognose, kein Signal, keine Lückenfüllung. Einzige Schätzung ist
 die Empfindlichkeit in der Treiberleiter; sie ist als solche beschriftet. Die Anwendung speichert
 dafür Wochenschlusskurse aller Aktien, die im Depot, auf der Beobachtungsliste oder an einem
 Unternehmen hängen.
+
+**In einfachen Worten.** Jede Sicht beginnt mit ein bis zwei Sätzen, die aus den tatsächlichen
+Zahlen gebaut sind, zum Beispiel: „Stieg Realzins um 1 Prozentpunkt, dann fiel Gold in diesem
+Zeitraum im Schnitt um 6 %. Das erklärt 31 % der Bewegung.“ Die Sätze sagen nur, was die Zahlen
+tragen: fehlen Daten, steht das da; erklärt ein Zusammenhang weniger als 10 % der Bewegung oder
+ist die Steigung nicht belastbar, heisst es „Der Zusammenhang ist schwach – nicht als Regel
+verwenden“. Sie enthalten nie eine Kauf- oder Verkaufsempfehlung. Unter jeder Sicht klappt
+„Was heisst das?“ eine kurze Erklärung jeder Zahl und jeder Spalte auf.
 
 **Treiberleiter** – zeigt jeden Wert gegen das, was hinter ihm steht: die Aktie gegen ihren
 Rohstoff, den Rohstoff gegen Realzins und Dollar, diese gegen Inflation und Liquidität, die
@@ -406,6 +457,29 @@ Inflation gegen Energie. Welche Treiber hinter einer Reihe stehen, ist eine hint
   das, was am Unternehmen selbst liegt – als Schätzung, nicht als Bewertung.
 
 ![Eigenwert](screenshots/38_eigenwert.png)
+
+**Mehrere Treiber.** Hinter einem Wert steht oft mehr als eine Grösse (Kupfer: Dollar *und*
+Realzins). Hat eine Reihe zwei oder drei Treiber, rechnet die Leiter zusätzlich alle zugleich
+(„gemeinsame Schätzung“, kleinste Quadrate mit allen Treibern auf einmal) und zeigt eine Tabelle:
+je Treiber die Empfindlichkeit und den **Beitrag im Zeitraum** (Empfindlichkeit mal Bewegung des
+Treibers, in Punkten), dazu den **Eigenanteil** – den Rest, den der Wert selbst mitbrachte – und
+„erklärt x % der Bewegung (R²)“. Beiträge und Eigenanteil addieren sich genau zur Gesamtänderung.
+Gerechnet wird auf dem gröbsten Takt aller beteiligten Reihen (siehe Linse). Bewegen sich zwei
+Treiber fast gleich (z. B. zwei Zinsen), lassen sich ihre Anteile nicht trennen; die Anwendung
+zeigt dann keine Tabelle, sondern sagt das. Welche Ansicht gilt: Ohne Auswahl rechnet die Leiter
+mit der hinterlegten bzw. eigenen Treiberliste des Werts; wählst du in der Kopfzeile einen
+einzelnen Treiber an, zeigt sie die Einzelschätzung dieses Treibers, behält aber die
+gemeinsame Tabelle der ganzen Liste. Die Einzelschätzungen (Weg, Eigenwert, Zyklusuhr) bleiben
+unverändert.
+
+**Eigene Treiberliste.** Die Treiber in der Kopfzeile sind Chips. „Treiber ändern“ öffnet einen
+kleinen Editor: Treiber entfernen (×), aus der Auswahl hinzufügen (höchstens drei, keiner doppelt,
+nicht der Wert selbst), „Speichern“. Die Liste gilt für diesen Wert, auch für „Ganze Leiter“,
+Zyklusuhr und die Spalte „Was hängt an …“, und ist als „eigene Auswahl“ markiert. „Zurück zum
+Standard“ löscht sie und stellt die hinterlegten Treiber wieder her. Sie ist weiter deine Annahme
+über die Welt, kein Befund. Für Skripte: `GET`, `PUT` (Body `{"drivers": ["gold", "DFII10"]}`) und
+`DELETE` auf `/api/v1/charts/drivers/{Schlüssel}`; die Leiter nimmt ausserdem
+`/api/v1/charts/ladder?key=…&drivers=a,b,c`.
 
 Ist eine Empfindlichkeit grau („kein belastbarer Zusammenhang im Zeitraum“), lässt sich die Steigung
 nicht von null unterscheiden (t-Wert unter 2) oder sie wechselt zwischen den Hälften das Vorzeichen.
@@ -446,8 +520,16 @@ Objekt, sodass dieselbe Linse auf jede Aktie und jeden Preis passt.
 
 Die Anwendung rechnet die Einheit mit (Dollar ÷ Dollar je Unze = Unzen) und lehnt Summen
 verschiedener Einheiten ab. Zwei Reihen werden nur an Tagen verrechnet, an denen beide einen
-eigenen Wert haben; wie viele Beobachtungen dadurch wegfallen, steht unter dem Chart. Eine Monatsreihe
-und eine Tagesreihe haben deshalb nur wenige gemeinsame Tage – für Verbraucherpreise und M2 gibt es
+eigenen Wert haben; wie viele Beobachtungen dadurch wegfallen, steht unter dem Chart.
+
+**Gemeinsamer Takt.** Mischt eine Formel Reihen verschiedenen Takts (Verbraucherpreise und M2
+monatlich, die Bilanz der Fed wöchentlich, Kurse wöchentlich oder täglich), werden *vorher alle*
+auf den gröbsten Takt gebracht: Monatsmittel, wenn eine Reihe monatlich ist, sonst
+Wochenmittel (Montag der Woche), sonst bleiben die Tage, wie sie sind. Ohne das hätten ein
+Tageskurs und ein Monatsindex nur am Monatsersten einen gemeinsamen Tag. Über dem Chart steht ein
+Satz, was gerechnet wurde, z. B. „Gerechnet auf Monatsmitteln, weil „Geldmenge M2“ nur monatlich
+erscheint.“; im Ergebnis der API steht der Takt als `grid` („monthly“, „weekly“, „daily“). Eine
+einzelne Reihe behält ihre eigenen Tage. Für Preis ÷ Verbraucherpreise oder M2 gibt es ausserdem
 die Matrix-Spalten.
 
 ![Linse](screenshots/33_linse.png)
@@ -459,6 +541,61 @@ Stelle, an der die Welt an dem Tag stand. Die Karte färbt nichts nach späterer
 nichts über die Zukunft.
 
 ![Regimekarte](screenshots/34_regimekarte.png)
+
+**Kaufkraft** – zeigt einen Wert über die Zeit, gemessen an fünf Dingen, die man dafür kaufen
+könnte: einem **Warenkorb** (Verbraucherpreise USA), einer **Arbeitsstunde** (Stundenlohn von
+Arbeitern), einem Anteil an der **Geldmenge** M2, einer Unze **Gold** und einem Barrel **Öl**. In
+einem Satz: *Liegt das ganze graue Band über der Nulllinie, hat der Wert an Kaufkraft gewonnen,
+egal womit man misst; schneidet es die Null, hängt das Urteil am Massstab.*
+
+Warum fünf und nicht einer? Jeder Massstab hat einen bekannten Fehler: Der Warenkorb ist umstritten
+(Qualitätsbereinigung, Mieten), Löhne steigen mit der Produktivität schneller als Preise, die
+Geldmenge wächst auch mit der Wirtschaft, Gold hat ein eigenes Regime (Realzins, Angst, Käufe der
+Notenbanken), Öl schwankt kurzfristig am stärksten. Die Ansicht erklärt keinen davon zum richtigen,
+sondern zeigt, wo sie sich einig sind. Der Dollar steckt in keiner Linie: Wert und Massstab sind
+beide in Dollar notiert, beim Teilen kürzt er sich heraus. Wer „US-Dollar (Bargeld)“ wählt, sieht
+das Band der Massstäbe selbst – seit 2003 hat der Dollar nach allen fünf an Kaufkraft verloren
+(zwischen −46 % im Warenkorb und −92 % in Gold).
+
+* **Linien und Band** – jede farbige Linie ist die Änderung in einem Massstab, die dicke Linie die
+  Mitte (Median). Das dunkle Band reicht vom zweitniedrigsten bis zum zweithöchsten Massstab, das
+  helle vom niedrigsten bis zum höchsten. Die Skala ist logarithmisch (+100 % und −50 % liegen
+  gleich weit von der Null). Wie breit das Band ist, hängt nicht vom Wert ab, nur von den
+  Massstäben untereinander.
+* **Streifen** – darunter steht für jeden Monat, ob alle Massstäbe einen Gewinn zeigen (dunkelgrün),
+  die Mehrheit (hellgrün), keine Mehrheit (grau), die Mehrheit einen Verlust (hellrot) oder alle
+  (dunkelrot). Änderungen unter einem Prozent zählen als unverändert.
+* **seit Ausgangsmonat / je 12 Monate** – die Änderung seit dem ersten Monat oder gegenüber dem
+  Vorjahresmonat. Den Ausgangsmonat setzt die Auswahl „ab“ oder ein Klick in den Chart.
+* **Tabelle** – je Massstab die Änderung, in wie vielen Monaten er allein gegen alle anderen stand,
+  und was man über ihn wissen muss. Ist der Wert selbst ein Massstab (Gold, Öl), fällt dieser weg.
+
+![Kaufkraft-Band von Kupfer](screenshots/39_kaufkraft_band.png)
+
+Beispiele aus den echten Daten: Kupfer hat seit Januar 2003 nach vier von fünf Massstäben an
+Kaufkraft gewonnen, nur gemessen in Gold verloren – und Gold war in 101 Monaten der einzige
+Abweichler. Die Gold- und Silberminen (Index XAU) liegen seit 2004 im Warenkorb vorn, in Gold aber
+rund 60 % hinten; von 2013 bis 2019 lagen sie, ab 2004 gerechnet, nach allen fünf Massstäben im
+Minus.
+
+![Minenindex in Kaufkraft](screenshots/40_kaufkraft_minen.png)
+
+In „je 12 Monate“ zeigt Gold die bekannten Episoden: Ende 2008 hielt es seine Kaufkraft (Mitte 0 %),
+während Kupfer und Öl mehr als die Hälfte verloren; in den zwölf Monaten bis August 2011 gewann es
+nach allen Massstäben zwischen 28 und 42 %; im Inflationsjahr 2022 (zwölf Monate bis Dezember)
+verlor es gegen Warenkorb und Löhne 5 bis 6 %, gegen die Geldmenge nichts, weil M2 schrumpfte.
+
+![Gold, je 12 Monate, dunkle Darstellung](screenshots/41_kaufkraft_gold_dunkel.png)
+
+**Daten.** Gerechnet wird auf Monatsmitteln, ein Monat zählt nur, wenn der Wert und alle Massstäbe
+einen eigenen Wert haben; deshalb endet das Band mit der spätesten gemeinsamen Veröffentlichung
+(meist M2, gut einen Monat alt). Die Massstäbe und die langen Rohstoffreihen sind echte Geschichte
+ab 2003: Verbraucherpreise, Stundenlohn, M2, Rohöl, Erdgas, Kupfer und Uran (IMF-Monatsmittel)
+und der Minenindex XAU von FRED, Gold als Monatsmittel der Weltbank (Pink Sheet). Für Silber und
+Holz gibt es keine frei verfügbare lange Reihe; in der Demo sind diese Kurse und alle Aktienkurse
+synthetisch. Die Anwendung markiert solche Werte mit „Demo, synthetisch“ und beginnt den Satz
+mit einer Warnung. Rückschau, keine Prognose, kein Signal. Für Skripte:
+`/api/v1/charts/purchasing?key=…&mode=since|rolling&start=JJJJ-MM`.
 
 ## 11. Quellen
 
@@ -614,8 +751,8 @@ vor einem Update immer sichern, denn Migrationen sind nicht in jedem Fall umkehr
   in anderen Währungen erscheinen in der Matrix ohne Werte. Der Depotwert als Ganzes lässt sich noch
   nicht in einem Massstab zeigen, der Massstab ist noch keine Einstellung der ganzen Anwendung, und
   aus einer Linse lässt sich noch keine Annahme einer These machen. Geprüft ist der Bereich nur mit
-  Demo-Daten; deren Makroreihen sind künstliche Wellen, die Regimekarte sieht deshalb glatter aus
-  als mit echten Daten.
+  Demo-Daten; die Makroreihen dort sind echte Daten bis zum Snapshot (siehe Abschnitt 10b), die
+  Kurse synthetisch. Ein Chart, der beides verbindet, endet deshalb am Stand des Snapshots.
 * Rohöl, Erdgas und Holz: Felder, Sägewerke, Waldbesitz und Royalty-Halter sind noch keine Objekte;
   das dafür nötige Modell (Eigentümer und Betreiber getrennt) steht in `docs/spec/product-vision.md`.
   Erdgas wird nie in Barrel umgerechnet.

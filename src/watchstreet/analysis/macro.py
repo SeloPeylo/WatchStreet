@@ -7,8 +7,19 @@ a combined value exists only where every input has a value of its own.
 import math
 from bisect import bisect_right
 from collections import defaultdict
-from datetime import date
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
+from datetime import date, timedelta
 from itertools import pairwise
+from statistics import median
+
+from watchstreet.constants import (
+    GRID_MEDIAN_GAP_DAYS,
+    GRIDS,
+    JOINT_MIN_PIVOT,
+    MAX_JOINT_DRIVERS,
+    SENSITIVITY_MIN_OBS,
+)
 
 Points = list[tuple[date, float]]
 PERCENT = 100.0
@@ -50,6 +61,39 @@ def monthly_mean(points: Points) -> Points:
     for day, value in points:
         buckets[(day.year, day.month)].append(value)
     return [(date(y, m, 1), sum(v) / len(v)) for (y, m), v in sorted(buckets.items())]
+
+
+def weekly_mean(points: Points) -> Points:
+    """Mean per calendar week, dated on the Monday of that week."""
+    buckets: dict[date, list[float]] = defaultdict(list)
+    for day, value in points:
+        buckets[day - timedelta(days=day.weekday())].append(value)
+    return [(monday, sum(v) / len(v)) for monday, v in sorted(buckets.items())]
+
+
+def infer_frequency(points: Points) -> str:
+    """Frequency read off the spacing of the observations (median gap), for undeclared series."""
+    gaps = [(b[0] - a[0]).days for a, b in pairwise(points)]
+    spacing = median(gaps) if gaps else 0
+    for grid in reversed(GRIDS):
+        if grid in GRID_MEDIAN_GAP_DAYS and spacing >= GRID_MEDIAN_GAP_DAYS[grid]:
+            return grid
+    return GRIDS[0]
+
+
+def coarsest_grid(frequencies: Iterable[str]) -> str:
+    """The coarsest of the given frequencies (monthly > weekly > daily); daily if none is known."""
+    known = [GRIDS.index(f) for f in frequencies if f in GRIDS]
+    return GRIDS[max(known, default=0)]
+
+
+def resample(points: Points, grid: str) -> Points:
+    """Bring a series to ``grid``: monthly or weekly means, or the days as they are."""
+    if grid == "monthly":
+        return monthly_mean(points)
+    if grid == "weekly":
+        return weekly_mean(points)
+    return points
 
 
 def deflate(prices: Points, index: Points) -> tuple[Points, date | None]:
@@ -284,3 +328,99 @@ def unusual_move(points: Points, span: int, *, relative: bool) -> tuple[float, f
         return None
     latest = (math.exp(moves[-1]) - 1) * PERCENT if relative else moves[-1]
     return latest, scores[-1]
+
+
+@dataclass(frozen=True)
+class JointFit:
+    """Joint least-squares fit of a target's changes on several drivers' changes.
+
+    ``contributions[i]`` is ``betas[i]`` times the total step of driver ``i`` over the window;
+    ``own`` is what is left of ``total`` (the target's own part, including its steady drift), so
+    ``sum(contributions) + own == total``. All steps are log changes for relative series.
+    """
+
+    betas: tuple[float, ...]
+    r_squared: float
+    observations: int
+    contributions: tuple[float, ...]
+    own: float
+    total: float
+
+
+def _solve(matrix: list[list[float]], rhs: list[float]) -> list[float] | None:
+    """Gaussian elimination with partial pivoting; ``None`` if a pivot is below the limit."""
+    n = len(rhs)
+    rows = [[*row, rhs[i]] for i, row in enumerate(matrix)]
+    for col in range(n):
+        best = max(range(col, n), key=lambda r: abs(rows[r][col]))
+        if abs(rows[best][col]) < JOINT_MIN_PIVOT:
+            return None
+        rows[col], rows[best] = rows[best], rows[col]
+        for r in range(col + 1, n):
+            factor = rows[r][col] / rows[col][col]
+            for c in range(col, n + 1):
+                rows[r][c] -= factor * rows[col][c]
+    solution = [0.0] * n
+    for r in reversed(range(n)):
+        rest = sum(rows[r][c] * solution[c] for c in range(r + 1, n))
+        solution[r] = (rows[r][n] - rest) / rows[r][r]
+    return solution
+
+
+def joint_sensitivity(
+    target: Points,
+    drivers: Sequence[Points],
+    *,
+    relative_target: bool,
+    relative_drivers: Sequence[bool],
+    min_obs: int = SENSITIVITY_MIN_OBS,
+) -> JointFit | None:
+    """Least squares with intercept of the target's changes on up to three drivers' changes.
+
+    Series are aligned on the days all of them share; changes are taken between consecutive shared
+    days (log changes for relative series, differences otherwise). The normal equations are solved
+    on standardised changes (a correlation matrix), so the pivot limit does not depend on units.
+    ``None`` below ``min_obs``, without variation, or if the drivers are (nearly) collinear.
+    """
+    count = len(drivers)
+    if not 1 <= count <= MAX_JOINT_DRIVERS or len(relative_drivers) != count:
+        raise ValueError(f"1 to {MAX_JOINT_DRIVERS} drivers with one flag each are needed")
+    lookups = [dict(d) for d in drivers]
+    rows = [
+        (value, [lookup[day] for lookup in lookups])
+        for day, value in target
+        if all(day in lookup for lookup in lookups)
+    ]
+    if relative_target:
+        rows = [row for row in rows if row[0] > 0]
+    for i, relative in enumerate(relative_drivers):
+        if relative:
+            rows = [row for row in rows if row[1][i] > 0]
+    ys = _steps([row[0] for row in rows], relative=relative_target)
+    xs = [_steps([row[1][i] for row in rows], relative=relative_drivers[i]) for i in range(count)]
+    n = len(ys)
+    if n < min_obs:
+        return None
+    mean_y = sum(ys) / n
+    sd_y = math.sqrt(sum((y - mean_y) ** 2 for y in ys) / n)
+    means = [sum(x) / n for x in xs]
+    sds = [math.sqrt(sum((v - m) ** 2 for v in x) / n) for x, m in zip(xs, means, strict=True)]
+    if sd_y == 0 or 0 in sds:
+        return None
+    z = [[(v - m) / s for v in x] for x, m, s in zip(xs, means, sds, strict=True)]
+    corr = [
+        [sum(a * b for a, b in zip(z[i], z[j], strict=True)) / n for j in range(count)]
+        for i in range(count)
+    ]
+    link = [
+        sum(a * (y - mean_y) / sd_y for a, y in zip(z[i], ys, strict=True)) / n
+        for i in range(count)
+    ]
+    standard = _solve(corr, link)
+    if standard is None:
+        return None
+    betas = tuple(b * sd_y / s for b, s in zip(standard, sds, strict=True))
+    r_squared = min(max(sum(b * r for b, r in zip(standard, link, strict=True)), 0.0), 1.0)
+    contributions = tuple(beta * sum(x) for beta, x in zip(betas, xs, strict=True))
+    total = sum(ys)
+    return JointFit(betas, r_squared, n, contributions, total - sum(contributions), total)

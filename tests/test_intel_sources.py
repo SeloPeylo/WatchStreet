@@ -158,6 +158,26 @@ def test_usgs_and_edgar_via_demo_transport():
     assert extract_facts({}) == []
 
 
+def test_fred_demo_serves_the_bundled_snapshot():
+    from datetime import date
+
+    from watchstreet.intel.connectors import fred
+    from watchstreet.intel.demo import macro_history
+
+    history = macro_history()
+    assert {s.key for s in fred.SERIES} <= set(history)  # every tracked series is bundled
+    fetch = demo_fetcher()
+    walcl = fred.BY_KEY["WALCL"]
+    everything = fred.observations(fetch, walcl, date(2003, 1, 1))
+    assert len(everything) == len(history["WALCL"])
+    recent = fred.observations(fetch, walcl, date(2025, 1, 1))
+    assert recent and min(day for day, _ in recent) >= date(2025, 1, 1)
+    assert recent[-1][0] == date.fromisoformat(history["WALCL"][-1][0])  # ends at the snapshot
+    assert 1_000 < recent[-1][1] < 20_000  # billions: the published millions, scaled
+    with pytest.raises(FetchError):
+        fetch.fetch(f"{fred.CSV_URL}?id=NOT_A_SERIES&cosd=2003-01-01")
+
+
 def test_bad_json_from_connector_is_a_fetch_error():
     bad = Fetcher(
         httpx.Client(

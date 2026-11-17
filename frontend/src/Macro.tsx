@@ -89,17 +89,23 @@ export function Macro({ notify }: { notify: (text: string) => void }) {
           <h2 style={{ margin: 0 }}>{series?.label ?? "Makro"}</h2>
           <span className="muted small">{series?.unit}</span>
           <span className="right row small">
-            {series?.money && (
-              <label>Nenner{" "}
-                <select data-testid="denominator" value={den} onChange={(e) => setDen(e.target.value)}>
-                  {Object.entries(data.denominators).map(([k, label]) => <option key={k} value={k}>{label as string}</option>)}
-                </select>
-              </label>
-            )}
             {RANGES.map(([label, value]) => <button key={label} className={years === value ? "on" : ""} onClick={() => setYears(value)}>{label}</button>)}
             <label><input type="checkbox" checked={log} onChange={() => setLog(!log)} /> Log</label>
           </span>
         </div>
+        {series && (series.money ? (
+          <div data-testid="denominator" role="group" aria-labelledby="denominator-label" style={{ margin: "8px 0" }}>
+            <div className="row small">
+              <b id="denominator-label">Gemessen in</b>
+              {Object.entries(data.denominators).map(([k, label]) => (
+                <button key={k} data-testid={"den-" + k} aria-pressed={den === k} className={den === k ? "on" : ""} onClick={() => setDen(k)}>{label as string}</button>
+              ))}
+            </div>
+            <div className="small muted">Derselbe Preis, in einer anderen Einheit gemessen – z. B. in Gold statt in Dollar. So sieht man, ob der Preis wirklich gestiegen ist oder nur der Dollar weniger wert wurde.</div>
+          </div>
+        ) : (
+          <div className="small muted" data-testid="denominator-na" style={{ margin: "8px 0" }}>Diese Reihe ist kein Preis und lässt sich nicht umrechnen.</div>
+        ))}
         {series && <Chart points={series.points} log={log} years={years} />}
         {series && (
           <p className="small muted" data-testid="chart-note">

@@ -17,7 +17,7 @@ export function Chip({ m }: { m: Metric }) {
   );
 }
 
-export function MetricRow({ m, onOpen, action }: { m: Metric; onOpen?: () => void; action?: React.ReactNode }) {
+export function MetricRow({ m, onOpen, action, fullDate }: { m: Metric; onOpen?: () => void; action?: React.ReactNode; fullDate?: boolean }) {
   const forecast = m.claim_kind === "guidance" || m.claim_kind === "hypothesis";
   return (
     <tr className={onOpen ? "metric" : ""} onClick={onOpen} data-metric={m.metric}>
@@ -33,10 +33,11 @@ export function MetricRow({ m, onOpen, action }: { m: Metric; onOpen?: () => voi
         {action}
         {m.provenance !== "unknown" && (
           <div className="muted small">
-            {m.period_end ? `Stand ${m.period_end.slice(0, 4)}` : m.published_at ? `veröffentlicht ${m.published_at.slice(0, 4)}, Zeitraum unbekannt` : m.formula ?? ""}
+            {m.period_end ? (fullDate ? `Bilanzstichtag ${day(m.period_end)}` : `Stand ${m.period_end.slice(0, 4)}`) : m.published_at ? `veröffentlicht ${m.published_at.slice(0, 4)}, Zeitraum unbekannt` : m.formula ?? ""}
             {forecast ? " · Prognose" : ""}
           </div>
         )}
+        {m.note && <div className="small alert">{m.note}</div>}
       </td>
     </tr>
   );

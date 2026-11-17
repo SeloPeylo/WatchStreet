@@ -1,16 +1,23 @@
 """Canned responses for every external host, so the full ingest path runs offline.
 
-Used with ``WATCHSTREET_MARKET_PROVIDER=demo`` for development, tests and documentation. All
-content is synthetic and labelled as such; nothing here resembles a real filing or article.
+Used with ``WATCHSTREET_MARKET_PROVIDER=demo`` for development, tests and documentation. The
+text fixtures are synthetic and labelled as such. The FRED macro series and the World Bank
+monthly gold price are a real snapshot of the published history, bundled in ``data/`` (refresh:
+``scripts/snapshot_macro_history.py``).
 """
 
-import math
-from datetime import UTC, date, datetime, timedelta
+import functools
+import gzip
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import httpx
 
-from watchstreet.intel.connectors.fred import SERIES as FRED_SERIES
+from watchstreet.constants import MACRO_HISTORY_FILE
+from watchstreet.intel.connectors import gold_monthly
+
+MACRO_HISTORY = Path(__file__).resolve().parents[1] / "data" / MACRO_HISTORY_FILE
 
 DEMO_IP = "93.184.216.34"
 DEMO_CIKS = {"NEM": 9_000_001, "AAPL": 9_000_002, "XOM": 9_000_003, "NVDA": 9_000_004}
@@ -37,34 +44,15 @@ def _json(data: object) -> httpx.Response:
     return httpx.Response(200, json=data)
 
 
-# Synthetic levels (published unit) and relative swing of the demo macro series.
-DEMO_MACRO: dict[str, tuple[float, float]] = {
-    "WALCL": (6_800_000.0, 0.04),
-    "WTREGEN": (800_000.0, 0.15),
-    "RRPONTSYD": (300.0, 0.5),
-    "M2SL": (22_000.0, 0.02),
-    "DFF": (4.0, 0.2),
-    "DGS2": (4.2, 0.15),
-    "DGS10": (4.5, 0.1),
-    "DFII10": (2.0, 0.2),
-    "T10YIE": (2.3, 0.05),
-    "VIXCLS": (18.0, 0.3),
-    "CPIAUCSL": (320.0, 0.004),
-    "DTWEXBGS": (122.0, 0.03),
-    "DEXUSEU": (1.1, 0.04),
-    "DEXCAUS": (1.38, 0.03),
-    "DEXUSAL": (0.66, 0.04),
-    "SP500": (6_000.0, 0.1),
-    "DCOILWTICO": (75.0, 0.15),
-    "HOUST": (1_400.0, 0.1),
-    "MORTGAGE30US": (6.5, 0.1),
-    "DHHNGSP": (3.2, 0.3),
-}
-DEMO_MACRO_YEARS = 4
-DEMO_MACRO_PERIOD = {"daily": 60.0, "weekly": 12.0, "monthly": 3.0}
-DEMO_MACRO_DRIFT = {"daily": 0.0004, "weekly": 0.002, "monthly": 0.009}
-DEMO_MACRO_PHASES = 7
-WEDNESDAY, SATURDAY = 2, 5
+@functools.lru_cache(maxsize=1)
+def macro_history() -> dict[str, tuple[tuple[str, str], ...]]:
+    """Bundled FRED rows per series as ``(day, value)`` text, in the published unit."""
+    text = gzip.decompress(MACRO_HISTORY.read_bytes()).decode("utf-8")
+    rows: dict[str, list[tuple[str, str]]] = {}
+    for line in text.splitlines()[1:]:
+        series_id, day, value = line.split(",")
+        rows.setdefault(series_id, []).append((day, value))
+    return {series_id: tuple(points) for series_id, points in rows.items()}
 
 
 class DemoTransport(httpx.BaseTransport):
@@ -74,7 +62,10 @@ class DemoTransport(httpx.BaseTransport):
         url = urlparse(str(request.url))
         host, path = url.hostname or "", url.path
         if host == "fred.stlouisfed.org":
-            return self._fred(parse_qs(url.query).get("id", [""])[0])
+            query = parse_qs(url.query)
+            return self._fred(query.get("id", [""])[0], query.get("cosd", [""])[0])
+        if str(request.url) == gold_monthly.CSV_URL:
+            return self._gold()
         if host == "earthquake.usgs.gov":
             return self._usgs()
         if host == "www.sec.gov" and path.endswith("company_tickers.json"):
@@ -103,34 +94,26 @@ class DemoTransport(httpx.BaseTransport):
         )
 
     @staticmethod
-    def _fred(series_id: str) -> httpx.Response:
-        """Synthetic macro series: a level with a slow wave, in the published unit."""
-        level, swing = DEMO_MACRO.get(series_id, (100.0, 0.1))
-        frequency = next((s.frequency for s in FRED_SERIES if s.key == series_id), "daily")
-        today = datetime.now(UTC).date()
-        day = date(today.year - DEMO_MACRO_YEARS, 1, 1)
-        rows = ["observation_date," + series_id]
-        phase = sum(map(ord, series_id)) % DEMO_MACRO_PHASES  # series do not move in lockstep
-        index = 0
-        while day <= today:
-            wanted = (
-                day.day == 1
-                if frequency == "monthly"
-                else day.weekday() == WEDNESDAY
-                if frequency == "weekly"
-                else day.weekday() < SATURDAY
+    def _fred(series_id: str, since: str) -> httpx.Response:
+        """The bundled FRED series from ``since`` (ISO date, ``cosd``) on, as FRED's CSV."""
+        rows = macro_history().get(series_id)
+        if rows is None:
+            return httpx.Response(
+                404, text="demo: unknown series", headers={"content-type": "text/plain"}
             )
-            if wanted:
-                index += 1
-                wave = (
-                    math.sin(index / DEMO_MACRO_PERIOD[frequency] + phase)
-                    + index * DEMO_MACRO_DRIFT[frequency]
-                )
-                rows.append(f"{day.isoformat()},{level * (1 + swing * wave):.4f}")
-            day += timedelta(days=1)
+        lines = [f"observation_date,{series_id}"]
+        lines += [f"{day},{value}" for day, value in rows if day >= since]
         return httpx.Response(
-            200, text="\n".join(rows), headers={"content-type": "application/csv"}
+            200, text="\n".join(lines), headers={"content-type": "application/csv"}
         )
+
+    @staticmethod
+    def _gold() -> httpx.Response:
+        """The bundled monthly gold prices, as the public data package publishes them."""
+        rows = macro_history().get(gold_monthly.SERIES.key, ())
+        lines = [",".join(gold_monthly.HEADER)]
+        lines += [f"{day[: gold_monthly.MONTH_TEXT_CHARS]},{value}" for day, value in rows]
+        return httpx.Response(200, text="\n".join(lines), headers={"content-type": "text/plain"})
 
     @staticmethod
     def _usgs() -> httpx.Response:

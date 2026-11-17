@@ -169,7 +169,9 @@ await shot("agent_einstellung");
 await page.getByRole("button", { name: "Makro", exact: true }).click();
 await page.getByTestId("chart-note").getByText("Bilanzsumme der Fed − Konto des Finanzministeriums − Reverse Repo").waitFor();
 await page.getByTestId("tile-copper").click();
-await page.getByTestId("denominator").selectOption("gold");
+await page.getByTestId("denominator").getByText("Derselbe Preis, in einer anderen Einheit").waitFor();
+await page.getByTestId("den-gold").click();
+await page.getByTestId("den-gold").and(page.locator("[aria-pressed=true]")).waitFor();
 await page.getByTestId("chart-note").getByText("Keine Kaufkraftbereinigung").waitFor();
 await page.getByTestId("split").getByText("1 Jahr").waitFor();
 await page.screenshot({ path: path.join(OUT, "29_makro_nenner.png") });
@@ -187,6 +189,8 @@ await page.getByTestId("theme").click(); // back to automatic
 // charts: every price in every yardstick, the lever chain adds up, a lens is saved, the regime map
 await page.getByRole("button", { name: "Charts", exact: true }).click();
 await page.getByTestId("sheet").getByText("Stufe 6").waitFor();
+await page.getByTestId("plain").waitFor(); // every view opens with a plain-language sentence
+await page.getByTestId("explain").first().waitFor();
 await page.screenshot({ path: path.join(OUT, "35_treiberleiter.png") });
 await page.getByTestId("view-path").click();
 await page.getByTestId("ladder-slope").getByText("Empfindlichkeit").waitFor();
@@ -208,6 +212,12 @@ await page.screenshot({ path: path.join(OUT, "38_eigenwert.png") });
 await page.getByTestId("view-path").click();
 await page.getByTestId("ladder-deeper").click();
 await page.getByTestId("ladder-dependents").getByText("Demo Andes Copper Corp").waitFor();
+await page.getByTestId("driver-chips").waitFor(); // copper has two drivers: the joint table shows what each one carried
+await page.getByTestId("joint-table").getByText("Eigenanteil").waitFor();
+await page.getByTestId("driver-edit").click();
+await page.getByTestId("driver-save").waitFor();
+await page.getByTestId("driver-reset").waitFor();
+await page.getByTestId("driver-edit").click(); // closed again without saving
 await page.getByTestId("tab-matrix").click();
 await page.getByTestId("cell-S:DACC-gold").click();
 await page.getByTestId("matrix-detail").getByText("in Gold").waitFor();
@@ -218,6 +228,7 @@ if ((await page.getByTestId("chain-link").count()) !== 3) throw new Error("lever
 await page.screenshot({ path: path.join(OUT, "32_hebelkette.png") });
 await page.getByTestId("tab-lens").click();
 await page.getByTestId("lens-unit").getByText("oz").waitFor();
+await page.getByTestId("plain").waitFor();
 const expected = problems.length;
 await page.getByTestId("lens-input").fill("$objekt + DFII10");
 await page.getByTestId("lens-run").click();
@@ -234,6 +245,35 @@ await page.getByTestId("tab-regime").click();
 await page.getByTestId("regime").locator("svg.regime").waitFor();
 await page.getByTestId("regime-read").getByText("Heute").waitFor();
 await page.screenshot({ path: path.join(OUT, "34_regimekarte.png") });
+
+// purchasing power: real history in five yardsticks at once, the dollar cancels out
+const settled = page.locator('[data-testid="purchasing"][data-loading="no"]');
+await page.setViewportSize({ width: 1500, height: 1500 }); // the whole view fits on one shot
+await page.getByTestId("tab-purchasing").click();
+await page.getByTestId("pp-subject").selectOption("PCOPPUSDM");
+await settled.waitFor();
+await page.getByTestId("plain").getByText("Seit Januar 2003").waitFor();
+if ((await page.getByTestId("pp-yardsticks").locator("tbody tr").count()) !== 5) throw new Error("copper needs five yardsticks");
+await page.getByTestId("pp-strip").locator('rect[data-verdict="all_up"]').first().waitFor();
+await page.getByTestId("purchasing").screenshot({ path: path.join(OUT, "39_kaufkraft_band.png") });
+await page.getByTestId("pp-subject").selectOption("NASDAQXAU");
+await page.getByTestId("plain").getByText("Seit September 2004").waitFor();
+await settled.waitFor();
+await page.getByTestId("purchasing").screenshot({ path: path.join(OUT, "40_kaufkraft_minen.png") });
+await page.getByTestId("pp-subject").selectOption("GOLDWB");
+await page.getByTestId("pp-mode-rolling").click();
+await page.getByTestId("plain").getByText("In den 12 Monaten bis").waitFor();
+await settled.waitFor();
+if ((await page.getByTestId("pp-skipped").textContent()).indexOf("Gold") < 0) throw new Error("gold must not measure itself");
+await page.getByTestId("theme").click();
+await page.getByTestId("theme").click();
+if ((await page.locator("html").getAttribute("data-theme")) !== "dark") throw new Error("dark theme not applied");
+const ppChart = await page.getByTestId("pp-chart").boundingBox();
+await page.mouse.move(ppChart.x + ppChart.width * 0.82, ppChart.y + 60); // mid-2022: the inflation year
+await page.getByTestId("pp-read").getByText("2022").waitFor();
+await page.getByTestId("purchasing").screenshot({ path: path.join(OUT, "41_kaufkraft_gold_dunkel.png") });
+await page.getByTestId("theme").click(); // back to automatic
+await page.setViewportSize({ width: 1500, height: 900 });
 
 // a phone: the panel sits below the map, nothing is cut off to the right
 const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });

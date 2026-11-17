@@ -14,6 +14,8 @@ export interface Metric {
   period_end?: string | null;
   published_at?: string | null;
   stale?: boolean;
+  exhausted?: boolean; // the estimate reached zero: `text` says since when, `note` why
+  note?: string;
   formula?: string;
   origin?: string;
   unverified?: boolean;
@@ -150,6 +152,7 @@ export function num(value: number | null | undefined): string {
 
 export function metricText(m: Metric): string {
   if (m.provenance === "unknown") return "unbekannt";
+  if (m.exhausted && m.text) return m.text; // never a bare 0: say that the cash is used up on paper
   // Derived figures are rough by nature; decimals would only pretend otherwise.
   if (m.unit === "Monate" && m.value != null) return `rund ${Math.round(m.value)} Monate`;
   if (m.unit === "×" && m.value != null) return `rund ${m.value >= 10 ? Math.round(m.value) : coarse.format(m.value)} ×`;

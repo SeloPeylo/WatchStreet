@@ -6,7 +6,6 @@ them. Everything derived here names its formula and inherits the weakest origin 
 
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from datetime import date
 from typing import Any
 
 from sqlalchemy import or_, select
@@ -70,6 +69,41 @@ def company_facts(session: Session, company_id: int, ctx: ViewContext) -> dict[s
     return view_facts(rows, ctx)
 
 
+def _financings(session: Session, company_id: int, ctx: ViewContext) -> list[Financing]:
+    return list(
+        session.scalars(
+            select(Financing)
+            .where(
+                Financing.company_id == company_id,
+                or_(Financing.day <= ctx.reference, Financing.announced),
+            )
+            .order_by(Financing.day.desc())
+        )
+    )
+
+
+def _later_raises(
+    financings: list[Financing], cash: Fact | None
+) -> tuple[list[Financing], list[ratios.Raise]]:
+    """Financings after the balance sheet date: the ones that change today's cash and shares."""
+    balance_day = cash.period_end if cash else None
+    later = [f for f in financings if balance_day and f.day > balance_day and f.amount]
+    return later, [
+        ratios.Raise(f.amount or 0.0, f.kind == "equity", f.price, f.shares, f.warrants)
+        for f in later
+    ]
+
+
+def cash_outlook_of(session: Session, company_id: int, ctx: ViewContext) -> ratios.CashOutlook:
+    """The one estimate of cash and runway; the company page and the rule engine both use it."""
+    facts = company_facts(session, company_id, ctx)
+    cash, burn = facts.get("cash"), facts.get("burn_rate")
+    _, raises = _later_raises(_financings(session, company_id, ctx), cash)
+    return ratios.cash_outlook(
+        _value(cash), raises, _value(burn), cash.period_end if cash else None, ctx.reference
+    )
+
+
 def _derived(
     key: str,
     label: str,
@@ -96,12 +130,31 @@ def _derived(
     }
 
 
-def _cash_empty(
-    empty_on: date | None, reference: date, inputs: tuple[Fact | None, ...]
-) -> dict[str, Any]:
+def exhausted_note(outlook: ratios.CashOutlook) -> str:
+    """Why a zero must not be read as a fact: the balance sheet is older than the runway."""
+    return (
+        f"Bilanz vom {outlook.balance_day:%d.%m.%Y} ist älter als die Reichweite – "
+        "vermutlich fehlt eine Finanzierung"
+    )
+
+
+def exhausted_since(outlook: ratios.CashOutlook) -> str:
+    return f"rechnerisch aufgebraucht seit {outlook.empty_on:%d.%m.%Y}"
+
+
+def _exhausted(metric: dict[str, Any], outlook: ratios.CashOutlook) -> dict[str, Any]:
+    """Marks a derived figure whose estimate hit zero: the page says why instead of a bare 0."""
+    if outlook.exhausted and outlook.empty_on and outlook.balance_day and "value" in metric:
+        return {**metric, "text": exhausted_since(outlook), "exhausted": True, "stale": True,
+                "note": exhausted_note(outlook)}  # fmt: skip
+    return metric
+
+
+def _cash_empty(outlook: ratios.CashOutlook, inputs: tuple[Fact | None, ...]) -> dict[str, Any]:
     """States plainly when the reported cash is used up; an old balance sheet must not look fresh."""
     formula = "Bilanzstichtag + (Kasse + spätere Finanzierungen) / Mittelabfluss"
     label = "Kasse rechnerisch leer"
+    empty_on = outlook.empty_on
     if empty_on is None:
         return {
             "metric": "cash_empty",
@@ -109,13 +162,16 @@ def _cash_empty(
             "provenance": Provenance.UNKNOWN,
             "formula": formula,
         }
-    word = "seit" if empty_on <= reference else "am"
-    return {
-        "metric": "cash_empty", "label": label, "text": f"{word} {empty_on:%d.%m.%Y}",
+    metric = {
+        "metric": "cash_empty", "label": label,
+        "text": f"{'seit' if outlook.exhausted else 'am'} {empty_on:%d.%m.%Y}",
         "provenance": Provenance.DERIVED, "claim_kind": "actual", "formula": formula,
-        "stale": empty_on <= reference, "origin": DataOrigin.ENGINE,
+        "stale": outlook.exhausted, "origin": DataOrigin.ENGINE,
         "input_fact_ids": [f.id for f in inputs if f is not None],
     }  # fmt: skip
+    if outlook.exhausted:
+        metric["note"] = exhausted_note(outlook)
+    return metric
 
 
 def _price_path(priced: list[Financing]) -> dict[str, Any]:
@@ -313,16 +369,7 @@ def company_view(
     bundle = load_bundle(session, asset_ids)
     cards = [card(a, bundle, ctx) for a in bundle.assets]
     people = list(session.scalars(select(Person).where(Person.company_id == company.id)))
-    financings = list(
-        session.scalars(
-            select(Financing)
-            .where(
-                Financing.company_id == company.id,
-                or_(Financing.day <= ctx.reference, Financing.announced),
-            )
-            .order_by(Financing.day.desc())
-        )
-    )
+    financings = _financings(session, company.id, ctx)
     cash, debt, burn = facts.get("cash"), facts.get("debt"), facts.get("burn_rate")
     shares, diluted = facts.get("shares_outstanding"), facts.get("shares_diluted")
     # only today's quote is known here; a past reference date gets no price instead of today's
@@ -331,28 +378,20 @@ def company_view(
     nav_sum = attributable.nav
     capex, capex_facts = _project_sum(bundle, company.id, ctx, "capex")
     study_npv, npv_facts = _project_sum(bundle, company.id, ctx, "study_npv")
-    balance_day = cash.period_end if cash else None
-    later = [f for f in financings if balance_day and f.day > balance_day and f.amount]
-    raises = [
-        ratios.Raise(f.amount or 0.0, f.kind == "equity", f.price, f.shares, f.warrants)
-        for f in later
-    ]
-    raised = sum(r.amount for r in raises)
+    later, raises = _later_raises(financings, cash)
     issued = ratios.new_shares(raises)
     warrants = sum(r.warrants or 0.0 for r in raises)
     # one consistent basis for everything below: today's estimated cash and today's share count
-    elapsed = (ctx.reference - balance_day).days if balance_day else None
-    cash_now = ratios.cash_today(_value(cash), raised, _value(burn), elapsed)
+    outlook = ratios.cash_outlook(
+        _value(cash), raises, _value(burn), cash.period_end if cash else None, ctx.reference
+    )
+    cash_now = outlook.cash_now
     shares_now = shares.value + issued if shares and shares.value else None
     diluted_now = diluted.value + issued + warrants if diluted and diluted.value else None
     market_cap = quote.price * shares_now if quote and shares_now else None
     cap_diluted = quote.price * diluted_now if quote and diluted_now else None
     net = ratios.net_cash(cash_now, _value(debt))
-    runway = ratios.runway_months(cash_now, _value(burn))
-    empty_on = ratios.cash_empty_on(
-        balance_day,
-        ratios.runway_months(ratios.pro_forma_cash(_value(cash), raises), _value(burn)),
-    )
+    runway = outlook.runway_months
     gap = ratios.funding_gap(capex, cash_now)
     planned = sum(1 for f in later if f.announced)
     basis = f"{len(later)} Finanzierung(en) nach dem Bilanzstichtag eingerechnet" + (
@@ -362,25 +401,31 @@ def company_view(
     last = priced[-1] if priced else None
     burdens = _burdens(bundle, ctx, company.id)
     derived = [
-        _derived(
-            "cash_today", "Kasse heute (geschätzt)", cash_now, "USD",
-            f"Kasse am Bilanzstichtag + spätere Finanzierungen − Mittelabfluss seither; {basis}",
-            (cash, burn),
+        _exhausted(
+            _derived(
+                "cash_today", "Kasse heute (geschätzt)", cash_now, "USD",
+                f"Kasse am Bilanzstichtag + spätere Finanzierungen − Mittelabfluss seither; {basis}",
+                (cash, burn),
+            ),
+            outlook,
         ),
         _derived(
             "net_cash", "Nettokasse", net, "USD",
             "Kasse heute (geschätzt) − Finanzschulden", (cash, debt),
         ),
-        _derived(
-            "runway_months", "Reichweite ab heute", runway,
-            "Monate", "Kasse heute (geschätzt) / Mittelabfluss je Quartal × 3", (cash, burn),
+        _exhausted(
+            _derived(
+                "runway_months", "Reichweite ab heute", runway,
+                "Monate", "Kasse heute (geschätzt) / Mittelabfluss je Quartal × 3", (cash, burn),
+            ),
+            outlook,
         ),
         _derived(
             "shares_pro_forma", "Aktien heute (inkl. späterer Finanzierungen)",
             shares_now if later else None, "Aktien",
             "Ausstehende Aktien + seither ausgegebene (angegeben oder Betrag / Preis)", (shares,),
         ),
-        _cash_empty(empty_on, ctx.reference, (cash, burn)),
+        _cash_empty(outlook, (cash, burn)),
         _derived(
             "raise_discount", "Letzte Finanzierung gegen heutigen Kurs",
             last.price / quote.price - 1 if last and last.price and quote and quote.price else None,

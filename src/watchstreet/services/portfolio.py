@@ -1,5 +1,6 @@
 """Holdings and watchlist use cases."""
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -7,6 +8,13 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from watchstreet.analysis.portfolio import (
+    JournalEntry,
+    MonthSummary,
+    PositionCheck,
+    exit_breaches,
+    month_summary,
+)
 from watchstreet.constants import MIN_REASON_CHARS, PERCENT
 from watchstreet.domain import SubjectType
 from watchstreet.errors import WatchStreetError
@@ -378,3 +386,41 @@ def watch_entries(session: Session) -> list[WatchEntry]:
             select(WatchEntry).options(joinedload(WatchEntry.stock)).order_by(WatchEntry.id)
         )
     )
+
+
+def monthly_summary(
+    session: Session, rows: Sequence[HoldingRow], runways: Mapping[int, float | None], today: date
+) -> MonthSummary:
+    """This month's decisions and the positions to look at; computed from stored data, not kept."""
+    journal = decisions(session)
+    last_logged: dict[int, date] = {}
+    for entry in journal:
+        last_logged[entry.stock_id] = max(entry.day, last_logged.get(entry.stock_id, entry.day))
+    checks = [
+        PositionCheck(
+            id=row.holding.id,
+            symbol=row.holding.stock.symbol,
+            name=row.holding.stock.name,
+            last_logged=last_logged.get(row.holding.stock_id, row.holding.created_at.date()),
+            breaches=tuple(
+                exit_breaches(
+                    row.price,
+                    row.holding.stop_price,
+                    runways.get(row.holding.id),
+                    row.holding.min_runway_months,
+                )
+            ),
+        )
+        for row in rows
+    ]
+    entries = [
+        JournalEntry(
+            id=entry.id,
+            day=entry.day,
+            symbol=entry.stock.symbol,
+            kind=entry.kind,
+            reason=entry.reason,
+        )
+        for entry in journal
+    ]
+    return month_summary(today, entries, checks)

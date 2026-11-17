@@ -295,3 +295,88 @@ Schwellen beschriften; Weg auf dem Telefon; Jahreszahlen überlagern Achsentitel
 
 **Entscheidung offen**: Zyklusuhr und Raum behalten oder entfernen. Drei von fünf würden die
 Zyklusuhr streichen; ein belastbares Urteil braucht echte Daten mit mehreren Umläufen.
+
+
+## Neunter Durchlauf: Kaufkraft statt Dollar – the yardstick problem (17. November 2026)
+
+*Design note, in English.* Owner's requirements after the demo: the 3-D view has the dollar inside
+every notation; time must be a dimension; values need an inflation-neutral notation, and gold
+ounces still carry a regime factor; the macro series must be real history.
+
+**The yardstick problem.** Every "real" price is a ratio, price ÷ numeraire, and every candidate
+numeraire is biased in a known direction. CPI is a contested basket (hedonics, owners' rent).
+Wages rise faster than prices by productivity, so everything drifts cheaper in working hours. M2
+grows with the real economy and financial deepening and jumped in 2020. Oil is the master
+resource but is the noisiest series in the set (12-month moves of −77 % and +400 % in 2020). Gold
+has its own regime. That last point was checked on the bundled data instead of assumed: monthly
+changes of gold/CPI against changes of the 10-year TIPS yield give a stable slope of about −0.10
+log per percentage point (2003–21: −0.107, 2022–26: −0.090), but the *level* relationship broke
+(R² 0.67 for 2003–21, 0.13 for 2003–26; the slope even turns positive after 2022). Removing the
+real-rate component from gold changes its 2003–26 real rise of +188 points (100 × log) by three
+points. It explains almost all of gold's real loss in 2020–22 (−23 of −25 points) and none of the
++83 points since October 2022. A "regime-free gold" built from real rates is therefore still not a
+neutral yardstick; its regime is mostly something else (central-bank buying, fear, monetary trust),
+and no fitted model of that would survive a sceptic.
+
+**Chosen answer: the purchasing-power band ("Kaufkraft").** Measure the value in five yardsticks at
+once (basket, working hour, share of M2, ounce of gold, barrel of oil), month by month, and draw
+time on the x-axis and yardstick disagreement as the vertical extent of a band: the median as a
+bold line, the inner band without the most extreme yardstick at each end, the outer band from the
+lowest to the highest, and below it a strip that says per month whether all, most or no majority
+of the yardsticks show a gain. Every line is a ratio of two dollar prices, so the dollar cancels
+exactly (tested: debasing every price by the same arbitrary path changes nothing). Gold's regime is
+handled without a model: it is one vote of five, the median ignores a single dissenter, the table
+counts how often each yardstick disagreed alone, and choosing gold as the value shows its regime
+against the other four. One sentence for a non-expert: *if the whole band lies above zero, the
+value gained purchasing power whatever you measure it in; if it crosses zero, the verdict depends
+on the yardstick.* A useful by-product: the band's width does not depend on the value at all, only
+on how far the yardsticks drift apart; choosing "US-Dollar (Bargeld)" shows the bare band.
+
+**What it showed on real data (2003–Sept 2026).** The dollar lost against all five (−46 % in
+baskets to −92 % in gold). Copper gained in four of five (median +197 %), lost only in gold (−28 %);
+gold was the lone dissenter in 101 months. Oil since 2003: the verdict depends on the yardstick
+(up in baskets and hours, down in M2 and gold); since August 2011 it lost in all four. The gold and
+silver miners (PHLX XAU, from September 2004): +133 % in baskets but −61 % in gold, and from 2013 to
+2019 below their 2004 level in every yardstick – the miners' bear market reads as one solid red
+stretch. Rolling 12 months: in December 2008 gold held its purchasing power (median 0 %) while
+copper (−54 %) and oil (−56 %) lost in every yardstick except, for copper, oil itself; to August
+2011 gold gained 28–42 % in all four; in the twelve months to June 2013 it lost 17–28 % in all four;
+in 2022 it lost 5–6 % against baskets and hours but nothing against M2, which shrank. A dollar
+chart shows none of this: in 2022 it shows gold flat.
+
+**Alternatives rejected.** *One "best" numeraire* (CPI, gold, M2): each answers one question and
+hides the others; the owner's own objection to gold applies to all of them. *A fitted basket*
+(weights by inverse volatility or regression): turns a measurement into an estimate and invites
+tuning. *Regime-adjusted gold via real rates*: see above; the level fit broke after 2022. *Drift
+removal* (detrending wages, M2): also a fit, and the drift is information (things really get
+cheaper in hours of work). *User-chosen yardstick sets*: invites cherry-picking until the band says
+what one hoped; the set is a fixed, declarative table with each bias written next to it. *A 3-D
+surface* (time × yardstick × change): harder to read than a band and adds nothing that the table of
+yardsticks does not. *Equities and nominal GDP as yardsticks*: wanted (ownership of productive
+capital, share of the economy), but FRED serves the S&P 500 only for a rolling year and GDP is
+quarterly; forward-filling is excluded.
+
+**What the view cannot show.** Causes: "measured in" is not "because of". Total return: dividends,
+royalties and carry are missing (the XAU index is price-only), so equities look worse than they
+were. Non-US purchasing power: all yardsticks are US quantities. Short episodes: monthly means hide
+intramonth crashes, and the band ends at the latest common publication (M2, about six weeks old).
+Silver and lumber: no free long monthly series was found, so in the demo they stay synthetic and are
+marked as such, as are all share prices. The median is still a choice of five; a sixth yardstick
+would move it. The 1 % flat zone and the inner-band trim are conventions, stated in `constants.py`.
+
+**Recommendation for the existing views.** *Raum (3-D)*: remove. Its axes are a dollar price
+against a driver, the dollar is inside both, and the eighth round found no information beyond the
+Weg. *Zyklusuhr*: remove as a separate view, or – if kept – re-base its radius on the band's median
+instead of the dollar price and require at least four completed phases on the real history; its
+useful part, the table of earlier stretches in the same phase, can move under the Weg. *Matrix,
+Hebelkette, Treiberleiter*: keep, but in the demo they still read the synthetic weekly commodity
+prices (160 weeks) against real macro series. They should use the long real monthly series that
+now exist (`GOLDWB`, `PCOPPUSDM`, `PURANUSDM`, `DCOILWTICO`, `DHHNGSP`), as `LONG_HISTORY` in
+`services/purchasing.py` does; that change belongs in `services/charts.py`.
+
+**Data added.** FRED: `AHETPI` (hourly earnings, BLS), `PCOPPUSDM`, `PURANUSDM` (IMF primary
+commodity prices), `NASDAQXAU` (© Nasdaq, from 2004). World Bank monthly gold (`GOLDWB`) via the
+public-domain package `datasets/gold-prices` (ODC-PDDL-1.0; World Bank data CC BY 4.0), because
+FRED dropped the London gold price in 2022 and the BLS import price index for gold (`IR14270`)
+tracks it badly (correlation of monthly changes 0.40). The snapshot script now keeps bundled rows
+that a source stopped serving (FRED cut the S&P 500 to a rolling year on the day of this snapshot).

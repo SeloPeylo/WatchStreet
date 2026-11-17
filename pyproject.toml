@@ -40,7 +40,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-watchstreet = ["migrations/script.py.mako", "web/static/vendor/*", "web/static/app/*", "web/static/app/assets/*", "data/*.json"]
+watchstreet = ["migrations/script.py.mako", "web/static/vendor/*", "web/static/app/*", "web/static/app/assets/*", "data/*.json", "data/*.gz"]
 
 # ---------------------------------------------------------------- ruff
 [tool.ruff]
@@ -136,7 +136,7 @@ name = "Web internals: app > API routers > payloads/deps/security (routers never
 type = "layers"
 layers = [
     "watchstreet.web.app",
-    "watchstreet.web.api_charts | watchstreet.web.api_explorer | watchstreet.web.api_macro | watchstreet.web.api_research | watchstreet.web.api_system",
+    "watchstreet.web.api_charts | watchstreet.web.api_explorer | watchstreet.web.api_macro | watchstreet.web.api_purchasing | watchstreet.web.api_research | watchstreet.web.api_system",
     "watchstreet.web.payloads | watchstreet.web.deps | watchstreet.web.security",
     "watchstreet.web.auth",
 ]

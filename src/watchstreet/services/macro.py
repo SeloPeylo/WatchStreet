@@ -2,6 +2,7 @@
 
 import logging
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
@@ -19,7 +20,7 @@ from watchstreet.constants import (
     MACRO_SPARK_POINTS,
     MACRO_SYNC_KEY,
 )
-from watchstreet.intel.connectors import fred
+from watchstreet.intel.connectors import fred, gold_monthly
 from watchstreet.intel.fetch import Fetcher, FetchError
 from watchstreet.models import MacroPoint, PricePoint
 from watchstreet.services.state import touch, updated_at
@@ -37,6 +38,12 @@ GROUPS: tuple[tuple[str, str], ...] = (
 )
 DENOMINATORS = {"usd": "US-Dollar (nominal)", "gold": "Gold (Unzen)", "real": "inflationsbereinigt"}
 SAME_DAY = "nur an Tagen gebildet, an denen beide Reihen einen eigenen Wert haben"
+Reader = Callable[[Fetcher, fred.Series, date], list[tuple[date, float]]]
+# every stored external series with the connector that reads it
+SOURCES: tuple[tuple[fred.Series, Reader], ...] = (
+    *((series, fred.observations) for series in fred.SERIES),
+    (gold_monthly.SERIES, gold_monthly.observations),
+)
 
 
 @dataclass(frozen=True)
@@ -127,7 +134,7 @@ DERIVED: tuple[Item, ...] = (
 def _items() -> dict[str, Item]:
     items = {
         s.key: Item(s.key, s.label, s.group, s.unit, s.frequency, s.note, s.money)
-        for s in fred.SERIES
+        for s, _ in SOURCES
     }
     for c in COMMODITIES:
         note = "Wochenschlusskurs des Terminkontrakts"
@@ -170,14 +177,14 @@ def sync(session: Session, fetcher: Fetcher) -> dict[str, Any]:
     added = updated = 0
     failed: list[str] = []
     start = date(MACRO_HISTORY_START_YEAR, 1, 1)
-    for series in fred.SERIES:
+    for series, read in SOURCES:
         rows = session.execute(
             select(MacroPoint.day, MacroPoint.value).where(MacroPoint.series == series.key)
         )
         known: dict[date, float] = {row[0]: row[1] for row in rows}
         since = max(known) - timedelta(days=MACRO_REVISION_DAYS) if known else start
         try:
-            fresh = fred.observations(fetcher, series, max(since, start))
+            fresh = read(fetcher, series, max(since, start))
         except FetchError as exc:
             logger.warning("Macro series %s unavailable: %s", series.key, exc)
             failed.append(series.key)

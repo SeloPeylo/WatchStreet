@@ -66,6 +66,25 @@ observations (`MacroPoint`), derives net liquidity, annual rates and ratios with
 `analysis/macro`, and re-expresses prices in gold or in real terms. `intel/connectors/claims` is
 the table of mineral-tenure registers; answers are shown, never stored.
 
+Demo macro series are a real snapshot. `src/watchstreet/data/macro_history.csv.gz` holds the full
+FRED history from 2003 of every series in `fred.SERIES`, in the published units, dated 16 Nov 2026.
+With `WATCHSTREET_MARKET_PROVIDER=demo`, `intel/demo` serves these rows where it would otherwise
+serve the live CSV. Refresh it by hand with `python scripts/snapshot_macro_history.py`; the script
+writes nothing unless every series downloads. Source: Federal Reserve Bank of St. Louis (FRED). The
+series belong to their publishers, named on each series page at fred.stlouisfed.org. Rows a source
+no longer serves are kept from the previous bundle (FRED now serves the S&P 500 only for a rolling
+year; the past does not change). The bundle also holds the World Bank monthly gold price (`GOLDWB`,
+`intel/connectors/gold_monthly`, read from the public-domain package `datasets/gold-prices`,
+ODC-PDDL-1.0; World Bank data CC BY 4.0), because FRED dropped the London gold price in 2022. Added
+for the purchasing-power band (snapshot 17 Nov 2026): `AHETPI` (hourly earnings, BLS),
+`PCOPPUSDM` and `PURANUSDM` (IMF primary commodity prices) and `NASDAQXAU` (PHLX Gold/Silver Sector
+index, © Nasdaq, from September 2004).
+
+`services/purchasing` measures one price in five yardsticks at once (CPI, hourly wage, M2, gold,
+oil; a declarative table with each yardstick's bias). Every line is a ratio of two dollar prices,
+so the dollar cancels; `analysis/purchasing` turns them into monthly changes, median, inner and
+outer band and a per-month agreement count, without fitting or filling anything.
+
 ## Charts
 
 `services/charts` builds four views on stored observations: the yardstick matrix, the lever chain

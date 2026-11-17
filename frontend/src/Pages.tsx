@@ -37,8 +37,8 @@ export function Companies({ update }: { update: (change: Json) => void }) {
           {sorted.map((c) => (
             <tr key={c.id}>
               <td><button className="link" onClick={() => update({ path: "/", co: String(c.id), a: "" })}>{c.name}</button> <span className="muted small">{c.symbol ?? ""}{c.price != null ? ` ${num(c.price)}` : ""} · {c.assets} Obj.</span>{c.unverified && <span className="pill unresolved" title="Enthält ungeprüfte importierte Zahlen"> ungeprüft</span>}</td>
-              <td className="n">{c.cash_today != null ? num(c.cash_today) : <span className="muted">?</span>}</td>
-              <td className={`n ${c.runway_months != null && c.runway_months < 12 ? "alert" : ""}`}>{c.runway_months != null ? `${Math.round(c.runway_months)} Mon.` : <span className="muted">?</span>}</td>
+              <td className="n">{c.cash_exhausted ? <span className="alert" title="Rechnerisch aufgebraucht: die Bilanz ist älter als die Reichweite, vermutlich fehlt eine Finanzierung">aufgebraucht</span> : c.cash_today != null ? num(c.cash_today) : <span className="muted">?</span>}</td>
+              <td className={`n ${c.runway_months != null && c.runway_months < 12 ? "alert" : ""}`}>{c.cash_exhausted ? <span title="Rechnerisch aufgebraucht: die Bilanz ist älter als die Reichweite, vermutlich fehlt eine Finanzierung">⚠ Bilanz zu alt</span> : c.runway_months != null ? `${Math.round(c.runway_months)} Mon.` : <span className="muted">?</span>}</td>
               <td className="n">{c.market_cap != null ? num(c.market_cap) : <span className="muted">?</span>}</td>
               <td className="n">{c.dilution_overhang != null ? `${Math.round(c.dilution_overhang * 100)} %` : <span className="muted">?</span>}</td>
               <td className="n">{c.funding_gap != null ? num(c.funding_gap) : <span className="muted">?</span>}</td>
@@ -87,7 +87,8 @@ export function Portfolio({ notify }: { notify: Notify }) {
   const act = (run: Promise<Json>) => run.then(load).catch((e) => notify(e.message));
   return (
     <div className="page">
-      <div className="box" data-testid="holdings">
+      <MonthBox month={data.month} />
+      <div className="box section" data-testid="holdings">
         <h2>Bestände</h2>
         <table>
           <thead><tr><th>Symbol</th><th>Name</th><th>Stück</th><th>Ø Kaufpreis</th><th>Kurs</th><th>Wert</th><th>G/V</th><th>Absicht und Bezug</th><th></th></tr></thead>
@@ -173,7 +174,37 @@ export function Portfolio({ notify }: { notify: Notify }) {
   );
 }
 
-const IMPORT_EXAMPLE = "name;company;commodity;country;lat;lon;status;production;aisc;reserves\nMina Ejemplo;Ejemplo Mining;copper;Chile;-23.5;-69.1;production;120000000;1.85;2400000000";
+const JOURNAL_KIND: Record<string, string> = { buy: "Kauf", sell: "Verkauf", adjust: "Änderung", remove: "Entfernt" };
+
+/** "Dieser Monat": this month's journal entries and the positions that need a look; stored data only. */
+function MonthBox({ month }: { month: Json | undefined }) {
+  if (!month) return null;
+  return (
+    <div className="box" data-testid="month-summary">
+      <h2>Dieser Monat</h2>
+      <p>{month.sentence}</p>
+      <h3>Entscheidungen im Monat</h3>
+      {month.decisions.length === 0 ? <p className="muted small">Keine Entscheidung in diesem Monat protokolliert.</p> : (
+        <table><tbody>
+          {month.decisions.map((d: Json) => (
+            <tr key={d.id}><td>{day(d.day)}</td><td><b>{d.symbol}</b></td><td>{JOURNAL_KIND[d.kind] ?? d.kind}</td>
+              <td className="small">{d.reason || <span className="muted">ohne Begründung</span>}</td></tr>
+          ))}
+        </tbody></table>
+      )}
+      <h3>Ausstiegsbedingung verletzt</h3>
+      {month.exits.length === 0 ? <p className="muted small">Keine Position berührt ihre Kursschwelle oder Mindestreichweite.</p> : (
+        <ul>{month.exits.map((p: Json) => <li key={p.id}><b>{p.symbol}</b>: <span className="alert">⚠ {p.breaches.join("; ")}</span></li>)}</ul>
+      )}
+      <h3>Seit über {month.review_days} Tagen ungeprüft</h3>
+      {month.unreviewed.length === 0 ? <p className="muted small">Jede Position hat einen Eintrag im Protokoll, der jünger als {month.review_days} Tage ist.</p> : (
+        <ul>{month.unreviewed.map((p: Json) => <li key={p.id}><b>{p.symbol}</b> · letzter Eintrag {day(p.last_logged)}</li>)}</ul>
+      )}
+    </div>
+  );
+}
+
+const IMPORT_EXAMPLE ="name;company;commodity;country;lat;lon;status;production;aisc;reserves\nMina Ejemplo;Ejemplo Mining;copper;Chile;-23.5;-69.1;production;120000000;1.85;2400000000";
 
 function ImportBox({ notify, onDone }: { notify: Notify; onDone: () => void }) {
   const [form, setForm] = useState({ title: "", source: "", text: "" });

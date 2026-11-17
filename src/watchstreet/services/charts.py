@@ -13,25 +13,37 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from watchstreet.analysis import macro as rules
-from watchstreet.analysis.expression import ExpressionError, Operand, evaluate
+from watchstreet.analysis import plain
+from watchstreet.analysis.expression import (
+    RATIO_UNIT,
+    ExpressionError,
+    Operand,
+    evaluate,
+    series_names,
+)
 from watchstreet.analysis.macro import Link, Points
 from watchstreet.commodities import BY_KEY as COMMODITY
 from watchstreet.constants import (
+    CYCLE_MIN_EPISODE_POINTS,
     CYCLE_SECTORS,
     CYCLE_SPAN,
     DAYS_PER_YEAR,
+    DRIVER_LIST_CHARS,
     DRIVER_PATH_POINTS,
+    GRIDS,
     LADDER_MAX_RUNGS,
     LENS_NAME_CHARS,
     MACRO_CHANGE_DAYS,
     MATRIX_CELL_POINTS,
     MATRIX_MIN_POINTS,
     MATRIX_YEARS,
+    MAX_JOINT_DRIVERS,
     MOVE_SPAN,
     PERCENT,
     REGIME_MAX_POINTS,
     SENSITIVITY_MIN_OBS,
     SERIES_MAX_GAP_DAYS,
+    UNUSUAL_SCORE,
 )
 from watchstreet.errors import WatchStreetError
 from watchstreet.models import (
@@ -39,6 +51,7 @@ from watchstreet.models import (
     AssetCommodity,
     Company,
     Decision,
+    DriverSet,
     Holding,
     Lens,
     SharePrice,
@@ -92,6 +105,10 @@ class Universe:
             session.scalars(select(Stock.symbol).join(Holding, Holding.stock_id == Stock.id))
         )
         self._commodity = _company_commodities(session)
+        self.driver_sets: dict[str, tuple[str, ...]] = {
+            row.key: tuple(part for part in row.drivers.split(",") if part)
+            for row in session.scalars(select(DriverSet))
+        }
 
     def is_share(self, key: str) -> bool:
         return key.startswith(SHARE_PREFIX) and key[len(SHARE_PREFIX) :] in self.shares
@@ -123,6 +140,11 @@ class Universe:
 
     def frequency(self, key: str) -> str:
         return "weekly" if self.is_share(key) else macro.ITEMS[key].frequency
+
+    def grid_of(self, key: str) -> str:
+        """Own frequency of a series; read off the spacing where none is declared."""
+        declared = self.frequency(key)
+        return declared if declared in GRIDS else rules.infer_frequency(self.points(key))
 
     def commodity(self, key: str) -> str:
         """Main commodity of the company behind a share ('' if unknown)."""
@@ -210,6 +232,10 @@ def _cell(points: Points) -> dict[str, Any]:
     }
 
 
+def _change(cell: dict[str, Any]) -> float | None:
+    return cell.get("change_1y_pct") if cell.get("state") == "ok" else None
+
+
 def matrix(session: Session) -> dict[str, Any]:
     """Everything held or tracked, measured in every yardstick."""
     universe = Universe(session)
@@ -218,7 +244,7 @@ def matrix(session: Session) -> dict[str, Any]:
         key=lambda s: (s not in universe.held, s),
     )
     keys = [SHARE_PREFIX + s for s in shares] + list(COMMODITY)
-    rows = []
+    rows: list[dict[str, Any]] = []
     for key in keys:
         try:
             usd = universe.in_usd(key)
@@ -239,7 +265,16 @@ def matrix(session: Session) -> dict[str, Any]:
                 "cells": cells,
             }
         )
+    examples = [
+        (
+            row["label"],
+            _change(row["cells"].get("usd", {})),
+            _change(row["cells"].get("gold", {})),
+        )
+        for row in rows
+    ]
     return {
+        "plain": plain.matrix_sentence(examples),
         "yardsticks": [{"key": k, "label": label, "rule": rule} for k, label, rule in YARDSTICKS],
         "rows": rows,
         "years": MATRIX_YEARS,
@@ -303,7 +338,15 @@ def chain(session: Session, key: str, years: float) -> dict[str, Any]:
     final = path[-1][1]
     used = rules.chain_levels(series, links, last_day, SERIES_MAX_GAP_DAYS)
     total = sum(final)
+    parts = [(label, value * PERCENT) for (label, _, _), value in zip(links, final, strict=True)]
     return {
+        "plain": plain.chain_sentence(
+            universe.label(key),
+            universe.currency(key),
+            (last_day - first_day).days,
+            _pct(total),
+            parts,
+        ),
         "key": key,
         "label": universe.label(key),
         "currency": universe.currency(key),
@@ -332,10 +375,14 @@ def chain(session: Session, key: str, years: float) -> dict[str, Any]:
 
 
 def lens(session: Session, expression: str, subject: str = "") -> dict[str, Any]:
-    """Evaluate a formula; ``$objekt`` stands for ``subject``."""
+    """Evaluate a formula; ``$objekt`` stands for ``subject``.
+
+    All series of one formula are first brought to the coarsest frequency among them (monthly
+    means if any is monthly, else weekly means if any is weekly, else the days as they are).
+    """
     universe = Universe(session)
 
-    def resolve(name: str) -> Operand:
+    def key_of(name: str) -> str:
         key = subject if name == SLOT else name
         if name == SLOT and not subject:
             raise ExpressionError(f"Die Formel enthält {SLOT}; bitte ein Objekt wählen")
@@ -343,14 +390,25 @@ def lens(session: Session, expression: str, subject: str = "") -> dict[str, Any]
             raise ExpressionError(f"Unbekannter Platzhalter {name} (bekannt: {SLOT})")
         if not universe.known(key):
             raise ExpressionError(f"Unbekannte Reihe „{key}“")
-        if universe.is_share(key):
-            return Operand(universe.in_usd(key), USD)
-        return Operand(universe.points(key), universe.unit(key))
+        return key
 
-    result = evaluate(expression, resolve)
+    keys = {name: key_of(name) for name in series_names(expression)}
+    operands: dict[str, Operand] = {}
+    for key in keys.values():
+        if universe.is_share(key):
+            operands[key] = Operand(universe.in_usd(key), USD)
+        else:
+            operands[key] = Operand(universe.points(key), universe.unit(key))
+    own_grids = {key: universe.grid_of(key) for key in operands}
+    grid = rules.coarsest_grid(own_grids.values())
+    if len(operands) > 1:  # one series alone keeps its own days
+        operands = {
+            key: Operand(rules.resample(op.points, grid), op.unit) for key, op in operands.items()
+        }
+    result = evaluate(expression, lambda name: operands[keys[name]])
     terms = []
     for name in result.terms:
-        key = subject if name == SLOT else name
+        key = keys[name]
         points = universe.points(key)
         terms.append(
             {
@@ -362,16 +420,29 @@ def lens(session: Session, expression: str, subject: str = "") -> dict[str, Any]
                 "last_day": points[-1][0].isoformat() if points else None,
             }
         )
+    coarse = [universe.label(key) for key, own in own_grids.items() if own == grid]
+    averaged = any(own != grid for own in own_grids.values())
+    title = expression.replace(SLOT, universe.label(subject) if subject else SLOT)
     return {
+        "plain": plain.lens_sentence(
+            title,
+            "" if result.unit == RATIO_UNIT else result.unit,
+            result.points[0] if result.points else None,
+            result.points[-1] if result.points else None,
+        ),
         "expression": expression,
         "subject": subject,
         "unit": result.unit,
+        "grid": grid,
+        "grid_note": plain.grid_sentence(grid, coarse) if averaged else "",
         "terms": terms,
         "dropped": result.dropped,
         "points": [{"day": d.isoformat(), "value": v} for d, v in result.points],
         "note": (
             "Preise gehen in US-Dollar in die Formel ein (Aktien zum Tageskurs der Währung). "
-            "Zwei Reihen werden nur an Tagen verrechnet, an denen beide einen eigenen Wert haben."
+            "Haben die Reihen verschiedene Takte, werden alle auf den gröbsten gemittelt "
+            "(Monats- oder Wochenmittel); danach werden zwei Reihen nur an Tagen verrechnet, an "
+            "denen beide einen eigenen Wert haben."
         ),
     }
 
@@ -453,7 +524,14 @@ def regime(session: Session, x: str, y: str, years: float) -> dict[str, Any]:
                     "in_window": decision.day >= path[0][0],
                 }
             )
+    ends = [
+        (universe.label(x), universe.unit(x), path[0][1], path[-1][1]),
+        (universe.label(y), universe.unit(y), path[0][2], path[-1][2]),
+    ]
     return {
+        "plain": plain.regime_sentence(
+            ends[0], ends[1], path[0][0], sum(1 for d in decisions if d["in_window"])
+        ),
         "x": {"key": x, "label": universe.label(x), "unit": universe.unit(x)},
         "y": {"key": y, "label": universe.label(y), "unit": universe.unit(y)},
         "from": path[0][0].isoformat(),
@@ -500,10 +578,16 @@ ESTIMATE = (
 )
 
 
-def _drivers(universe: Universe, key: str) -> tuple[str, ...]:
+def _default_drivers(universe: Universe, key: str) -> tuple[str, ...]:
     if universe.is_share(key):
         return (universe.commodity(key) or "gold",)
     return DRIVERS.get(key, ())
+
+
+def _drivers(universe: Universe, key: str) -> tuple[str, ...]:
+    """The user's own driver set for a series if there is one, else the declared default."""
+    stored = tuple(k for k in universe.driver_sets.get(key, ()) if k != key and universe.known(k))
+    return stored or _default_drivers(universe, key)
 
 
 def _relative(universe: Universe, key: str) -> bool:
@@ -517,6 +601,19 @@ def _pair(universe: Universe, first: str, second: str) -> tuple[Points, Points]:
     if "monthly" in (universe.frequency(first), universe.frequency(second)):
         return rules.monthly_mean(a), rules.monthly_mean(b)
     return a, b
+
+
+def _aligned(universe: Universe, keys: list[str]) -> tuple[list[Points], str]:
+    """Several series on one grid: the coarsest frequency among them (see ``lens``)."""
+    series = [_grid(universe, key) for key in keys]
+    grid = rules.coarsest_grid(universe.grid_of(key) for key in keys)
+    return [rules.resample(points, grid) for points in series], grid
+
+
+def _beta_unit(relative_target: bool, relative_driver: bool) -> str:  # noqa: FBT001
+    if relative_driver:
+        return "% je 1 %" if relative_target else "Punkte je 1 %"
+    return "% je Prozentpunkt" if relative_target else "Punkte je Prozentpunkt"
 
 
 def _slope(universe: Universe, target: str, driver: str, start: date) -> dict[str, Any] | None:
@@ -545,19 +642,80 @@ def _slope(universe: Universe, target: str, driver: str, start: date) -> dict[st
         "second_half": second,
         "weak": abs(whole["t"]) < WEAK_T or flips,
         "overlapping": overlapping,
-        "unit": ("% je 1 %" if kind["relative_target"] else "Punkte je 1 %")
-        if kind["relative_driver"]
-        else ("% je Prozentpunkt" if kind["relative_target"] else "Punkte je Prozentpunkt"),
+        "unit": _beta_unit(kind["relative_target"], kind["relative_driver"]),
     }
 
 
-def ladder(session: Session, key: str, driver: str, years: float) -> dict[str, Any]:
-    """A series against what stands behind it, and what in turn depends on it."""
+def _joint(universe: Universe, key: str, keys: list[str], start: date) -> dict[str, Any] | None:
+    """All of ``keys`` at once against ``key`` over the window; ``None`` if no fit is possible."""
+    series, grid = _aligned(universe, [key, *keys])
+    target, *others = ([p for p in points if p[0] >= start] for points in series)
+    relative = _relative(universe, key)
+    flags = [_relative(universe, name) for name in keys]
+    fit = rules.joint_sensitivity(target, others, relative_target=relative, relative_drivers=flags)
+    if fit is None:
+        return None
+    scale = PERCENT if relative else 1.0  # log steps become points, differences stay as they are
+    unit = "Punkte" if relative else "Prozentpunkte"
+    shares = [value * scale for value in fit.contributions]
+    return {
+        "drivers": [
+            {
+                "key": name,
+                "label": universe.label(name),
+                "beta": beta,
+                "unit": _beta_unit(relative, flag),
+                "contribution_pct": share,
+            }
+            for name, flag, beta, share in zip(keys, flags, fit.betas, shares, strict=True)
+        ],
+        "own_pct": fit.own * scale,
+        "total_pct": fit.total * scale,
+        "real_change_pct": _pct(fit.total) if relative else fit.total,
+        "unit": unit,
+        "r_squared": fit.r_squared,
+        "observations": fit.observations,
+        "grid": grid,
+        "plain": plain.joint_sentence(
+            universe.label(key),
+            [universe.label(name) for name in keys],
+            shares,
+            fit.own * scale,
+            fit.r_squared,
+            unit,
+        ),
+    }
+
+
+def _requested(universe: Universe, key: str, raw: str) -> list[str]:
+    """Drivers asked for as comma-separated keys: known, not the series itself, no duplicates."""
+    keys = [part.strip() for part in raw.split(",") if part.strip()]
+    if len(keys) > MAX_JOINT_DRIVERS:
+        raise ChartError(f"Höchstens {MAX_JOINT_DRIVERS} Treiber")
+    if len(set(keys)) != len(keys):
+        raise ChartError("Ein Treiber ist doppelt gewählt")
+    if any(name == key or not universe.known(name) for name in keys):
+        raise ChartError("Unbekannter Treiber")
+    return keys
+
+
+def ladder(
+    session: Session, key: str, driver: str, years: float, drivers: str = ""
+) -> dict[str, Any]:
+    """A series against what stands behind it, and what in turn depends on it.
+
+    ``driver`` picks the one driver drawn and fitted alone (default: the first of the set).
+    ``drivers`` (comma-separated, at most three) asks for a joint fit of several at once. Without
+    it, the joint fit is made for the series' own set (stored or declared) when that has two or
+    more drivers and no single ``driver`` was asked for: asking for one driver means looking at
+    exactly that one.
+    """
     universe = Universe(session)
     if not universe.known(key):
         raise ChartError("Unbekannte Reihe")
     declared = _drivers(universe, key)
-    chosen = driver or (declared[0] if declared else "")
+    asked = _requested(universe, key, drivers)
+    chosen = driver or (asked[0] if asked else (declared[0] if declared else ""))
     if chosen and (not universe.known(chosen) or chosen == key):
         raise ChartError("Unbekannter Treiber")
     stored = _grid(universe, key)
@@ -588,10 +746,17 @@ def ladder(session: Session, key: str, driver: str, years: float) -> dict[str, A
                     [p for p in a if p[0] >= start], b, SENSITIVITY_MIN_OBS
                 )
             ]
+    joint_keys = asked or (
+        [] if driver else [name for name in declared if universe.known(name)][:MAX_JOINT_DRIVERS]
+    )
+    joint = _joint(universe, key, joint_keys, start) if len(joint_keys) > 1 else None
+    names = dict.fromkeys(
+        (*(SHARE_PREFIX + s for s in sorted(universe.shares)), *DRIVERS, *universe.driver_sets)
+    )
     dependents = [
         name
-        for name in (*(SHARE_PREFIX + s for s in sorted(universe.shares)), *DRIVERS)
-        if key in _drivers(universe, name) and universe.points(name)
+        for name in names
+        if universe.known(name) and key in _drivers(universe, name) and universe.points(name)
     ]
     rows: list[tuple[float, dict[str, Any]]] = []
     for name in dependents:
@@ -606,15 +771,19 @@ def ladder(session: Session, key: str, driver: str, years: float) -> dict[str, A
     rows.sort(key=lambda item: item[0])
 
     def meta(name: str) -> dict[str, Any]:
-        unit = USD if universe.is_share(name) else universe.unit(name)
-        return {
-            "key": name,
-            "label": universe.label(name),
-            "unit": unit,
-            "has_drivers": bool(_drivers(universe, name)),
-        }
+        return _meta(universe, name)
 
     return {
+        "plain": _ladder_plain(universe, key, chosen, slope),
+        "custom": key in universe.driver_sets,
+        "max_drivers": MAX_JOINT_DRIVERS,
+        "joint": joint,
+        "joint_note": (
+            "Zu wenige gemeinsame Beobachtungen, oder die Treiber bewegen sich so ähnlich, dass "
+            "sich ihre Anteile nicht trennen lassen."
+            if len(joint_keys) > 1 and joint is None
+            else ""
+        ),
         "subject": meta(key),
         "drivers": [meta(name) for name in declared if universe.known(name)],
         "driver": meta(chosen) if chosen else None,
@@ -637,6 +806,85 @@ def ladder(session: Session, key: str, driver: str, years: float) -> dict[str, A
     }
 
 
+def _meta(universe: Universe, name: str) -> dict[str, Any]:
+    return {
+        "key": name,
+        "label": universe.label(name),
+        "unit": USD if universe.is_share(name) else universe.unit(name),
+        "has_drivers": bool(_drivers(universe, name)),
+    }
+
+
+def _ladder_plain(universe: Universe, key: str, chosen: str, slope: dict[str, Any] | None) -> str:
+    subject = universe.label(key)
+    if not chosen:
+        return plain.missing_sentence(subject, None)
+    if slope is None:
+        return plain.missing_sentence(subject, universe.label(chosen))
+    return plain.ladder_sentence(
+        subject,
+        universe.label(chosen),
+        beta=slope["beta"],
+        r2=slope["r2"],
+        weak=slope["weak"],
+        relative_target=_relative(universe, key),
+        relative_driver=_relative(universe, chosen),
+    )
+
+
+def driver_set(session: Session, key: str) -> dict[str, Any]:
+    """The drivers of a series (own or declared) and the declared default."""
+    universe = Universe(session)
+    if not universe.known(key):
+        raise ChartError("Unbekannte Reihe")
+    return {
+        "key": key,
+        "custom": key in universe.driver_sets,
+        "drivers": [_meta(universe, name) for name in _drivers(universe, key)],
+        "default": [
+            _meta(universe, name)
+            for name in _default_drivers(universe, key)
+            if universe.known(name)
+        ],
+        "max_drivers": MAX_JOINT_DRIVERS,
+    }
+
+
+def save_driver_set(session: Session, key: str, drivers: list[str]) -> dict[str, Any]:
+    """Store the user's own drivers for a series: one to three known keys, none twice."""
+    universe = Universe(session)
+    if not universe.known(key):
+        raise ChartError("Unbekannte Reihe")
+    keys = [name.strip() for name in drivers]
+    if not 1 <= len(keys) <= MAX_JOINT_DRIVERS:
+        raise ChartError(f"Ein bis {MAX_JOINT_DRIVERS} Treiber sind möglich")
+    if len(set(keys)) != len(keys):
+        raise ChartError("Ein Treiber ist doppelt gewählt")
+    if key in keys:
+        raise ChartError("Eine Reihe kann nicht ihr eigener Treiber sein")
+    unknown = next((name for name in keys if not universe.known(name)), None)
+    if unknown is not None:
+        raise ChartError(f"Unbekannter Treiber „{unknown}“")
+    text = ",".join(keys)
+    if len(text) > DRIVER_LIST_CHARS:
+        raise ChartError("Die Treiberliste ist zu lang")
+    row = session.scalars(select(DriverSet).where(DriverSet.key == key)).first()
+    if row is None:
+        session.add(DriverSet(key=key, drivers=text))
+    else:
+        row.drivers = text
+    session.flush()
+    return driver_set(session, key)
+
+
+def delete_driver_set(session: Session, key: str) -> None:
+    """Back to the declared drivers; nothing to do if the series has no own set."""
+    row = session.scalars(select(DriverSet).where(DriverSet.key == key)).first()
+    if row is not None:
+        session.delete(row)
+        session.flush()
+
+
 def _grid(universe: Universe, key: str) -> Points:
     return universe.in_usd(key) if universe.money(key) else universe.points(key)
 
@@ -652,7 +900,7 @@ def sheet(session: Session, key: str, years: float) -> dict[str, Any]:
         if not following or following[0] in chain_keys:
             break
         chain_keys.append(following[0])
-    rungs = []
+    rungs: list[dict[str, Any]] = []
     for index, name in enumerate(chain_keys):
         points = _grid(universe, name)
         if points:
@@ -680,7 +928,15 @@ def sheet(session: Session, key: str, years: float) -> dict[str, Any]:
                 "next": universe.label(upper) if upper else "",
             }
         )
+    rare = [
+        (r["label"], r["move"], r["move_unit"])
+        for r in rungs
+        if r["unusual"] is not None and abs(r["unusual"]) >= UNUSUAL_SCORE
+    ]
     return {
+        "plain": plain.sheet_sentence(
+            len(rungs), rare, measured=sum(1 for r in rungs if r["move"] is not None)
+        ),
         "rungs": rungs,
         "years": years,
         "note": (
@@ -757,7 +1013,17 @@ def cycle(session: Session, key: str, driver: str, years: float) -> dict[str, An
         unit = USD if universe.is_share(name) else universe.unit(name)
         return {"key": name, "label": universe.label(name), "unit": unit}
 
+    earlier = [
+        e["change_pct"]
+        for e in _episodes(rows, today)
+        if e["n"] >= CYCLE_MIN_EPISODE_POINTS
+        and e["to"] != rows[-1]["day"]
+        and e["change_pct"] is not None
+    ]
     return {
+        "plain": plain.cycle_sentence(
+            universe.label(key), universe.label(chosen), SECTOR_LABELS[today], earlier
+        ),
         "subject": meta(key),
         "driver": meta(chosen),
         "drivers": [meta(name) for name in declared],

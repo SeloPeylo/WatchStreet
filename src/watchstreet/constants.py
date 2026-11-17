@@ -130,6 +130,8 @@ MACRO_REVISION_DAYS = 400
 MACRO_SYNC_KEY = "macro_synced"
 MACRO_SPARK_POINTS = 60
 MACRO_CHANGE_DAYS = 365
+# FRED snapshot bundled with the package for the demo (scripts/snapshot_macro_history.py).
+MACRO_HISTORY_FILE = "macro_history.csv.gz"
 
 # Charts: a formula is short; an observation older than the gap is not used for another day;
 # a matrix cell needs this many shared observations before it shows a change.
@@ -149,3 +151,40 @@ CYCLE_SPAN: dict[str, int] = {"daily": 63, "weekly": 13, "monthly": 3}
 MOVE_SPAN: dict[str, int] = {"daily": 21, "weekly": 4, "monthly": 1}
 CYCLE_SECTORS = 8
 LADDER_MAX_RUNGS = 8
+
+# Monthly depot summary: a position without a logged decision for longer than this is flagged.
+PORTFOLIO_REVIEW_DAYS = 90
+MONTHS_DE = (
+    "Januar", "Februar", "März", "April", "Mai", "Juni",
+    "Juli", "August", "September", "Oktober", "November", "Dezember",
+)  # fmt: skip
+
+# Charts, lenses and joint drivers.
+# Observations are brought to the coarsest grid among the operands of one formula.
+GRIDS = ("daily", "weekly", "monthly")  # finest to coarsest
+GRID_MEDIAN_GAP_DAYS = {"weekly": 5, "monthly": 25}  # median spacing at or above: that frequency
+# Joint sensitivity: at most this many drivers; a standardised driver whose remaining variance
+# (1 - R^2 on the other drivers) falls below the pivot limit counts as collinear.
+MAX_JOINT_DRIVERS = 3
+JOINT_MIN_PIVOT = 1e-4
+DRIVER_KEY_CHARS = 64
+DRIVER_LIST_CHARS = 200  # comma-separated keys of one driver set
+# Plain-language sentences: a fit that explains less than this share is called weak.
+WEAK_R2 = 0.10
+# Plain-language sentences: figures are rounded for reading (whole numbers from this size up,
+# otherwise a fixed number of significant digits); smaller percentage moves read as "unchanged".
+PLAIN_WHOLE_FROM = 10
+PLAIN_SIGNIFICANT = 2
+PLAIN_FLAT_PCT = 0.05
+MONTHS_PER_YEAR = 12
+SPAN_MONTHS_AS_YEARS = 24  # spans shorter than this many months are given in months
+CYCLE_MIN_EPISODE_POINTS = 3  # shorter stretches in a cycle phase are not listed
+CYCLE_FEW_EPISODES = 4  # fewer earlier stretches than this are too few for any rule
+UNUSUAL_SCORE = 2.0  # a latest move at or beyond this many standard deviations is called rare
+# Purchasing-power band: changes within this many points (100 × log change, about percent) count
+# as unchanged; the inner band drops the most extreme yardstick at each end once there are this
+# many; a band needs this many shared months; the rolling view compares with a year earlier.
+PP_FLAT_POINTS = 1.0
+PP_INNER_FROM = 4
+PP_MIN_MONTHS = 12
+PP_ROLLING_MONTHS = 12
